@@ -6,15 +6,15 @@ import os
 project_name = os.getcwd().split("/")[-1]
 version = "0.1.0"
 package_description = "<Provide short description of package>"
-url = "https://github.com/ai2es/" + project_name
+url = "https://github.com/NCAR/" + project_name
 # Classifiers listed at https://pypi.org/classifiers/
 classifiers = ["Programming Language :: Python :: 3"]
 setup(name="ai2estemplate", # Change
       version=version,
       description=package_description,
       url=url,
-      author="AI2ES",
+      author="UCAR",
       license="CC0 1.0",
       classifiers=classifiers,
-      packages=find_packages(include=["src"]))
+      packages=find_packages(include=["sealsml"]))
 
