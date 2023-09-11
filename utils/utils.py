@@ -27,12 +27,12 @@ def distance_between_points_3d(ds, point1, point2):
 
   # Check that the points are within the xarray dataset.
   for point in (point1, point2):
-    if point[0] > ds.x.values.max():
-      raise ValueError("The `point1` x-coordinate is out of bounds.")
-    if point[1] > ds.y.values.max():
-      raise ValueError("The `point1` y-coordinate is out of bounds.")
-    if point[2] > ds.z.values.max():
-      raise ValueError("The `point1` z-coordinate is out of bounds.")
+    if np.any(np.isin(ds.x.values, point[0])) != True:
+      raise ValueError("The x-coordinate is out of bounds.")
+    if np.any(np.isin(ds.y.values, point[1])) != True:
+      raise ValueError("The y-coordinate is out of bounds.")
+    if np.any(np.isin(ds.z.values, point[2])) != True:
+      raise ValueError("The z-coordinate is out of bounds.")
 
   # Calculate the distance between the two points.
   distance = np.sqrt((point2[0] - point1[0])**2 + (point2[1] - point1[1])**2 + (point2[2] - point1[2])**2)
