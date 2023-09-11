@@ -90,3 +90,28 @@ def azimuth(point1, point2):
   theta = np.arctan2(y, x)
   azimuth = np.round((theta * 180 / np.pi + 360), 2)
   return azimuth
+
+def dip(point1, point2):
+    """Calculates the dip between two points.
+
+    Args:
+        point1: A tuple of three floats representing the first point.
+        point2: A tuple of three floats representing the second point.
+
+    Returns:
+        The dip in degrees, from 0 to 90.
+    """
+    # Check that the point1 and point2 arguments are tuples of three numbers.
+    if not isinstance(point1, tuple) or len(point1) != 3:
+        raise TypeError("The `point1` argument must be a tuple of three numbers.")
+
+    if not isinstance(point2, tuple) or len(point2) != 3:
+        raise TypeError("The `point2` argument must be a tuple of three numbers.")
+
+    # Calculate the distance between the two points.
+    distance = np.round(np.linalg.norm(np.array(point2) - np.array(point1)),2)
+    dx = point2[0] - point1[0]
+    dy = point2[1] - point1[1]
+    dz = point2[2] - point1[2]
+    dip = np.round(np.arctan2(dz, distance) * 180 / np.pi, 2)
+    return dip 
