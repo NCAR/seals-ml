@@ -129,3 +129,6 @@ dmypy.json
 .pyre/
 data/.DS_Store
 *.nc
+data/FE_CBL2m_Ug5.4
+data/FE_CBL2m_Ug5.7
+utils/.DS_Store
