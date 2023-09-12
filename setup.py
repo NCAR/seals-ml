@@ -17,4 +17,3 @@ setup(name="ai2estemplate", # Change
       license="CC0 1.0",
       classifiers=classifiers,
       packages=find_packages(include=["sealsml"]))
-
