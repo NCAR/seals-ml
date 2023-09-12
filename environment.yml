@@ -19,6 +19,8 @@ dependencies:
   - sphinx
   - numba
   - cython
+  - metpy
   - pip:
     - bridgescaler
+    - pytest
     - .
