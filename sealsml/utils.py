@@ -84,12 +84,14 @@ def azimuth(point1, point2):
   x1, y1 = point1[:2]
   x2, y2 = point2[:2]
 
-  dlon = x2 - x1
-  y = np.sin(dlon) * np.cos(y2)
-  x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(dlon)
+  xdif = x2 - x1
+  y = np.sin(xdif) * np.cos(y2)
+  x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(xdif)
   theta = np.arctan2(y, x)
-  azimuth = np.round((theta * 180 / np.pi + 360), 2)
-  return azimuth
+  azimuth = (theta * 180 / np.pi + 360) % 360
+  azi = np.round(azimuth, 2)
+
+  return azi
 
 def dip(point1, point2):
     """Calculates the dip between two points.
