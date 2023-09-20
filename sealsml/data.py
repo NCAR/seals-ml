@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 
 class DataSampler(object):
+    """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, n_leaks=1, reference_loc=(15, 15),
                  sensor_mask_radius=50, sensor_height=3, leak_radius=10, coord_vars=('xPos', 'yPos', 'zPos'),
@@ -20,30 +21,41 @@ class DataSampler(object):
 
     def load_data(self, file_names):
 
+        """ load xarray datasets from a list of file names. """
+
         self.data = xr.open_mfdataset(file_names, parallel=True).load()
         self.time_steps = len(self.data['timeDim'].values)
 
     def sample(self, time_window_size, samples_per_window):
 
+        """  Sample different geometric configurations of sensors from LES data for ML ingestion.  
+        Args: 
+            time_window_size (int): Length of timeseries (index based) for each sample. 
+            samples_per_window (int): Number of samples to draw from each time window.
+        Returns: 
+            Numpy Array of shape (sample, variable, sensor, time) """
+
         arrays = []
-        
+
         for t in np.arange(0, self.time_steps - time_window_size):
-            
+
             for _ in range(samples_per_window):
-                
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
 
                 i = np.random.randint(low=0, high=30, size=n_sensors)
                 j = np.random.randint(low=0, high=30, size=n_sensors)
-                sensor_sample = self.data[['xPos', 'yPos', 'zPos', 'u']].to_array().expand_dims('sample').values[:, :, 0, i, j, t:t + time_window_size]
+                sensor_sample = self.data[['xPos', 'yPos', 'zPos', 'u']].to_array().expand_dims('sample').values[:, :,
+                                0, i, j, t:t + time_window_size]
 
-                padded_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors, pad_value=0, axis=2)
+                padded_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors, pad_value=0,
+                                                    axis=2)
                 arrays.append(padded_sample)
-            
+
         return np.vstack(arrays)
-        
-        
+
     def pad_along_axis(self, array: np.ndarray, target_length: int, pad_value: int = 0, axis: int = 0) -> np.ndarray:
+
+        """ Pad numpy array along a single dimension. """
 
         pad_size = target_length - array.shape[axis]
 
