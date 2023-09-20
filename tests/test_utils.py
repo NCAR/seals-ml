@@ -1,6 +1,7 @@
 import pytest
 import xarray as xr
 import numpy as np
+from sealsml.utils import points_within_dataset, distance_between_points_3d, azimuth, dip
 
 def test_points_within_dataset():
   """Tests the `points_within_dataset` function."""
