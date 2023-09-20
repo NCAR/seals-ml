@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from sealsml.utils import distance_between_points_3d, azimuth, dip
 
+
 def test_distance_between_points_3d():
     """
     Tests the `distance_between_points_3d` function.
@@ -15,7 +16,7 @@ def test_distance_between_points_3d():
 
     # Test that the function raises an error when the points are not valid.
     point1 = np.array([1, 2, 3])
-    point2 = np.array([4, 5, 'a'])
+    point2 = np.array([4, 5, 3, 2])
     with pytest.raises(TypeError):
         distance_between_points_3d(point1, point2)
 
