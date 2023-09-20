@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+from sealsml.utils import distance_between_points_3d, azimuth, dip
 
 def test_distance_between_points_3d():
     """
