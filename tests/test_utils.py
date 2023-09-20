@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from sealsml.utils import distance_between_points_3d, azimuth, dip
+from sealsml.utils import distance_between_points_3d, calculate_azimuth, dip
 
 def test_distance_between_points_3d():
     """
@@ -21,13 +21,13 @@ def test_distance_between_points_3d():
 
 def test_azimuth():
     '''
-    Tests the `azimuth` function.
+    Tests the `calculate_azimuth` function.
     '''
 
     # Test that the function works when the points are valid.
     point1 = np.array([1, 0, 0])
     point2 = np.array([1, 1, 0])
-    azimuth_result = azimuth(point1, point2)
+    azimuth_result = calculate_azimuth(point1, point2)
     assert np.allclose(azimuth_result, 45)  # Use np.allclose for floating-point comparisons
 
     # Test that the function raises an error when the points are not valid.
