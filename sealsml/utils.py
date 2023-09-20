@@ -1,38 +1,4 @@
-import xarray
 import numpy as np
-
-
-def points_within_dataset(ds, point1, point2):
-  """
-  check that two points (x, y, and z) are in a xarray dataset.
-
-  Args:
-    ds: The xarray dataset.
-    point1: The coordinates of the first point. A NumPy array of shape (3,).
-    point2: The coordinates of the second point. A NumPy array of shape (3,).
-
-  Returns:
-    print statement
-
-  Raises:
-    TypeError: If either `point1` or `point2` is not a NumPy array of shape (3,).
-    ValueError: If either point is not within the xarray dataset.
-  """
-
-  # Check that the point1 and point2 arguments are NumPy arrays of shape (,3).
-  if not isinstance(point1, np.ndarray) or point1.shape[1] != 3:
-    raise TypeError("The `point1` argument must be a NumPy array of shape (3,).")
-
-  if not isinstance(point2, np.ndarray) or point2.shape[1] != 3:
-    raise TypeError("The `point2` argument must be a NumPy array of shape (3,).")
-
-  # Check that the points are within the xarray dataset.
-  is_in_x = np.isin(point1[0], ds.x.values)
-  is_in_y = np.isin(point1[1], ds.y.values)
-  is_in_z = np.isin(point1[2], ds.z.values)
-
-  #if any([is_in_x, is_in_y, is_in_z]):
-  #  raise ValueError("The point is not within the xarray dataset.")
   
 def distance_between_points_3d(array, array1):
   """
