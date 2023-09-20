@@ -44,8 +44,8 @@ def test_azimuth():
   # Test that the function works when the points are valid.
   point1 = (1, 0, 0)
   point2 = (1, 1, 0)
-  azimuth = azimuth(point1, point2)
-  assert azimuth == 45
+  azi = azimuth(point1, point2)
+  assert azi == 45
 
   # Test that the function raises an error when the points are not valid.
   point1 = (1, 0, 0)
@@ -59,8 +59,8 @@ def test_dip():
   # Test that the function works when the points are valid.
   point1 = (0, 0, 1)
   point2 = (0, 0, 2)
-  dip = dip(point1, point2)
-  assert dip == 90
+  dip_angle = dip(point1, point2)
+  assert dip_angle == 90
 
   # Test that the function raises an error when the points are not valid.
   point1 = (0, 0, 1)
