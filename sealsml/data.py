@@ -27,6 +27,8 @@ class DataSampler(object):
         
         self.data = xr.open_mfdataset(file_names, parallel=True).swap_dims({'time': 'timeDim'}).load()
         self.time_steps = len(self.data['timeDim'].values)
+        self.iDim = len(self.data.iDim)
+        self.jDim = len(self.data.jDim)
 
     def sample(self, time_window_size, samples_per_window):
         
@@ -45,10 +47,11 @@ class DataSampler(object):
                 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
 
-                i = np.random.randint(low=0, high=30, size=n_sensors)
-                j = np.random.randint(low=0, high=30, size=n_sensors)
+                i = np.random.randint(low=0, high=self.iDim, size=n_sensors)
+                j = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                k = self.sensor_height
 
-                sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :, 0, i, j, t:t + time_window_size]
+                sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :, k, i, j, t:t + time_window_size]
 
                 padded_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors, pad_value=0, axis=2)
                 arrays.append(padded_sample)
