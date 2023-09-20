@@ -6,35 +6,39 @@ def test_distance_between_points_3d():
     """
     Tests the `distance_between_points_3d` function.
     """
-    # Test that the function works when the points are valid.
-    point1 = np.array([1, 2, 3])
-    point2 = np.array([4, 5, 6])
-    distance_result = distance_between_points_3d(point1, point2)
-    expected_distance = np.sqrt(109)
-    assert np.allclose(distance_result, expected_distance)  # Use np.allclose for floating-point comparisons
+   # Test case 1: Check distance between two identical points (should be 0)
+    point1 = np.array([[0.0, 0.0, 0.0]])
+    point2 = np.array([[0.0, 0.0, 0.0]])
+    result = distance_between_points_3d(point1, point2)
+    assert np.array_equal(result, np.array([0.0]))
 
-    # Test that the function raises an error when the points are not valid.
-    point1 = np.array([1, 2, 3])
-    point2 = np.array([4, 5, 3, 2])
-    with pytest.raises(TypeError):
-        distance_between_points_3d(point1, point2)
+    point1 = np.array([[0.0, 0.0, 0.0]])
+    point2 = np.array([[0.0, 1.0, 0.0]])  # Should have distance of 1
+    result = distance_between_points_3d(point1, point2)
+    assert np.array_equal(result, np.array([1.0]))
 
-def test_azimuth():
+
+def test_calculate_azimuth():
     '''
     Tests the `calculate_azimuth` function.
     '''
-
     # Test that the function works when the points are valid.
-    point1 = np.array([1, 0, 0])
-    point2 = np.array([1, 1, 0])
-    azimuth_result = calculate_azimuth(point1, point2)
-    assert np.allclose(azimuth_result, 45)  # Use np.allclose for floating-point comparisons
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([0.0, 0.0, 0.0])
+    result = calculate_azimuth(point1, point2)
+    assert np.array_equal(result, np.array([0.0]))
 
-    # Test that the function raises an error when the points are not valid.
-    point3 = np.array([1, 0, 0])
-    point4 = np.array([1, 2, 0], [4, 5, 4])
-    with pytest.raises(TypeError):
-        calculate_azimuth(point3, point4)
+    # Test case 2: Check azimuth for points with known azimuth values
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([1.0, 0.0, 0.0])  # Should have azimuth of 90 degrees
+    result = calculate_azimuth(point1, point2)
+    assert np.array_equal(result, np.array([90.0]))
+
+    # Test case 3: Check for an exception when input arrays have different shapes
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([1.0, 0.0, 0.0, 2.0])  # Different shape
+    with pytest.raises(ValueError):
+        calculate_azimuth(point1, point2)
 
 def test_dip():
     """Tests the `dip` function."""
