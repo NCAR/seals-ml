@@ -34,7 +34,7 @@ def test_azimuth():
     point3 = np.array([1, 0, 0])
     point4 = np.array([1, 2, 0], [4, 5, 4])
     with pytest.raises(TypeError):
-        azimuth(point3, point4)
+        calculate_azimuth(point3, point4)
 
 def test_dip():
     """Tests the `dip` function."""
