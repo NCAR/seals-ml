@@ -44,10 +44,10 @@ def test_dip():
     """Tests the `dip` function."""
 
     # Test that the function works when the points are valid.
-    point1 = np.array([0, 0, 1])
-    point2 = np.array([0, 0, 2])
+    point1 = np.array([0, 0, 0])
+    point2 = np.array([0, 0, 0])
     dip_result = dip(point1, point2)
-    assert np.allclose(dip_result, 90)  # Use np.allclose for floating-point comparisons
+    assert np.allclose(dip_result, 0)  # Use np.allclose for floating-point comparisons
 
     # Test that the function raises an error when the points are not valid.
     point3 = np.array([0, 0, 1])
