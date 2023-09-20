@@ -19,7 +19,8 @@ class DataSampler(object):
         self.coord_vars = coord_vars
         self.met_vars = met_vars
         self.emission_vars = emission_vars
-
+        self.variables = coord_vars + met_vars + emission_vars
+        
     def load_data(self, file_names):
         
         """ load xarray datasets from a list of file names. """
@@ -46,7 +47,8 @@ class DataSampler(object):
 
                 i = np.random.randint(low=0, high=30, size=n_sensors)
                 j = np.random.randint(low=0, high=30, size=n_sensors)
-                sensor_sample = self.data[self.coord_vars + self.met_vars + self.emission_vars].to_array().expand_dims('sample').values[:, :, 0, i, j, t:t + time_window_size]
+
+                sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :, 0, i, j, t:t + time_window_size]
 
                 padded_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors, pad_value=0, axis=2)
                 arrays.append(padded_sample)
