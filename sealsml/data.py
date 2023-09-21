@@ -46,6 +46,8 @@ class DataSampler(object):
         for t in np.arange(0, self.time_steps - time_window_size, window_stride):
 
             for _ in range(samples_per_window):
+
+                reference_point = np.random.randint(low=0, high=self.iDim, size=2)
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
 
