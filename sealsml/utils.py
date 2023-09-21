@@ -1,163 +1,105 @@
-import xarray as xr
 import numpy as np
-
-
-def points_within_dataset(ds, point1, point2):
-  """
-  check that two points (x, y, and z) are in a xarray dataset.
-
-  Args:
-    ds: The xarray dataset.
-    point1: The coordinates of the first point. A tuple of three numbers.
-    point2: The coordinates of the second point. A tuple of three numbers.
-
-  Returns:
-    print statement
-
-  Raises:
-    TypeError: If either `point1` or `point2` is not a tuple of three numbers.
-    ValueError: If either point is not within the xarray dataset.
-  """
-
-  # Check that the point1 and point2 arguments are tuples of three numbers.
-  if not isinstance(point1, tuple) or len(point1) != 3:
-    raise TypeError("The `point1` argument must be a tuple of three numbers.")
-
-  if not isinstance(point2, tuple) or len(point2) != 3:
-    raise TypeError("The `point2` argument must be a tuple of three numbers.")
-
-  # Check that the points are within the xarray dataset.
-  for point in (point1, point2):
-    if np.any(np.isin(ds.x.values, point[0])) != True:
-      raise ValueError("The x-coordinate is out of bounds.")
-    if np.any(np.isin(ds.y.values, point[1])) != True:
-      raise ValueError("The y-coordinate is out of bounds.")
-    if np.any(np.isin(ds.z.values, point[2])) != True:
-      raise ValueError("The z-coordinate is out of bounds.")
   
-  print('both points are within xarray dataset')
-
-def distance_between_points_3d(point1, point2):
+def distance_between_points_3d(array, array1):
   """
   Calculate the distance between two points in 3D space (x, y and z).
 
   Args:
-    point1: The coordinates of the first point. A tuple of three numbers.
-    point2: The coordinates of the second point. A tuple of three numbers.
+    array: The coordinates of the first point. A NumPy array of shape (n, 3).
+    array1: The coordinates of the second point. A NumPy array of shape (n, 3).
 
   Returns:
-    The distance between the two points.
+    A NumPy array of distances.
 
   Raises:
-    TypeError: If either `point1` or `point2` is not a tuple of three numbers.
+    TypeError: If either `array` or `array1` is not a NumPy array of shape (n,3).
   """
 
-  # Check that the point1 and point2 arguments are tuples of three numbers.
-  if not isinstance(point1, tuple) or len(point1) != 3:
-    raise TypeError("The `point1` argument must be a tuple of three numbers.")
+  # Check that the array and array1 arguments are NumPy arrays of shape (n,3).
+  if not isinstance(array, np.ndarray) or array.shape[1] != 3:
+    raise TypeError("The `array` argument must be a NumPy array of shape (n,3).")
 
-  if not isinstance(point2, tuple) or len(point2) != 3:
-    raise TypeError("The `point2` argument must be a tuple of three numbers.")
+  if not isinstance(array1, np.ndarray) or array1.shape[1] != 3:
+    raise TypeError("The `array1` argument must be a NumPy array of shape (n,3).")
 
   # Calculate the distance between the two points.
-  distance = np.linalg.norm(np.array(point2) - np.array(point1))
+  distances = np.linalg.norm(array - array1, axis=1)
+  return distances
 
-  return distance
-
-def azimuth(point1, point2):
+def calculate_azimuth(array, array1):
   """Calculates the azimuth between two points.
 
   Args:
-    point1: A tuple of three floats representing the first point.
-    point2: A tuple of three floats representing the second point.
+    array: A NumPy array of shape (n, 3) representing the first point.
+    array1: A NumPy array of shape (n, 3) representing the second point.
 
   Returns:
-    The azimuth in degrees, from 0 to 360.
+    The azimuth in degrees, from 0 to 360, in a NumPy array of the same shape as the input arrays.
   """
-  # Check that the point1 and point2 arguments are tuples of three numbers.
-  if not isinstance(point1, tuple) or len(point1) != 3:
-    raise TypeError("The `point1` argument must be a tuple of three numbers.")
 
-  if not isinstance(point2, tuple) or len(point2) != 3:
-    raise TypeError("The `point2` argument must be a tuple of three numbers.")
+  # Check that the two arrays have the same shape.
+  if not array.shape == array1.shape:
+    raise ValueError("The two points must have the same shape.")
 
-  x1, y1 = point1[:2]
-  x2, y2 = point2[:2]
+  # Extract the x, y, and z coordinates from each array.
+  if len(array.shape) == 1:
+    x1, y1 = array[0], array[1]
+    x2, y2 = array1[0], array1[1]
+  else:
+    x1, y1 = array[:, 0], array[:, 1]
+    x2, y2 = array1[:, 0], array1[:, 1]
+  # Calculate the difference between the x-coordinates.
+  xdif = x2 - x1
 
-  dlon = x2 - x1
-  y = np.sin(dlon) * np.cos(y2)
-  x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(dlon)
+  # Calculate the y-component of the unit vector pointing from the first point to the second point.
+  y = np.sin(xdif) * np.cos(y2)
+
+  # Calculate the x-component of the unit vector pointing from the first point to the second point.
+  x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(xdif)
+
+  # Calculate the azimuth.
   theta = np.arctan2(y, x)
-  azimuth = np.round((theta * 180 / np.pi + 360), 2)
-  return azimuth
+  azimuth = (theta * 180 / np.pi + 360) % 360
+  azi = np.round(azimuth, 3)
+  return azi
 
-def dip(point1, point2):
-    """Calculates the dip between two points.
+def dip(array, array1):
+  """Calculates the dip between two points.
 
-    Args:
-        point1: A tuple of three floats representing the first point.
-        point2: A tuple of three floats representing the second point.
+  Args:
+    array: A NumPy array of shape (n, 3) representing the first point.
+    array1: A NumPy array of shape (n, 3) representing the second point.
 
-    Returns:
-        The dip in degrees, from 0 to 90.
-    """
-    # Check that the point1 and point2 arguments are tuples of three numbers.
-    if not isinstance(point1, tuple) or len(point1) != 3:
-        raise TypeError("The `point1` argument must be a tuple of three numbers.")
+  Returns:
+    The dip in degrees, from 0 to 90.
 
-    if not isinstance(point2, tuple) or len(point2) != 3:
-        raise TypeError("The `point2` argument must be a tuple of three numbers.")
+  Raises:
+    TypeError: If either `array` or `array1` is not a NumPy array of shape (n, 3).
 
-    # Calculate the distance between the two points.
-    distance = np.round(np.linalg.norm(np.array(point2) - np.array(point1)),2)
-    dx = point2[0] - point1[0]
-    dy = point2[1] - point1[1]
-    dz = point2[2] - point1[2]
-    dip = np.round(np.arctan2(dz, distance) * 180 / np.pi, 2)
-    return dip
+    ValueError: If the two points do not have the same shape.
+  """
 
+  # Check that the point1 and point2 arguments are NumPy arrays of shape (n, 3).
+  if not isinstance(array, np.ndarray):
+    raise TypeError("The `array` argument must be a NumPy array of shape (n, 3).")
 
-class DataSampler(object):
+  if not isinstance(array1, np.ndarray):
+    raise TypeError("The `array1` argument must be a NumPy array of shape (n, 3).")
 
-    def __init__(self, min_trace_sensors=3, max_trace_sensors=15, n_leaks=1, reference_loc=(15, 15),
-                 sensor_mask_radius=50, sensor_height=3, leak_radius=10, emission_var='q_CH4'):
+  # Check that the two points have the same shape.
+  if array.shape != array1.shape:
+    raise ValueError("The two points must have the same shape.")
 
-        self.min_trace_sensors = min_trace_sensors
-        self.max_trace_sensors = max_trace_sensors
-        self.n_leaks = n_leaks
-        self.reference_loc = reference_loc
-        self.sensor_mask_radius = sensor_mask_radius
-        self.sensor_height = sensor_height
-        self.leak_radius = leak_radius
-        self.emission_var = emission_var
+  if len(array.shape) == 1:
+    distance = np.round(np.linalg.norm(array1 - array),2)
+    dz = array1[2] - array[2]
+  else:
+    distance = np.round(np.linalg.norm(array1 - array, axis=1), 2)
+    dz = array1[:,2] - array[:,2]
 
-    def load_data(self, file_names):
+  dip = np.arctan2(dz, distance) * 180 / np.pi
 
-        self.data = xr.open_mfdataset(file_names, parallel=True)
-        self.data = self.data.assign_coords({'iDim': self.data['iDim'],
-                                             'jDim': self.data['jDim'],
-                                             'kDim': self.data['kDim']})
+  # Round the dip to 2 decimal places.
+  dip = np.round(dip, 2)
 
-        self.time_steps = len(self.data['timeDim'].values)
-
-    def sample(self, window_size, samples_per_window):
-
-        for t in np.arange(0, self.time_steps - window_size):
-
-            n_sensors = np.random.randint(low=self.min_trace_sensors,
-                                          high=self.max_trace_sensors,
-                                          size=samples_per_window)
-
-            i = np.random.randint(low=0, high=30, size=n_sensors)
-            j = np.random.randint(low=0, high=30, size=n_sensors)
-
-            sensor_sample = self.data[['u', 'v', 'w', self.emission_var]].isel(timeDim=slice(t, t + window_size),
-                                                                               kDim=self.sensor_height,
-                                                                               jDim=j,
-                                                                               iDim=i).to_array()
-
-
-
-
-
-
+  return dip

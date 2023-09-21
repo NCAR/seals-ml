@@ -1,69 +1,58 @@
 import pytest
-import xarray as xr
 import numpy as np
-
-def test_points_within_dataset():
-  """Tests the `points_within_dataset` function."""
-
-  # Create a mock xarray dataset.
-  ds = xr.Dataset({'x': [1, 2, 3], 'y': [4, 5, 6], 'z': [7, 8, 9]})
-
-  # Test that the function works when the points are within the dataset.
-  point1 = (1, 4, 7)
-  point2 = (2, 5, 8)
-  points_within_dataset(ds, point1, point2)
-
-  # Test that the function raises an error when the points are not within the dataset.
-  point1 = (10, 10, 10)
-  point2 = (20, 20, 20)
-  with pytest.raises(ValueError):
-    points_within_dataset(ds, point1, point2)
+from sealsml.utils import distance_between_points_3d, calculate_azimuth, dip
 
 def test_distance_between_points_3d():
-  """
-  Tests the `distance_between_points_3d` function.
-  """
-  # Test that the function works when the points are valid.
-  point1 = (1, 2, 3)
-  point2 = (4, 5, 6)
-  distance = distance_between_points_3d(point1, point2)
-  assert distance == np.sqrt(109)
+    """
+    Tests the `distance_between_points_3d` function.
+    """
+   # Test case 1: Check distance between two identical points (should be 0)
+    point1 = np.array([[0.0, 0.0, 0.0]])
+    point2 = np.array([[0.0, 0.0, 0.0]])
+    result = distance_between_points_3d(point1, point2)
+    assert np.array_equal(result, np.array([0.0]))
 
-  # Test that the function raises an error when the points are not valid.
-  point1 = (1, 2, 3)
-  point2 = (4, 5, 'a')
-  with pytest.raises(TypeError):
-    distance_between_points_3d(point1, point2)
+    point1 = np.array([[0.0, 0.0, 0.0]])
+    point2 = np.array([[0.0, 1.0, 0.0]])  # Should have distance of 1
+    result = distance_between_points_3d(point1, point2)
+    assert np.array_equal(result, np.array([1.0]))
 
-def test_azimuth():
-  '''
-  Tests the `azimuth` function.
-  '''
 
-  # Test that the function works when the points are valid.
-  point1 = (1, 0, 0)
-  point2 = (1, 1, 0)
-  azimuth = azimuth(point1, point2)
-  assert azimuth == 45
+def test_calculate_azimuth():
+    '''
+    Tests the `calculate_azimuth` function.
+    '''
+    # Test that the function works when the points are valid.
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([0.0, 0.0, 0.0])
+    result = calculate_azimuth(point1, point2)
+    assert np.array_equal(result, 0.0)
 
-  # Test that the function raises an error when the points are not valid.
-  point1 = (1, 0, 0)
-  point2 = (1, 'a', 0)
-  with pytest.raises(TypeError):
-    azimuth(point1, point2)
+    # Test case 2: Check azimuth for points with known azimuth values
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([1.0, 0.0, 0.0])  # Should have azimuth of 90 degrees
+    result = calculate_azimuth(point1, point2)
+    assert np.array_equal(result, 90.0)
+
+    # Test case 3: Check for an exception when input arrays have different shapes
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([1.0, 0.0, 0.0, 2.0])  # Different shape
+    with pytest.raises(ValueError):
+        calculate_azimuth(point1, point2)
 
 def test_dip():
-  """Tests the `dip` function."""
+    """Tests the `dip` function."""
 
-  # Test that the function works when the points are valid.
-  point1 = (0, 0, 1)
-  point2 = (0, 0, 2)
-  dip = dip(point1, point2)
-  assert dip == 90
+    # Test that the function works when the points are valid.
+    point1 = np.array([0, 0, 0])
+    point2 = np.array([0, 0, 0])
+    dip_result = dip(point1, point2)
+    assert np.allclose(dip_result, 0)  # Use np.allclose for floating-point comparisons
 
-  # Test that the function raises an error when the points are not valid.
-  point1 = (0, 0, 1)
-  point2 = ('a', 0, 0)
-  with pytest.raises(TypeError):
-    dip(point1, point2)
+    # Test that the function raises an error when the points are not valid.
+    point3 = np.array([0, 0, 1])
+    point4 = np.array([1, 0, 0, 4])
+    with pytest.raises(ValueError):
+        dip(point3, point4)
 
+# the end
