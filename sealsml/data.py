@@ -94,3 +94,18 @@ class DataSampler(object):
         n_pad[axis] = (0, pad_size)
 
         return np.pad(array, pad_width=n_pad, mode='constant', constant_values=pad_value)
+
+    def mask_sensors(self, array, axis):
+
+        mask = np.random.randint(low=0, high=2, size=array.shape[axis])
+        expanded_mask = np.broadcast_to(mask, array.shape)
+
+        return np.stack(arrays=[array, expanded_mask], axis=-1)
+
+
+
+
+
+
+
+
