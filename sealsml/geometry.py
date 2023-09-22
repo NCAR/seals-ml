@@ -62,7 +62,10 @@ class geo:
     else:
         x1, y1 = self.array1[:, 0], self.array1[:, 1]
     
-    x2, y2 = self.array2[:, 0], self.array2[:, 1]
+    if len(self.array2.shape) == 1:
+      x2, y2 = self.array2[0], self.array2[1]
+    else:
+      x2, y2 = self.array2[:, 0], self.array2[:, 1]
 
     # Calculate the difference between the x-coordinates.
     xdif = x2 - x1
