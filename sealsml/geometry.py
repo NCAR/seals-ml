@@ -114,11 +114,13 @@ class geo:
       raise TypeError("array2 must have shape (x, 3).")
 
     ## Calculate dip
-    if len(self.array1.shape) == 1:
-      dz = self.array1[2] - self.array2[:,2]
+    if len(self.array1.shape) == 1 and len(self.array2.shape) == 1:
+      dz = self.array2[2] - self.array1[2]
+    elif len(self.array1.shape) == 1 and len(self.array2.shape) == 2:
+      dz = self.array2[2] - self.array1[:,2]
     else:
       dz = self.array2[:,2] - self.array1[:,2]
-    
+
     distance = np.round(np.linalg.norm(self.array2 - self.array1, axis=1))
                                        
     dip_radians = np.arctan2(dz, distance)
