@@ -1,6 +1,6 @@
 import numpy as np
 
-class Geometry:
+class geo:
   def __init__(self, array1, array2):
     self.array1 = array1
     self.array2 = array2
