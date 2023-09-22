@@ -58,9 +58,9 @@ class geo:
 
     # Extract the x, y, and z coordinates from each array.
     if len(self.array1.shape) == 1:
-        x1, y1 = self.array1[0], self.array1[1]
+      x1, y1 = self.array1[0], self.array1[1]
     else:
-        x1, y1 = self.array1[:, 0], self.array1[:, 1]
+      x1, y1 = self.array1[:, 0], self.array1[:, 1]
     
     if len(self.array2.shape) == 1:
       x2, y2 = self.array2[0], self.array2[1]
@@ -69,12 +69,17 @@ class geo:
 
     # Calculate the difference between the x-coordinates.
     xdif = x2 - x1
-    ydif = y2 - y1
-  
+    # Calculate the y-component of the unit vector pointing from the first point to the second point.
+    y = np.sin(xdif) * np.cos(y2)
+
+    # Calculate the x-component of the unit vector pointing from the first point to the second point.
+    x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(xdif)
+
     # Calculate the azimuth.
-    theta = np.arctan2(ydif, xdif)
+    theta = np.arctan2(y, x)
     azimuth = (theta * 180 / np.pi + 360) % 360
-    return azimuth
+    azi = np.round(azimuth, 3)
+    return azi
 
   def calculate_elevation_angle(self):
     """Calculates the elevation angle between two points/arrays.
