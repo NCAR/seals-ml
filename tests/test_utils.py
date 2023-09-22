@@ -17,7 +17,7 @@ def test_distance_between_points_3d():
     point2 = np.array([[0.0, 1.0, 0.0]])  # Should have distance of 1
     geometry_class = geometry.geo(array1= point1 , array2=point2)
     result = geometry_class.distance_between_points_3d()
-    assert np.array_equal(result, np.array([1.0]))
+    assert np.array_equal(result, np.array([1.]))
 
 
 def test_calculate_azimuth():
