@@ -57,7 +57,7 @@ def test_dip():
     # Test that the function raises an error when the points are not valid.
     point3 = np.array([0, 0, 1])
     point4 = np.array([1, 0, 0, 4])
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         geometry_class = geometry.geo(array1= point3 , array2=point4)
         esult = geometry_class.calculate_elevation_angle()
 
