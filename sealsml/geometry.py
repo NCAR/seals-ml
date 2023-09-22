@@ -110,14 +110,14 @@ class geo:
     if self.array1.shape != (3,) and self.array1.shape[1] != 3:
       raise TypeError("array must have shape (3,) or (x, 3).")
   
-    if self.array2.shape[1] != 3 and self.array2.shape[1] != 3:
+    if self.array2.shape != (3,) and self.array2.shape[1] != 3:
       raise TypeError("array2 must have shape (x, 3).")
 
     ## Calculate dip
     if len(self.array1.shape) == 1 and len(self.array2.shape) == 1:
       dz = self.array2[2] - self.array1[2]
     elif len(self.array1.shape) == 1 and len(self.array2.shape) == 2:
-      dz = self.array2[2] - self.array1[:,2]
+      dz = self.array2[:,2] - self.array1[2]
     else:
       dz = self.array2[:,2] - self.array1[:,2]
 
