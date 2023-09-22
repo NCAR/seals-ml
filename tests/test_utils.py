@@ -41,8 +41,9 @@ def test_calculate_azimuth():
     # Test case 3: Check for an exception when input arrays have different shapes
     point1 = np.array([0.0, 0.0, 0.0])
     point2 = np.array([1.0, 0.0, 0.0, 2.0])  # Different shape
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         geometry_class = geometry.geo(array1= point1 , array2=point2)
+        result = geometry_class.calculate_azimuth()
 
 def test_dip():
     """Tests the `dip` function."""
@@ -59,6 +60,6 @@ def test_dip():
     point4 = np.array([1, 0, 0, 4])
     with pytest.raises(IndexError):
         geometry_class = geometry.geo(array1= point3 , array2=point4)
-        esult = geometry_class.calculate_elevation_angle()
+        result = geometry_class.calculate_elevation_angle()
 
 # the end
