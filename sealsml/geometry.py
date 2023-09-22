@@ -121,7 +121,7 @@ class geo:
     else:
       dz = self.array2[:,2] - self.array1[:,2]
 
-    distance = np.round(np.linalg.norm(self.array2 - self.array1, axis=1))
+    distance = np.linalg.norm(self.array2 - self.array1, axis=1)
                                        
     dip_radians = np.arctan2(dz, distance)
     # let's convert to degrees and round it
