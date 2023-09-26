@@ -74,15 +74,18 @@ class DataSampler(object):
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_leak, j_leak, t + time_window_size: t + time_window_size + 1]
 
-                sensor_dist, sensor_azi = self.derive_variables(i_sensor, j_sensor, np.repeat(k, n_sensors),
+                sensor_dist, sensor_azi, sensor_elv = self.derive_variables(i_sensor, j_sensor, np.repeat(k, n_sensors),
                                                                 reference_point)
-                leak_dist, leak_azi = self.derive_variables(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
+                leak_dist, leak_azi, leak_elv = self.derive_variables(i_leak, j_leak, np.repeat(k, n_leaks),
+                                                                      reference_point)
 
                 sensor_sample[0, 0, :] = np.broadcast_to(sensor_dist, shape=(time_window_size, sensor_dist.shape[0])).T
                 sensor_sample[0, 1, :] = np.broadcast_to(sensor_azi, shape=(time_window_size, sensor_azi.shape[0])).T
+                sensor_sample[0, 2, :] = np.broadcast_to(sensor_elv, shape=(time_window_size, sensor_elv.shape[0])).T
 
                 leak_sample[0, 0, :, 0] = leak_dist
                 leak_sample[0, 1, :, 0] = leak_azi
+                leak_sample[0, 2, :, 0] = leak_elv
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=0, axis=2)
@@ -106,8 +109,9 @@ class DataSampler(object):
 
         distances = self.calc_euclidean_dist(sample_points, reference_points)
         azimuths = self.calc_azimuth(sample_points, reference_points)
+        elevations = self.calc_elevation(sample_points, reference_points)
 
-        return distances, azimuths
+        return distances, azimuths, elevations
 
     def calc_euclidean_dist(self, sample_array, reference_array, axis=1):
 
@@ -117,7 +121,14 @@ class DataSampler(object):
 
         reference, points = reference_array[:, :-1], sample_array[:, :-1]  # remove k dimension
         diff = reference - points
-        angle_degree = np.degrees(np.arctan(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')))
+        angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')))
+
+        return angle_degree
+
+    def calc_elevation(self, sample_array, reference_array):
+
+        diff = reference_array - sample_array
+        angle_degree = np.degrees(np.arctan2(diff[:, 2].astype('float32'), diff[:, 1].astype('float32')))
 
         return angle_degree
 
