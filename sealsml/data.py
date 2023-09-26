@@ -28,6 +28,7 @@ class DataSampler(object):
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
+        self.resolution = self.data['xPos'][0, 0, 1].values - self.data['xPos'][0, 0, 0].values
     def sample(self, time_window_size, samples_per_window, window_stride=5):
 
         """  Sample different geometric configurations of sensors from LES data for ML ingestion.
