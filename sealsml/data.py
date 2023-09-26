@@ -1,9 +1,6 @@
 import xarray as xr
 import numpy as np
 
-import xarray as xr
-import numpy as np
-
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
@@ -52,14 +49,14 @@ class DataSampler(object):
 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
-                true_leak_loc = np.random.randint(low=0, high=n_leaks)
+                true_leak_pos = 0
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
                 j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
                 i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
-                i_leak[true_leak_loc] = true_leak_i  # set one of the potential leaks to the true position
-                j_leak[true_leak_loc] = true_leak_j
+                i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
+                j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
