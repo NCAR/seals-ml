@@ -1,6 +1,8 @@
 import pytest
 import numpy as np
+import xarray as xr
 from sealsml.utils import distance_between_points_3d, calculate_azimuth, dip
+from sealsml.data import DataSampler
 
 def test_distance_between_points_3d():
     """
@@ -54,5 +56,45 @@ def test_dip():
     point4 = np.array([1, 0, 0, 4])
     with pytest.raises(ValueError):
         dip(point3, point4)
+
+
+def test_DataSampler():
+
+    u = np.random.random(size=(361, 15, 30,  30))
+    v = np.random.random(size=(361, 15, 30, 30))
+    w = np.random.random(size=(361, 15, 30, 30))
+    ch4 = np.random.random(size=(361, 15, 30, 30))
+    xPos = np.random.random(size=(15, 30,  30))
+    yPos = np.random.random(size=(15, 30, 30))
+    zPos = np.random.random(size=(15, 30, 30))
+
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11,
+                          sensor_mask_radius=50, sensor_height=3, leak_radius=10, coord_vars=['xPos', 'yPos', 'zPos'],
+                          met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
+
+    sampler.data = xr.Dataset(data_vars=dict(u=(["timeDim", "kDim", "jDim", "iDim"], u),
+                                             v=(["timeDim", "kDim", "jDim", "iDim"], v),
+                                             w=(["timeDim", "kDim", "jDim", "iDim"], w),
+                                             xPos=(["kDim", "jDim", "iDim"], xPos),
+                                             yPos=(["kDim", "jDim", "iDim"], yPos),
+                                             zPos=(["kDim", "jDim", "iDim"], zPos),
+                                             q_CH4=(["time", "kDim", "jDim", "iDim"], ch4)))
+
+    sampler.data = sampler.data.swap_dims({"time": "timeDim"})
+    sampler.time_steps = len(sampler.data['timeDim'].values)
+    sampler.iDim = len(sampler.data.iDim)
+    sampler.jDim = len(sampler.data.jDim)
+    time_window_size = 10
+    samples_per_window = 2
+    window_stride = 5
+
+    encoder_input, decoder_input = sampler.sample(time_window_size, samples_per_window, window_stride)
+
+    total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
+
+    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables))
+
+    assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables))
+
 
 # the end
