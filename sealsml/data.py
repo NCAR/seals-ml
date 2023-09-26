@@ -57,8 +57,6 @@ class DataSampler(object):
 
                 reference_point = np.random.randint(low=0, high=self.iDim, size=3)
                 reference_point[-1] = self.sensor_height
-                # ref_point_sensor = np.broadcast_to(reference_point, shape=(3, n_sensors))
-                # ref_point_equip = np.broadcast_to(reference_point, shape=n_leaks)
                 true_leak_i, true_leak_j = 15, 15
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
@@ -69,16 +67,22 @@ class DataSampler(object):
                 j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
 
-                sensor_dist = self.get_distance(i_sensor, j_sensor, np.repeat(k, n_sensors), reference_point)
-                leak_dist = self.get_distance(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
+
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_sensor, j_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_leak, j_leak, t + time_window_size: t + time_window_size + 1]
 
+                sensor_dist, sensor_azi = self.derive_variables(i_sensor, j_sensor, np.repeat(k, n_sensors),
+                                                                reference_point)
+                leak_dist, leak_azi = self.derive_variables(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
+
                 sensor_sample[0, 0, :] = np.broadcast_to(sensor_dist, shape=(time_window_size, sensor_dist.shape[0])).T
+                sensor_sample[0, 1, :] = np.broadcast_to(sensor_azi, shape=(time_window_size, sensor_azi.shape[0])).T
+
                 leak_sample[0, 0, :, 0] = leak_dist
+                leak_sample[0, 1, :, 0] = leak_azi
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=0, axis=2)
@@ -95,17 +99,27 @@ class DataSampler(object):
 
         return sensor_samples, leak_samples
 
-    def get_distance(self, i, j, k, reference_point):
+    def derive_variables(self, i, j, k, reference_point):
 
         sample_points = np.stack([i, j, k]).T
         reference_points = np.broadcast_to(reference_point, shape=sample_points.shape)
+
         distances = self.calc_euclidean_dist(sample_points, reference_points)
+        azimuths = self.calc_azimuth(sample_points, reference_points)
 
-        return distances
+        return distances, azimuths
 
-    def calc_euclidean_dist(self, array1, array2, axis=1):
+    def calc_euclidean_dist(self, sample_array, reference_array, axis=1):
 
-        return np.linalg.norm(array1 - array2, axis=axis)
+        return np.linalg.norm(sample_array - reference_array, axis=axis)
+
+    def calc_azimuth(self, sample_array, reference_array):
+
+        reference, points = reference_array[:, :-1], sample_array[:, :-1]  # remove k dimension
+        diff = reference - points
+        angle_degree = np.degrees(np.arctan(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')))
+
+        return angle_degree
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
 
