@@ -5,7 +5,8 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_mask_radius=50, sensor_height=3, leak_radius=10, coord_vars=['xPos', 'yPos', 'zPos'],
+                 sensor_mask_radius=50, sensor_height=3, leak_radius=10,
+                 coord_vars=["ref_distance", "ref_azi", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
         self.min_trace_sensors = min_trace_sensors
@@ -29,6 +30,11 @@ class DataSampler(object):
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
         self.resolution = self.data['xPos'][0, 0, 1].values - self.data['xPos'][0, 0, 0].values
+        for var in ["ref_distance", "ref_azi", "ref_elv"]:
+            self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
+                                                                        len(self.data.jDim),
+                                                                        len(self.data.iDim))))
+
     def sample(self, time_window_size, samples_per_window, window_stride=5):
 
         """  Sample different geometric configurations of sensors from LES data for ML ingestion.
@@ -45,12 +51,15 @@ class DataSampler(object):
             print(t)
             for _ in range(samples_per_window):
 
-                reference_point = np.random.randint(low=0, high=self.iDim, size=2)
-                true_leak_i, true_leak_j = 15, 15
-
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
                 true_leak_pos = 0
+
+                reference_point = np.random.randint(low=0, high=self.iDim, size=3)
+                reference_point[-1] = self.sensor_height
+                # ref_point_sensor = np.broadcast_to(reference_point, shape=(3, n_sensors))
+                # ref_point_equip = np.broadcast_to(reference_point, shape=n_leaks)
+                true_leak_i, true_leak_j = 15, 15
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
                 j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
@@ -60,10 +69,16 @@ class DataSampler(object):
                 j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
 
+                sensor_dist = self.get_distance(i_sensor, j_sensor, np.repeat(k, n_sensors), reference_point)
+                leak_dist = self.get_distance(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
+
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_sensor, j_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_leak, j_leak, t + time_window_size: t + time_window_size + 1]
+
+                sensor_sample[0, 0, :] = np.broadcast_to(sensor_dist, shape=(time_window_size, sensor_dist.shape[0])).T
+                leak_sample[0, 0, :, 0] = leak_dist
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=0, axis=2)
@@ -79,6 +94,18 @@ class DataSampler(object):
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 3, 1])
 
         return sensor_samples, leak_samples
+
+    def get_distance(self, i, j, k, reference_point):
+
+        sample_points = np.stack([i, j, k]).T
+        reference_points = np.broadcast_to(reference_point, shape=sample_points.shape)
+        distances = self.calc_euclidean_dist(sample_points, reference_points)
+
+        return distances
+
+    def calc_euclidean_dist(self, array1, array2, axis=1):
+
+        return np.linalg.norm(array1 - array2, axis=axis)
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
 
