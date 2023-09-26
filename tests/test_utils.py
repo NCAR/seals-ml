@@ -93,7 +93,6 @@ def test_DataSampler():
     total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
 
     assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables))
-
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables))
 
 
