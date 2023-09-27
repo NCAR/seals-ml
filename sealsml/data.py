@@ -123,9 +123,9 @@ class DataSampler(object):
         """ Calculate the azimuth angles from the reference point (degrees) """
         reference, points = reference_array[:, :-1], sample_array[:, :-1]  # remove k dimension
         diff = reference - points
-        angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')))
+        angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')) + np.pi / 2)
 
-        return angle_degree
+        return -angle_degree % 360
 
     def calc_elevation(self, sample_array, reference_array):
         """ Calculate the elevation angles from the reference point (degrees). """
