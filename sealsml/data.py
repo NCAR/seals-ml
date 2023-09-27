@@ -27,6 +27,7 @@ class DataSampler(object):
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
+        # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
                                                                         len(self.data.jDim),
@@ -40,7 +41,7 @@ class DataSampler(object):
             samples_per_window (int): Number of samples to draw from each time window.
             window_stride (int): stride width to slide window through time (index based)
         Returns:
-            Numpy Array of shape (sample, variable, sensor, time) """
+            sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays = [], []
 
@@ -93,7 +94,16 @@ class DataSampler(object):
         return sensor_samples, leak_samples
 
     def derive_variables(self, i, j, k, reference_point):
-
+        """ derive variables from randomly sampled reference point: Distance (in meters), azimuth angle,
+         and elevation angle.
+         Args:
+             i (array): randomly sampled indices in i direction
+             j (array): randomly sampled indices in j direction
+             k (array): randomly sampled indices in k direction
+             reference_point (array): Randomly sampled reference point (i, j, k)
+        Returns:
+             Stacked np.array of (distances, azimuths, elevations)
+         """
         sample_points = np.stack([i, j, k]).T
         reference_points = np.broadcast_to(reference_point, shape=sample_points.shape)
 
@@ -106,11 +116,11 @@ class DataSampler(object):
         return new_vars
 
     def calc_euclidean_dist(self, sample_array, reference_array, axis=1):
-
+        """ Calculate the Euclidean distance from the reference point (in meters) """
         return np.linalg.norm(sample_array - reference_array, axis=axis) * self.resolution
 
     def calc_azimuth(self, sample_array, reference_array):
-
+        """ Calculate the azimuth angles from the reference point (degrees) """
         reference, points = reference_array[:, :-1], sample_array[:, :-1]  # remove k dimension
         diff = reference - points
         angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')))
@@ -118,16 +128,14 @@ class DataSampler(object):
         return angle_degree
 
     def calc_elevation(self, sample_array, reference_array):
-
+        """ Calculate the elevation angles from the reference point (degrees). """
         diff = reference_array - sample_array
         angle_degree = np.degrees(np.arctan2(diff[:, 2].astype('float32'), diff[:, 1].astype('float32')))
 
         return angle_degree
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
-
         """ Pad numpy array along a single dimension. """
-
         pad_size = target_length - array.shape[axis]
         if pad_size <= 0:
             return array
@@ -145,7 +153,7 @@ class DataSampler(object):
         return np.stack(arrays=[array, expanded_mask], axis=-1)
 
     def create_targets(self, x):
-
+        """ Create target data from potential leak arrays. Outputs both concentrations and categorical (argmax)"""
         q_CH4_concentration = x[:, :, :, -1]
         q_CH4_catergorical = (q_CH4_concentration == q_CH4_concentration.max(axis=1)[:, None]).astype(int)
 
