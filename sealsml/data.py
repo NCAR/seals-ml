@@ -5,7 +5,8 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=3, resolution=2, coord_vars=["ref_distance", "ref_azi", "ref_elv"],
+                 sensor_height=3, resolution=2,
+                 coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin", "ref_elv_cos"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
         self.min_trace_sensors = min_trace_sensors
@@ -160,12 +161,26 @@ class DataSampler(object):
 
         return np.stack(arrays=[array, expanded_mask], axis=-1)
 
-    def create_targets(self, x):
+    def create_targets(self, decoder_x):
         """ Create target data from potential leak arrays. Outputs both concentrations and categorical (argmax)"""
-        q_CH4_concentration = x[:, :, :, -1]
+        q_CH4_concentration = decoder_x[:, :, :, -1]
         q_CH4_catergorical = (q_CH4_concentration == q_CH4_concentration.max(axis=1)[:, None]).astype(int)
 
         return q_CH4_concentration, q_CH4_catergorical
+
+    def make_xr_da(self, encoder_x, decoder_x):
+        """ Convert numpy arrays from .sample() to xarray Arrays. """
+
+        encoder_ds = xr.DataArray(encoder_x,
+                                  dims=['sample', 'sensor', 'time', 'variable'],
+                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin",
+                                          "ref_elv_cos", "u", "v", "w", "q_CH4"]})
+        decoder_ds = xr.DataArray(decoder_x,
+                                  dims=['sample', 'pot_leak', 'time', 'variable'],
+                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin",
+                                          "ref_elv_cos", "u", "v", "w", "q_CH4"]})
+
+        return encoder_ds, decoder_ds
 
 
 
