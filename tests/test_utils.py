@@ -67,6 +67,11 @@ def test_DataSampler():
     xPos = np.random.random(size=(15, 30,  30))
     yPos = np.random.random(size=(15, 30, 30))
     zPos = np.random.random(size=(15, 30, 30))
+    ref_distance = np.zeros(shape=(15, 30, 30))
+    ref_azi_sin = np.zeros(shape=(15, 30, 30))
+    ref_azi_cos = np.zeros(shape=(15, 30, 30))
+    ref_elv_sin = np.zeros(shape=(15, 30, 30))
+    ref_elv_cos = np.zeros(shape=(15, 30, 30))
 
     sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, sensor_height=3,
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin", "ref_elv_cos"],
@@ -78,7 +83,12 @@ def test_DataSampler():
                                              xPos=(["kDim", "jDim", "iDim"], xPos),
                                              yPos=(["kDim", "jDim", "iDim"], yPos),
                                              zPos=(["kDim", "jDim", "iDim"], zPos),
-                                             q_CH4=(["time", "kDim", "jDim", "iDim"], ch4)))
+                                             q_CH4=(["time", "kDim", "jDim", "iDim"], ch4),
+                                             ref_distance=(["kDim", "jDim", "iDim"], ref_distance),
+                                             ref_azi_sin=(["kDim", "jDim", "iDim"], ref_azi_sin),
+                                             ref_azi_cos=(["kDim", "jDim", "iDim"], ref_azi_cos),
+                                             ref_elv_sin=(["kDim", "jDim", "iDim"], ref_elv_sin),
+                                             ref_elv_cos=(["kDim", "jDim", "iDim"], ref_elv_cos)))
 
     sampler.data = sampler.data.swap_dims({"time": "timeDim"})
     sampler.time_steps = len(sampler.data['timeDim'].values)
