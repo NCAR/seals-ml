@@ -127,10 +127,10 @@ class DataSampler(object):
 
         return -angle_degree % 360
 
-    def calc_elevation(self, sample_array, reference_array):
+    def calc_elevation(self, sample_array, reference_array, distance):
         """ Calculate the elevation angles from the reference point (degrees). """
         diff = reference_array - sample_array
-        angle_degree = np.degrees(np.arctan2(diff[:, 2].astype('float32'), diff[:, 1].astype('float32')))
+        angle_degree = np.degrees(np.arcsin((diff[:, 2].astype('float32') / distance)))
 
         return angle_degree
 
