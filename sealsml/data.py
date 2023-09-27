@@ -5,17 +5,15 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_mask_radius=50, sensor_height=3, leak_radius=10,
-                 coord_vars=["ref_distance", "ref_azi", "ref_elv"],
+                 sensor_height=3, resolution=2, coord_vars=["ref_distance", "ref_azi", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.min_leak_loc = min_leak_loc
         self.max_leak_loc = max_leak_loc
-        self.sensor_mask_radius = sensor_mask_radius
         self.sensor_height = sensor_height
-        self.leak_radius = leak_radius
+        self.resolution = resolution
         self.coord_vars = coord_vars
         self.met_vars = met_vars
         self.emission_vars = emission_vars
@@ -29,8 +27,7 @@ class DataSampler(object):
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
-        self.resolution = self.data['xPos'][0, 0, 1].values - self.data['xPos'][0, 0, 0].values
-        for var in ["ref_distance", "ref_azi", "ref_elv"]:
+        for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
                                                                         len(self.data.jDim),
                                                                         len(self.data.iDim))))
@@ -67,8 +64,6 @@ class DataSampler(object):
                 j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
 
-
-
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, i_sensor, j_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
@@ -88,8 +83,6 @@ class DataSampler(object):
                                                            pad_value=0, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
                                                          pad_value=0, axis=2)
-
-                # target = padded_leak_sample[:, -1, ...] # can be done after stacking in separate method
 
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
@@ -114,7 +107,7 @@ class DataSampler(object):
 
     def calc_euclidean_dist(self, sample_array, reference_array, axis=1):
 
-        return np.linalg.norm(sample_array - reference_array, axis=axis)
+        return np.linalg.norm(sample_array - reference_array, axis=axis) * self.resolution
 
     def calc_azimuth(self, sample_array, reference_array):
 
