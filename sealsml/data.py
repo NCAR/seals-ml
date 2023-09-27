@@ -66,9 +66,9 @@ class DataSampler(object):
                 k = self.sensor_height
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, i_sensor, j_sensor, t:t + time_window_size]
+                                k, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, i_leak, j_leak, t + time_window_size: t + time_window_size + 1]
+                                k, j_leak, i_leak, t + time_window_size: t + time_window_size + 1]
 
                 derived_sensor_vars = self.derive_variables(i_sensor, j_sensor, np.repeat(k, n_sensors),
                                                             reference_point)
