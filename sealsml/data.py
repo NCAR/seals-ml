@@ -18,6 +18,7 @@ class DataSampler(object):
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
+        self.n_new_vars = len(coord_vars)
 
     def load_data(self, file_names):
 
@@ -75,10 +76,11 @@ class DataSampler(object):
                 derived_leak_vars = self.derive_variables(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
 
                 expanded_vars = np.transpose(np.broadcast_to(derived_sensor_vars,
-                                                             shape=(time_window_size, derived_sensor_vars.shape[0], 3)),
-                                                             axes=[2, 1, 0])
-                sensor_sample[0, :3, :] = expanded_vars
-                leak_sample[0, :3, :, 0] = derived_leak_vars.T
+                                                             shape=(time_window_size,
+                                                                    derived_sensor_vars.shape[0],
+                                                                    self.n_new_vars)), axes=[2, 1, 0])
+                sensor_sample[0, :self.n_new_vars, :] = expanded_vars
+                leak_sample[0, :self.n_new_vars, :, 0] = derived_leak_vars.T
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=0, axis=2)
@@ -108,10 +110,10 @@ class DataSampler(object):
         reference_points = np.broadcast_to(reference_point, shape=sample_points.shape)
 
         distances = self.calc_euclidean_dist(sample_points, reference_points)
-        azimuths = self.calc_azimuth(sample_points, reference_points)
-        elevations = self.calc_elevation(sample_points, reference_points)
+        sin_azi, cos_azi = self.calc_azimuth(sample_points, reference_points)
+        sin_elv, cos_elv = self.calc_elevation(sample_points, reference_points, distances)
 
-        new_vars = np.stack([distances, azimuths, elevations]).T
+        new_vars = np.stack([distances, sin_azi, cos_azi, sin_elv, cos_elv]).T
 
         return new_vars
 
@@ -125,14 +127,20 @@ class DataSampler(object):
         diff = reference - points
         angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')) + np.pi / 2)
 
-        return -angle_degree % 360
+        return self.convert_angles(-angle_degree % 360)
 
     def calc_elevation(self, sample_array, reference_array, distance):
         """ Calculate the elevation angles from the reference point (degrees). """
         diff = reference_array - sample_array
         angle_degree = np.degrees(np.arcsin((diff[:, 2].astype('float32') / distance)))
 
-        return angle_degree
+        return self.convert_angles(angle_degree)
+
+    def convert_angles(self, array):
+        """ Convert array of degrees (0-360) to sin / cosine of unit circle. """
+        radians = array * np.pi / 180.
+
+        return np.array([np.cos(array), np.sin(array)])
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
