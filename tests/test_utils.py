@@ -68,8 +68,8 @@ def test_DataSampler():
     yPos = np.random.random(size=(15, 30, 30))
     zPos = np.random.random(size=(15, 30, 30))
 
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11,
-                          sensor_mask_radius=50, sensor_height=3, leak_radius=10, coord_vars=['xPos', 'yPos', 'zPos'],
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, sensor_height=3,
+                          coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin", "ref_elv_cos"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
 
     sampler.data = xr.Dataset(data_vars=dict(u=(["timeDim", "kDim", "jDim", "iDim"], u),
@@ -94,6 +94,5 @@ def test_DataSampler():
 
     assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables))
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables))
-
 
 # the end
