@@ -151,6 +151,15 @@ class DataSampler(object):
 
         return np.stack(arrays=[array, expanded_mask], axis=-1)
 
+    def create_targets(self, x):
+
+        q_CH4_concentration = x[:, :, :, -1]
+        q_CH4_catergorical = (q_CH4_concentration == q_CH4_concentration.max(axis=1)[:, None]).astype(int)
+
+        return q_CH4_concentration, q_CH4_catergorical
+
+
+
 
 
 
