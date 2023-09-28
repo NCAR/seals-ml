@@ -71,17 +71,13 @@ class geo:
 
     # Calculate the difference between the x-coordinates.
     xdif = x2 - x1
-    # Calculate the y-component of the unit vector pointing from the first point to the second point.
-    y = np.sin(xdif) * np.cos(y2)
-
-    # Calculate the x-component of the unit vector pointing from the first point to the second point.
-    x = np.cos(y1) * np.sin(y2) - np.sin(y1) * np.cos(y2) * np.cos(xdif)
+    ydif = y2 - y1
 
     # Calculate the azimuth.
-    theta = np.arctan2(y, x)
-    azimuth = (theta * 180 / np.pi + 360) % 360
-    azi = np.round(azimuth, 3)
-    return azi
+    azi_rad = np.arctan2(ydif, xdif)
+    azi_deg = np.degrees(azi_rad)
+    azimuth_deg = (azi_deg + 360) % 360
+    return azimuth_deg
 
   def calculate_elevation_angle(self):
     """Calculates the elevation angle between two points/arrays.
