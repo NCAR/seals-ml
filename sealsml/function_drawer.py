@@ -3,20 +3,20 @@ import numpy as np
 
 from sealsml import geometry
 
-def add_geo(array1, array2, pd_export=False, column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
+def add_geo(ref_array, target_array, pd_export=False, column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
     """
     Calculates the geometric metrics between two arrays of points.
 
     Args:
-        array1 (numpy.ndarray): A numpy array of points, with shape (n, 3).
-        array2 (numpy.ndarray): A numpy array of points, with shape (n, 3).
+        ref_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the reference points.
+        target_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the target points.
         pd_export (bool, optional): Whether to export the results as a Pandas DataFrame. Defaults to False.
         column_names (list[str], optional): The column names for the exported Pandas DataFrame. Defaults to ["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"].
 
     Returns:
         numpy.ndarray or pd.DataFrame: The geometric metrics, with shape (n, 4). If pd_export is True, a Pandas DataFrame is returned.
     """
-    geometry_class = geometry.geo(array1=array1, array2=array2)
+    geometry_class = geometry.geo(ref_array, target_array)
     
     ### Let's get these metrics! 
     # distance
