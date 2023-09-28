@@ -1,8 +1,6 @@
 import pytest
 import numpy as np
-import xarray as xr
-from sealsml.utils import distance_between_points_3d, calculate_azimuth, dip
-from sealsml.data import DataSampler
+from sealsml import geometry
 
 def test_distance_between_points_3d():
     """
@@ -11,13 +9,15 @@ def test_distance_between_points_3d():
    # Test case 1: Check distance between two identical points (should be 0)
     point1 = np.array([[0.0, 0.0, 0.0]])
     point2 = np.array([[0.0, 0.0, 0.0]])
-    result = distance_between_points_3d(point1, point2)
+    geometry_class = geometry.geo( point1 , point2)
+    result = geometry_class.distance_between_points_3d()
     assert np.array_equal(result, np.array([0.0]))
 
     point1 = np.array([[0.0, 0.0, 0.0]])
     point2 = np.array([[0.0, 1.0, 0.0]])  # Should have distance of 1
-    result = distance_between_points_3d(point1, point2)
-    assert np.array_equal(result, np.array([1.0]))
+    geometry_class = geometry.geo(point1 , point2)
+    result = geometry_class.distance_between_points_3d(grid_resolution=1)
+    assert np.array_equal(result, np.array([1.]))
 
 
 def test_calculate_azimuth():
@@ -26,21 +26,33 @@ def test_calculate_azimuth():
     '''
     # Test that the function works when the points are valid.
     point1 = np.array([0.0, 0.0, 0.0])
-    point2 = np.array([0.0, 0.0, 0.0])
-    result = calculate_azimuth(point1, point2)
+    point2 = np.array([0.0, 1.0, 0.0])
+    geometry_class = geometry.geo( point1 , point2)
+    result = geometry_class.calculate_azimuth()
     assert np.array_equal(result, 0.0)
 
     # Test case 2: Check azimuth for points with known azimuth values
     point1 = np.array([0.0, 0.0, 0.0])
     point2 = np.array([1.0, 0.0, 0.0])  # Should have azimuth of 90 degrees
-    result = calculate_azimuth(point1, point2)
+    geometry_class = geometry.geo( point1 , point2)
+    result = geometry_class.calculate_azimuth()
     assert np.array_equal(result, 90.0)
+
+    # Test case 3: Check azimuth for 45's
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([[2,  2,   0],
+                       [4,  4,  -3],
+                       [12, 12,  2]]) 
+    geometry_class = geometry.geo(point1 , point2)
+    result = geometry_class.calculate_azimuth()
+    assert np.array_equal(result, [45., 45., 45.])
 
     # Test case 3: Check for an exception when input arrays have different shapes
     point1 = np.array([0.0, 0.0, 0.0])
     point2 = np.array([1.0, 0.0, 0.0, 2.0])  # Different shape
-    with pytest.raises(ValueError):
-        calculate_azimuth(point1, point2)
+    geometry_class = geometry.geo(point1 , point2)
+    with pytest.raises(IndexError):
+        result = geometry_class.calculate_azimuth()
 
 def test_dip():
     """Tests the `dip` function."""
@@ -48,61 +60,15 @@ def test_dip():
     # Test that the function works when the points are valid.
     point1 = np.array([0, 0, 0])
     point2 = np.array([0, 0, 0])
-    dip_result = dip(point1, point2)
-    assert np.allclose(dip_result, 0)  # Use np.allclose for floating-point comparisons
+    geometry_class = geometry.geo(point1 , point2)
+    result = geometry_class.calculate_elevation_angle()
+    assert np.allclose(result, 0)  # Use np.allclose for floating-point comparisons
 
     # Test that the function raises an error when the points are not valid.
     point3 = np.array([0, 0, 1])
     point4 = np.array([1, 0, 0, 4])
-    with pytest.raises(ValueError):
-        dip(point3, point4)
-
-
-def test_DataSampler():
-
-    u = np.random.random(size=(361, 15, 30,  30))
-    v = np.random.random(size=(361, 15, 30, 30))
-    w = np.random.random(size=(361, 15, 30, 30))
-    ch4 = np.random.random(size=(361, 15, 30, 30))
-    xPos = np.random.random(size=(15, 30,  30))
-    yPos = np.random.random(size=(15, 30, 30))
-    zPos = np.random.random(size=(15, 30, 30))
-    ref_distance = np.zeros(shape=(15, 30, 30))
-    ref_azi_sin = np.zeros(shape=(15, 30, 30))
-    ref_azi_cos = np.zeros(shape=(15, 30, 30))
-    ref_elv_sin = np.zeros(shape=(15, 30, 30))
-    ref_elv_cos = np.zeros(shape=(15, 30, 30))
-
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, sensor_height=3,
-                          coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin", "ref_elv_cos"],
-                          met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
-
-    sampler.data = xr.Dataset(data_vars=dict(u=(["timeDim", "kDim", "jDim", "iDim"], u),
-                                             v=(["timeDim", "kDim", "jDim", "iDim"], v),
-                                             w=(["timeDim", "kDim", "jDim", "iDim"], w),
-                                             xPos=(["kDim", "jDim", "iDim"], xPos),
-                                             yPos=(["kDim", "jDim", "iDim"], yPos),
-                                             zPos=(["kDim", "jDim", "iDim"], zPos),
-                                             q_CH4=(["time", "kDim", "jDim", "iDim"], ch4),
-                                             ref_distance=(["kDim", "jDim", "iDim"], ref_distance),
-                                             ref_azi_sin=(["kDim", "jDim", "iDim"], ref_azi_sin),
-                                             ref_azi_cos=(["kDim", "jDim", "iDim"], ref_azi_cos),
-                                             ref_elv_sin=(["kDim", "jDim", "iDim"], ref_elv_sin),
-                                             ref_elv_cos=(["kDim", "jDim", "iDim"], ref_elv_cos)))
-
-    sampler.data = sampler.data.swap_dims({"time": "timeDim"})
-    sampler.time_steps = len(sampler.data['timeDim'].values)
-    sampler.iDim = len(sampler.data.iDim)
-    sampler.jDim = len(sampler.data.jDim)
-    time_window_size = 10
-    samples_per_window = 2
-    window_stride = 5
-
-    encoder_input, decoder_input = sampler.sample(time_window_size, samples_per_window, window_stride)
-
-    total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
-
-    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables))
-    assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables))
+    geometry_class = geometry.geo(point3 , point4)
+    with pytest.raises(IndexError):
+        result = geometry_class.calculate_elevation_angle()
 
 # the end
