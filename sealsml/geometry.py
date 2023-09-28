@@ -76,7 +76,7 @@ class geo:
     # Calculate the azimuth.
     azi_rad = np.arctan2(ydif, xdif)
     azi_deg = -1*np.degrees(azi_rad)
-    azimuth_deg = (azi_deg + 360 + 90)  % 360
+    azimuth_deg = (azi_deg + 90 + 360)  % 360
     return azimuth_deg
 
   def calculate_elevation_angle(self):

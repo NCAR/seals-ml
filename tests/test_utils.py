@@ -26,7 +26,7 @@ def test_calculate_azimuth():
     '''
     # Test that the function works when the points are valid.
     point1 = np.array([0.0, 0.0, 0.0])
-    point2 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([0.0, 1.0, 0.0])
     geometry_class = geometry.geo(array1= point1 , array2=point2)
     result = geometry_class.calculate_azimuth()
     assert np.array_equal(result, 0.0)
@@ -37,6 +37,15 @@ def test_calculate_azimuth():
     geometry_class = geometry.geo(array1= point1 , array2=point2)
     result = geometry_class.calculate_azimuth()
     assert np.array_equal(result, 90.0)
+
+    # Test case 3: Check azimuth for 45's
+    point1 = np.array([0.0, 0.0, 0.0])
+    point2 = np.array([[2,  2,   0],
+                       [4,  4,  -3],
+                       [12, 12,  2]]) 
+    geometry_class = geometry.geo(array1= point1 , array2=point2)
+    result = geometry_class.calculate_azimuth()
+    assert np.array_equal(result, [45., 45., 45.])
 
     # Test case 3: Check for an exception when input arrays have different shapes
     point1 = np.array([0.0, 0.0, 0.0])
