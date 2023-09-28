@@ -20,6 +20,8 @@ class DataSampler(object):
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
         self.n_new_vars = len(coord_vars)
+        self.met_loc_mask = np.isin(self.variables, self.emission_vars) * 1
+        self.ch4_mask = np.isin(self.variables, self.met_vars) * 1
 
     def load_data(self, file_names):
 
@@ -81,7 +83,9 @@ class DataSampler(object):
                                                                     derived_sensor_vars.shape[0],
                                                                     self.n_new_vars)), axes=[2, 1, 0])
                 sensor_sample[0, :self.n_new_vars, :] = expanded_vars
+                sensor_sample = self.create_mask(sensor_sample, kind="sensor")
                 leak_sample[0, :self.n_new_vars, :, 0] = derived_leak_vars.T
+                leak_sample = self.create_mask(leak_sample, kind="leak")
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=0, axis=2)
@@ -91,8 +95,8 @@ class DataSampler(object):
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
 
-        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 3, 1])
-        leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 3, 1])
+        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 3, 1, 4]) # order [sample, sensor, time, var]
+        leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 3, 1, 4])
 
         return sensor_samples, leak_samples
 
@@ -154,12 +158,24 @@ class DataSampler(object):
 
         return np.pad(array, pad_width=n_pad, mode='constant', constant_values=pad_value)
 
-    def mask_sensors(self, array, axis):
+    def create_mask(self, array, kind):
 
-        mask = np.random.randint(low=0, high=2, size=array.shape[axis])
-        expanded_mask = np.broadcast_to(mask, array.shape)
+        array = np.transpose(array, axes=[0, 3, 2, 1])  # reshape for proper broadcasting
+        mask_2d = np.zeros(shape=(array.shape[-2], array.shape[-1]))
 
-        return np.stack(arrays=[array, expanded_mask], axis=-1)
+        if kind == "sensor":
+
+            mask_2d[0] = self.met_loc_mask  # make the first random sensor the "met sensor"
+            mask_2d[1:] = self.ch4_mask     # all others don't have met data
+
+        elif kind == "leak":
+
+            mask_2d[:] = self.ch4_mask
+
+        expanded_mask = np.broadcast_to(mask_2d, array.shape)
+        array_w_mask = np.stack(arrays=[array, expanded_mask], axis=-1)
+
+        return np.transpose(array_w_mask, axes=[0, 1, 2, 3, 4])
 
     def create_targets(self, decoder_x):
         """ Create target data from potential leak arrays. Outputs both concentrations and categorical (argmax)"""
