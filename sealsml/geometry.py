@@ -5,14 +5,14 @@ class geo:
     self.array1 = array1
     self.array2 = array2
 
-  def distance_between_points_3d(self):
+  def distance_between_points_3d(self, grid_resolution=2):
     """
     Calculate the distance between two points in 3D space (x, y and z).
 
     Args:
       array: The coordinates of the first point. A NumPy array of shape (3,) or (n, 3).
       array1: The coordinates of the second point. A NumPy array of shape (3,) or (n, 3).
-
+      grid_resoultion: the scaler to go from i,j,k to real world distance. Assumes that it is the same for i,j,k
     Returns:
       A NumPy array of distances.
 
@@ -36,8 +36,10 @@ class geo:
       raise TypeError("array must have shape (3,) or (x, 3).")
    
     # Calculate the distance between the two points.
-    distances = np.linalg.norm(self.array1 - self.array2, axis=1)
-    return distances
+    distance = np.linalg.norm(self.array1 - self.array2, axis=1)
+    true_distance = grid_resolution*distance
+    
+    return true_distance
 
   def calculate_azimuth(self):
     """Calculates the azimuth between two points.
