@@ -123,7 +123,7 @@ class geo:
       dz = self.target_array[:, 2] - self.reference_array[:, 2]
       distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
 
-    dip_radians = np.arctan2(dz, distance)
+    dip_radians = np.arcsin(dz / distance)
     # let's convert to degrees and round it
     elevation_angle = np.degrees(dip_radians)
 
