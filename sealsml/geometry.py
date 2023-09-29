@@ -1,10 +1,48 @@
 import numpy as np
+import pandas as pd
 
-class geo:
-  def __init__(self, reference_array, target_array):
-    self.reference_array = reference_array
+class GeoCalculator(object):
+
+  def __init__(self, ref_array=None, target_array=None):
+
+      self.reference_array = ref_array
+      self.target_array = target_array
+
+
+  def get_geometry(self, ref_array, target_array, grid_resolution=2, pd_export=False,
+              column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
+    """
+    Calculates the geometric metrics between two arrays of points.
+
+    Args:
+        ref_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the reference points.
+        target_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the target points.
+        pd_export (bool, optional): Whether to export the results as a Pandas DataFrame. Defaults to False.
+        column_names (list[str], optional): The column names for the exported Pandas DataFrame. Defaults to ["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"].
+
+    Returns:
+        numpy.ndarray or pd.DataFrame: The geometric metrics, with shape (n, 4). If pd_export is True, a Pandas DataFrame is returned.
+    """
+    self.reference_array = ref_array
     self.target_array = target_array
-  
+
+    ### Let's get these metrics!
+    # distance
+    distance = self.distance_between_points_3d(grid_resolution=grid_resolution)
+
+    # azimuth
+    azi = self.calculate_azimuth()
+    azi_cos = np.cos(np.radians(azi))
+    azi_sin = np.sin(np.radians(azi))
+    # elevation angle
+    ele_angle = self.calculate_elevation_angle()
+
+    combined_array = np.column_stack((distance, azi_cos, azi_sin, ele_angle))
+    if pd_export:
+      return pd.DataFrame(combined_array, columns=column_names)
+    else:
+      return combined_array
+
   def distance_between_points_3d(self, grid_resolution=2):
     """Calculate the distance between two points in 3D space (x, y, and z).
     Args:
@@ -90,7 +128,7 @@ class geo:
       target_array: A NumPy array of shape (n, 3) representing the second array.
 
     Returns:
-      The elevation angle in degrees, from 0 to 90.
+      The elevation angle in degrees, from -90 to 90.
 
     Raises:
       TypeError: If either `reference_array` or `target_array` is not a NumPy array of shape (n, 3).
@@ -98,7 +136,7 @@ class geo:
       ValueError: If the two points do not have the same shape.
     """
 
-        # Check that the reference_array and target_array arguments are NumPy arrays
+    # Check that the reference_array and target_array arguments are NumPy arrays
     if not isinstance(self.reference_array, np.ndarray):
       raise TypeError("The `reference_array` argument must be a NumPy array.")
 
@@ -115,16 +153,17 @@ class geo:
       ## Calculate dip
     if len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 1:
       dz = self.target_array[2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array)
+      horz_distance = np.linalg.norm(self.target_array[0:2] - self.reference_array[0:2])
     elif len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 2:
       dz = self.target_array[:, 2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[0:2], axis=1)
     else:
       dz = self.target_array[:, 2] - self.reference_array[:, 2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[:,:2], axis=1)
 
-    dip_radians = np.arctan2(dz, distance)
-    # let's convert to degrees and round it
+    dip_radians = np.arctan2(dz , horz_distance)
+    # let's convert to degrees
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
+
