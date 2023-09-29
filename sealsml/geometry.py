@@ -128,7 +128,7 @@ class GeoCalculator(object):
       target_array: A NumPy array of shape (n, 3) representing the second array.
 
     Returns:
-      The elevation angle in degrees, from 0 to 90.
+      The elevation angle in degrees, from -90 to 90.
 
     Raises:
       TypeError: If either `reference_array` or `target_array` is not a NumPy array of shape (n, 3).
