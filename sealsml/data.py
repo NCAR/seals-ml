@@ -1,6 +1,6 @@
 import xarray as xr
 import numpy as np
-from geometry import GeoCalculator
+from sealsml.geometry import GeoCalculator
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -144,11 +144,11 @@ class DataSampler(object):
         """ Convert numpy arrays from .sample() to xarray Arrays. """
 
         encoder_ds = xr.DataArray(encoder_x,
-                                  dims=['sample', 'sensor', 'time', 'variable'],
+                                  dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
                                           "u", "v", "w", "q_CH4"]})
         decoder_ds = xr.DataArray(decoder_x,
-                                  dims=['sample', 'pot_leak', 'time', 'variable'],
+                                  dims=['sample', 'pot_leak', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
                                           "u", "v", "w", "q_CH4"]})
 
