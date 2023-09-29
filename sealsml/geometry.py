@@ -5,7 +5,7 @@ class GeoCalculator(object):
 
   def __init__(self, ref_array=None, target_array=None):
 
-      self.ref_array = ref_array
+      self.reference_array = ref_array
       self.target_array = target_array
 
 
