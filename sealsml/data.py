@@ -1,12 +1,13 @@
 import xarray as xr
 import numpy as np
+from geometry import GeoCalculator
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
                  sensor_height=3, resolution=2,
-                 coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin", "ref_elv_cos"],
+                 coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
         self.min_trace_sensors = min_trace_sensors
@@ -48,6 +49,7 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays = [], []
+        geom_calc = GeoCalculator()
 
         for t in np.arange(0, self.time_steps - time_window_size, window_stride):
             print(t)
@@ -68,15 +70,16 @@ class DataSampler(object):
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
+                sensor_idx = np.stack([i_sensor, j_sensor, np.repeat(k, n_sensors)]).T
+                leak_idx = np.stack([i_leak, j_leak, np.repeat(k, n_leaks)]).T
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k, j_leak, i_leak, t + time_window_size: t + time_window_size + 1]
 
-                derived_sensor_vars = self.derive_variables(i_sensor, j_sensor, np.repeat(k, n_sensors),
-                                                            reference_point)
-                derived_leak_vars = self.derive_variables(i_leak, j_leak, np.repeat(k, n_leaks), reference_point)
+                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx, self.resolution)
+                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx, self.resolution)
 
                 expanded_vars = np.transpose(np.broadcast_to(derived_sensor_vars,
                                                              shape=(time_window_size,
@@ -95,57 +98,10 @@ class DataSampler(object):
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
 
-        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 3, 1, 4]) # order [sample, sensor, time, var]
-        leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 3, 1, 4])
+        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [sample, sensor, time, var]
+        leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
 
         return sensor_samples, leak_samples
-
-    def derive_variables(self, i, j, k, reference_point):
-        """ derive variables from randomly sampled reference point: Distance (in meters), azimuth angle,
-         and elevation angle.
-         Args:
-             i (array): randomly sampled indices in i direction
-             j (array): randomly sampled indices in j direction
-             k (array): randomly sampled indices in k direction
-             reference_point (array): Randomly sampled reference point (i, j, k)
-        Returns:
-             Stacked np.array of (distances, azimuths, elevations)
-         """
-        sample_points = np.stack([i, j, k]).T
-        reference_points = np.broadcast_to(reference_point, shape=sample_points.shape)
-
-        distances = self.calc_euclidean_dist(sample_points, reference_points)
-        sin_azi, cos_azi = self.calc_azimuth(sample_points, reference_points)
-        sin_elv, cos_elv = self.calc_elevation(sample_points, reference_points, distances)
-
-        new_vars = np.stack([distances, sin_azi, cos_azi, sin_elv, cos_elv]).T
-
-        return new_vars
-
-    def calc_euclidean_dist(self, sample_array, reference_array, axis=1):
-        """ Calculate the Euclidean distance from the reference point (in meters) """
-        return np.linalg.norm(sample_array - reference_array, axis=axis) * self.resolution
-
-    def calc_azimuth(self, sample_array, reference_array):
-        """ Calculate the azimuth angles from the reference point (degrees) """
-        reference, points = reference_array[:, :-1], sample_array[:, :-1]  # remove k dimension
-        diff = reference - points
-        angle_degree = np.degrees(np.arctan2(diff[:, 1].astype('float32'), diff[:, 0].astype('float32')) + np.pi / 2)
-
-        return self.convert_angles(-angle_degree % 360)
-
-    def calc_elevation(self, sample_array, reference_array, distance):
-        """ Calculate the elevation angles from the reference point (degrees). """
-        diff = reference_array - sample_array
-        angle_degree = np.degrees(np.arcsin((diff[:, 2].astype('float32') / distance)))
-
-        return self.convert_angles(angle_degree)
-
-    def convert_angles(self, array):
-        """ Convert array of degrees (0-360) to sin / cosine of unit circle. """
-        radians = array * np.pi / 180.
-
-        return np.array([np.cos(array), np.sin(array)])
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
@@ -189,12 +145,12 @@ class DataSampler(object):
 
         encoder_ds = xr.DataArray(encoder_x,
                                   dims=['sample', 'sensor', 'time', 'variable'],
-                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin",
-                                          "ref_elv_cos", "u", "v", "w", "q_CH4"]})
+                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
+                                          "u", "v", "w", "q_CH4"]})
         decoder_ds = xr.DataArray(decoder_x,
                                   dims=['sample', 'pot_leak', 'time', 'variable'],
-                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv_sin",
-                                          "ref_elv_cos", "u", "v", "w", "q_CH4"]})
+                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
+                                          "u", "v", "w", "q_CH4"]})
 
         return encoder_ds, decoder_ds
 
