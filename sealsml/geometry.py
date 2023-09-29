@@ -3,6 +3,12 @@ import numpy as np
 
 class GeoCalculator(object):
 
+  def __init__(self, ref_array=None, target_array=None):
+
+      self.ref_array = ref_array
+      self.target_array = target_array
+
+
   def get_geometry(self, ref_array, target_array, grid_resolution=2, pd_export=False,
               column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
     """
@@ -160,3 +166,4 @@ class GeoCalculator(object):
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
+
