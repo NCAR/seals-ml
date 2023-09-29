@@ -102,7 +102,7 @@ def test_DataSampler():
                                              ref_distance=(["kDim", "jDim", "iDim"], ref_distance),
                                              ref_azi_sin=(["kDim", "jDim", "iDim"], ref_azi_sin),
                                              ref_azi_cos=(["kDim", "jDim", "iDim"], ref_azi_cos),
-                                             ref_elv_sin=(["kDim", "jDim", "iDim"], ref_elv)))
+                                             ref_elv=(["kDim", "jDim", "iDim"], ref_elv)))
 
     sampler.data = sampler.data.swap_dims({"time": "timeDim"})
     sampler.time_steps = len(sampler.data['timeDim'].values)
