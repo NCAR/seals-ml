@@ -150,20 +150,19 @@ class GeoCalculator(object):
     if self.target_array.shape != (3,) and self.target_array.shape[1] != 3:
       raise TypeError("target_array must have shape (x, 3).")
 
-      ## Calculate dip
+       ## Calculate dip
     if len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 1:
       dz = self.target_array[2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array)
+      horz_distance = np.linalg.norm(self.target_array[0:2] - self.reference_array[0:2])
     elif len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 2:
       dz = self.target_array[:, 2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[0:2], axis=1)
     else:
       dz = self.target_array[:, 2] - self.reference_array[:, 2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[:,:2], axis=1)
 
-    dip_radians = np.arcsin(dz / distance)
+    dip_radians = np.arctan2(dz , horz_distance)
     # let's convert to degrees and round it
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
-
