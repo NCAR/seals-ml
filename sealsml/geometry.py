@@ -1,10 +1,42 @@
 import numpy as np
 
-class geo:
-  def __init__(self, reference_array, target_array):
-    self.reference_array = reference_array
+
+class GeoCalculator(object):
+
+  def get_geometry(self, ref_array, target_array, grid_resolution=2, pd_export=False,
+              column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
+    """
+    Calculates the geometric metrics between two arrays of points.
+
+    Args:
+        ref_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the reference points.
+        target_array (numpy.ndarray): A numpy array of points, with shape (n, 3). Usually the target points.
+        pd_export (bool, optional): Whether to export the results as a Pandas DataFrame. Defaults to False.
+        column_names (list[str], optional): The column names for the exported Pandas DataFrame. Defaults to ["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"].
+
+    Returns:
+        numpy.ndarray or pd.DataFrame: The geometric metrics, with shape (n, 4). If pd_export is True, a Pandas DataFrame is returned.
+    """
+    self.reference_array = ref_array
     self.target_array = target_array
-  
+
+    ### Let's get these metrics!
+    # distance
+    distance = self.distance_between_points_3d(grid_resolution=grid_resolution)
+
+    # azimuth
+    azi = self.calculate_azimuth()
+    azi_cos = np.cos(np.radians(azi))
+    azi_sin = np.sin(np.radians(azi))
+    # elevation angle
+    ele_angle = self.calculate_elevation_angle()
+
+    combined_array = np.column_stack((distance, azi_cos, azi_sin, ele_angle))
+    if pd_export:
+      return pd.DataFrame(combined_array, columns=column_names)
+    else:
+      return combined_array
+
   def distance_between_points_3d(self, grid_resolution=2):
     """Calculate the distance between two points in 3D space (x, y, and z).
     Args:
@@ -98,7 +130,7 @@ class geo:
       ValueError: If the two points do not have the same shape.
     """
 
-        # Check that the reference_array and target_array arguments are NumPy arrays
+    # Check that the reference_array and target_array arguments are NumPy arrays
     if not isinstance(self.reference_array, np.ndarray):
       raise TypeError("The `reference_array` argument must be a NumPy array.")
 
