@@ -74,15 +74,14 @@ class DataSampler(object):
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
-                k = self.sensor_height
                 sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor],
                                        self.z[np.repeat(self.sensor_height, n_sensors)]]).T
                 leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(k, n_leaks)]]).T
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, j_sensor, i_sensor, t:t + time_window_size]
+                                self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, j_leak, i_leak, , t+1:t+2]
+                                self.leak_height, j_leak, i_leak, , t+1:t+2]
 
                 derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx, self.resolution)
                 derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx, self.resolution)
