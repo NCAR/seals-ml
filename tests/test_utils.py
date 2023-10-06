@@ -57,7 +57,7 @@ def test_calculate_azimuth():
         result = geometry_class.calculate_azimuth()
 
 def test_dip():
-    """Tests the `dip` function."""
+    """Tests the elevation angle (dip) function."""
 
     # Test that the function works when the points are valid.
     point1 = np.array([0, 0, 0])
@@ -65,6 +65,27 @@ def test_dip():
     geometry_class = GeoCalculator(point1 , point2)
     result = geometry_class.calculate_elevation_angle()
     assert np.allclose(result, 0)  # Use np.allclose for floating-point comparisons
+
+    # Test that the function works when the points are valid.
+    point1 = np.array([0, 0, 0])
+    point2 = np.array([0, 1, 1])
+    geometry_class = GeoCalculator(point1 , point2)
+    result = geometry_class.calculate_elevation_angle()
+    assert np.allclose(result, 45)  
+
+    # Test that the function works when the points are valid.
+    point1 = np.array([0, 0, 0])
+    point2 = np.array([0, 0, 1])
+    geometry_class = GeoCalculator(point1 , point2)
+    result = geometry_class.calculate_elevation_angle()
+    assert np.allclose(result, 90)  
+
+    # Test that the function works when the points are valid.
+    point1 = np.array([0, 0, 1])
+    point2 = np.array([0, 0, 0])
+    geometry_class = GeoCalculator(point1 , point2)
+    result = geometry_class.calculate_elevation_angle()
+    assert np.allclose(result, -90)  
 
     # Test that the function raises an error when the points are not valid.
     point3 = np.array([0, 0, 1])

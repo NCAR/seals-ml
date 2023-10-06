@@ -8,8 +8,7 @@ class GeoCalculator(object):
       self.reference_array = ref_array
       self.target_array = target_array
 
-
-  def get_geometry(self, ref_array, target_array, grid_resolution=2, pd_export=False,
+  def get_geometry(self, ref_array, target_array, grid_resolution=False, pd_export=False,
               column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
     """
     Calculates the geometric metrics between two arrays of points.
@@ -43,12 +42,13 @@ class GeoCalculator(object):
     else:
       return combined_array
 
-  def distance_between_points_3d(self, grid_resolution=2):
+  def distance_between_points_3d(self, grid_resolution=False):
     """Calculate the distance between two points in 3D space (x, y, and z).
     Args:
       reference_array: The coordinates of the first point. A NumPy array of shape (3,) or (n, 3).
       target_array: The coordinates of the second point. A NumPy array of shape (3,) or (n, 3).
       grid_resolution: the scaler to go from i, j, k to real world distance. Assumes that it is the same for i, j, k
+      Also can be false if using real coordinates in x,y,z space 
     Returns:
       A NumPy array of distances.
 
@@ -70,9 +70,13 @@ class GeoCalculator(object):
     if self.target_array.shape != (3,) and self.target_array.shape[1] != 3:
       raise TypeError("target_array must have shape (3,) or (x, 3).")
 
-    # Calculate the distance between the two points.
-    distance = np.linalg.norm(self.reference_array - self.target_array, axis=1)
-    true_distance = grid_resolution * distance
+    if grid_resolution == False:
+      # Calculate the distance between the two points.
+      true_distance = np.linalg.norm(self.reference_array - self.target_array, axis=1)
+  
+    elif isinstance(grid_resolution, (float, int)):
+      distance = np.linalg.norm(self.reference_array - self.target_array, axis=1)
+      true_distance = grid_resolution * distance
 
     return true_distance
 
@@ -128,7 +132,7 @@ class GeoCalculator(object):
       target_array: A NumPy array of shape (n, 3) representing the second array.
 
     Returns:
-      The elevation angle in degrees, from 0 to 90.
+      The elevation angle in degrees, from -90 to 90.
 
     Raises:
       TypeError: If either `reference_array` or `target_array` is not a NumPy array of shape (n, 3).
@@ -150,20 +154,19 @@ class GeoCalculator(object):
     if self.target_array.shape != (3,) and self.target_array.shape[1] != 3:
       raise TypeError("target_array must have shape (x, 3).")
 
-      ## Calculate dip
+       ## Calculate dip
     if len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 1:
       dz = self.target_array[2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array)
+      horz_distance = np.linalg.norm(self.target_array[0:2] - self.reference_array[0:2])
     elif len(self.reference_array.shape) == 1 and len(self.target_array.shape) == 2:
       dz = self.target_array[:, 2] - self.reference_array[2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[0:2], axis=1)
     else:
       dz = self.target_array[:, 2] - self.reference_array[:, 2]
-      distance = np.linalg.norm(self.target_array - self.reference_array, axis=1)
+      horz_distance = np.linalg.norm(self.target_array[:,:2] - self.reference_array[:,:2], axis=1)
 
-    dip_radians = np.arcsin(dz / distance)
+    dip_radians = np.arctan2(dz , horz_distance)
     # let's convert to degrees and round it
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
-
