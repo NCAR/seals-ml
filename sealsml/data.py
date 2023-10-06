@@ -51,7 +51,7 @@ class DataSampler(object):
         Returns:
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
-        sensor_arrays, leak_arrays = [], []
+        sensor_arrays, leak_arrays, true_leak_idx = [], [], []
         geom_calc = GeoCalculator()
 
         for t in np.arange(0, self.time_steps - time_window_size, window_stride):
@@ -100,11 +100,13 @@ class DataSampler(object):
 
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
+                true_leak_idx.append(true_leak_pos)
 
         sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [sample, sensor, time, var]
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
+        targets = self.create_targets(leak_samples, true_leak_idx)
 
-        return sensor_samples, leak_samples
+        return sensor_samples, leak_samples, targets
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
@@ -136,12 +138,15 @@ class DataSampler(object):
 
         return np.transpose(array_w_mask, axes=[0, 1, 2, 3, 4])
 
-    def create_targets(self, decoder_x):
+    def create_targets(self, leak_samples, true_leak_indices, categorical=True):
         """ Create target data from potential leak arrays. Outputs both concentrations and categorical (argmax)"""
-        q_CH4_concentration = decoder_x[:, :, :, -1]
-        q_CH4_catergorical = (q_CH4_concentration == q_CH4_concentration.max(axis=1)[:, None]).astype(int)
+        if categorical:
+            targets = np.zeros(shape=(leak_samples.shape[0], leak_samples.shape[1]))
+            np.put_along_axis(targets, np.array(true_leak_indices).reshape(-1, 1), 1, axis=1)
+        else:
+            targets = leak_samples[..., 0, -1, 0]
 
-        return q_CH4_concentration, q_CH4_catergorical
+        return np.expand_dims(targets, axis=-1)
 
     def make_xr_da(self, encoder_x, decoder_x):
         """ Convert numpy arrays from .sample() to xarray Arrays. """
