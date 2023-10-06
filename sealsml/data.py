@@ -97,9 +97,9 @@ class DataSampler(object):
                 leak_sample = self.create_mask(leak_sample, kind="leak")
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
-                                                           pad_value=0, axis=2)
+                                                           pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
-                                                         pad_value=0, axis=2)
+                                                         pad_value=self.sensor_exist_mask, axis=2)
 
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
