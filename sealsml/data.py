@@ -6,7 +6,7 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=3,
+                 sensor_height=1, leak_height=0, resolution=2, sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
@@ -15,14 +15,16 @@ class DataSampler(object):
         self.min_leak_loc = min_leak_loc
         self.max_leak_loc = max_leak_loc
         self.sensor_height = sensor_height
+        self.leak_height = leak_height
         self.resolution = resolution
+        self.sensor_exist_mask = sensor_exist_mask
         self.coord_vars = coord_vars
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
         self.n_new_vars = len(coord_vars)
-        self.met_loc_mask = np.isin(self.variables, self.emission_vars) * 1
-        self.ch4_mask = np.isin(self.variables, self.met_vars) * 1
+        self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
+        self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
     def load_data(self, file_names):
 
@@ -73,7 +75,8 @@ class DataSampler(object):
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
                 k = self.sensor_height
-                sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor], self.z[np.repeat(self.sensor_height, n_sensors)]]).T
+                sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor],
+                                       self.z[np.repeat(self.sensor_height, n_sensors)]]).T
                 leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(k, n_leaks)]]).T
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
