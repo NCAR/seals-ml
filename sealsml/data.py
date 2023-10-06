@@ -76,7 +76,7 @@ class DataSampler(object):
                 j_leak[true_leak_pos] = true_leak_j
                 sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor],
                                        self.z[np.repeat(self.sensor_height, n_sensors)]]).T
-                leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(k, n_leaks)]]).T
+                leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(self.leak_height, n_leaks)]]).T
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
