@@ -57,7 +57,7 @@ class DataSampler(object):
 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
-                true_leak_pos = 0
+                true_leak_pos = np.random.choice(n_leaks, size=1)[0]
 
                 reference_point = np.random.randint(low=0, high=self.iDim, size=3)
                 reference_point[-1] = self.sensor_height
