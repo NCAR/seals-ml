@@ -6,7 +6,7 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=1, leak_height=0, resolution=2, sensor_type_mask=1, sensor_exist_mask=-1,
+                 sensor_height=1, leak_height=0, sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
@@ -16,7 +16,6 @@ class DataSampler(object):
         self.max_leak_loc = max_leak_loc
         self.sensor_height = sensor_height
         self.leak_height = leak_height
-        self.resolution = resolution
         self.sensor_exist_mask = sensor_exist_mask
         self.coord_vars = coord_vars
         self.met_vars = met_vars
