@@ -31,6 +31,7 @@ if __name__ == "__main__":
 
     username = os.environ.get('USER')
     config["out_path"] = config["out_path"].replace("username", username)
+    os.makedirs(config["out_path"],exist_ok=True)
     files = sorted(glob.glob(join(config["data_path"], "*")))
     print(files)
     args = itertools.product([config], files)
