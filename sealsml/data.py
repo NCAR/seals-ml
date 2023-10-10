@@ -82,8 +82,8 @@ class DataSampler(object):
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.leak_height, j_leak, i_leak, t+1:t+2]
 
-                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx, self.resolution)
-                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx, self.resolution)
+                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx)
+                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx)
                 expanded_vars = np.transpose(np.broadcast_to(derived_sensor_vars,
                                                              shape=(time_window_size,
                                                                     derived_sensor_vars.shape[0],
