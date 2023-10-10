@@ -129,14 +129,24 @@ def test_DataSampler():
     sampler.time_steps = len(sampler.data['timeDim'].values)
     sampler.iDim = len(sampler.data.iDim)
     sampler.jDim = len(sampler.data.jDim)
-    time_window_size = 10
+    sampler.x = np.linspace(0, 58, 30)
+    sampler.y = np.linspace(0, 58, 30)
+    sampler.z = np.linspace(0, 56, 15)
+    time_window_size = 100
     samples_per_window = 2
-    window_stride = 5
+    window_stride = 50
 
-    encoder_input, decoder_input = sampler.sample(time_window_size, samples_per_window, window_stride)
+    encoder_input, decoder_input, targets = sampler.sample(time_window_size, samples_per_window, window_stride)
 
     total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
 
     assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
+    assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
+
+    rand_sample = np.random.randint(1, total_samples, 1)[0]
+    rand_time_1, rand_time_2 = np.random.randint(0, 100,  1)[0], np.random.randint(0, 100,  1)[0]
+    # assert mask is equal
+    assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
+
 # the end

@@ -6,7 +6,7 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=3, resolution=2,
+                 sensor_height=1, leak_height=0, resolution=2, sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
@@ -15,14 +15,16 @@ class DataSampler(object):
         self.min_leak_loc = min_leak_loc
         self.max_leak_loc = max_leak_loc
         self.sensor_height = sensor_height
+        self.leak_height = leak_height
         self.resolution = resolution
+        self.sensor_exist_mask = sensor_exist_mask
         self.coord_vars = coord_vars
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
         self.n_new_vars = len(coord_vars)
-        self.met_loc_mask = np.isin(self.variables, self.emission_vars) * 1
-        self.ch4_mask = np.isin(self.variables, self.met_vars) * 1
+        self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
+        self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
     def load_data(self, file_names):
 
@@ -32,6 +34,9 @@ class DataSampler(object):
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
+        self.x = self.data['xPos'][0, 0, :].values
+        self.y = self.data['yPos'][0, :, 0].values
+        self.z = self.data['zPos'][:, 0, 0].values
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
@@ -48,7 +53,7 @@ class DataSampler(object):
         Returns:
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
-        sensor_arrays, leak_arrays = [], []
+        sensor_arrays, leak_arrays, true_leak_idx = [], [], []
         geom_calc = GeoCalculator()
 
         for t in np.arange(0, self.time_steps - time_window_size, window_stride):
@@ -57,7 +62,7 @@ class DataSampler(object):
 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
-                true_leak_pos = 0
+                true_leak_pos = np.random.choice(n_leaks, size=1)[0]
 
                 reference_point = np.random.randint(low=0, high=self.iDim, size=3)
                 reference_point[-1] = self.sensor_height
@@ -69,14 +74,14 @@ class DataSampler(object):
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
-                k = self.sensor_height
-                sensor_idx = np.stack([i_sensor, j_sensor, np.repeat(k, n_sensors)]).T
-                leak_idx = np.stack([i_leak, j_leak, np.repeat(k, n_leaks)]).T
+                sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor],
+                                       self.z[np.repeat(self.sensor_height, n_sensors)]]).T
+                leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(self.leak_height, n_leaks)]]).T
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, j_sensor, i_sensor, t:t + time_window_size]
+                                self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k, j_leak, i_leak, t + time_window_size: t + time_window_size + 1]
+                                self.leak_height, j_leak, i_leak, t+1:t+2]
 
                 derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx, self.resolution)
                 derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx, self.resolution)
@@ -91,17 +96,19 @@ class DataSampler(object):
                 leak_sample = self.create_mask(leak_sample, kind="leak")
 
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
-                                                           pad_value=0, axis=2)
+                                                           pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
-                                                         pad_value=0, axis=2)
+                                                         pad_value=self.sensor_exist_mask, axis=2)
 
                 sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
+                true_leak_idx.append(true_leak_pos)
 
         sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [sample, sensor, time, var]
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
+        targets = self.create_targets(leak_samples, true_leak_idx)
 
-        return sensor_samples, leak_samples
+        return sensor_samples, leak_samples, targets
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
@@ -133,12 +140,15 @@ class DataSampler(object):
 
         return np.transpose(array_w_mask, axes=[0, 1, 2, 3, 4])
 
-    def create_targets(self, decoder_x):
+    def create_targets(self, leak_samples, true_leak_indices, categorical=True):
         """ Create target data from potential leak arrays. Outputs both concentrations and categorical (argmax)"""
-        q_CH4_concentration = decoder_x[:, :, :, -1]
-        q_CH4_catergorical = (q_CH4_concentration == q_CH4_concentration.max(axis=1)[:, None]).astype(int)
+        if categorical:
+            targets = np.zeros(shape=(leak_samples.shape[0], leak_samples.shape[1]))
+            np.put_along_axis(targets, np.array(true_leak_indices).reshape(-1, 1), 1, axis=1)
+        else:
+            targets = leak_samples[..., 0, -1, 0]
 
-        return q_CH4_concentration, q_CH4_catergorical
+        return np.expand_dims(targets, axis=-1)
 
     def make_xr_da(self, encoder_x, decoder_x):
         """ Convert numpy arrays from .sample() to xarray Arrays. """
