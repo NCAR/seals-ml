@@ -20,8 +20,8 @@ dependencies:
   - numba
   - cython
   - metpy
+  - dask
   - pip:
     - bridgescaler
     - pytest
-    - dask
     - .
