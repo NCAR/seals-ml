@@ -25,11 +25,11 @@ class DataSampler(object):
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
-    def load_data(self, file_names):
+    def load_data(self, file_names, use_dask=True):
 
         """ load xarray datasets from a list of file names. """
 
-        self.data = xr.open_mfdataset(file_names, parallel=True).swap_dims({'time': 'timeDim'}).load()
+        self.data = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
