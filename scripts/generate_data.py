@@ -26,11 +26,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", help="Path to config file")
     args = parser.parse_args()
-    with open(args.config) as config_file:
+    # with open(args.config) as config_file:
+    with open('/config/generate_training_data.yaml') as config_file:
         config = yaml.safe_load(config_file)
 
     username = os.environ.get('USER')
-    config["out_path"] = config["out_path"].replace("username", username)
+    # config["out_path"] = config["out_path"].replace("username", username)
     os.makedirs(config["out_path"],exist_ok=True)
     files = sorted(glob.glob(join(config["data_path"], "*")))
     print(files)
