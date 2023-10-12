@@ -17,6 +17,12 @@ dependencies:
   - jupyterlab
   - tqdm
   - numba
+<<<<<<< HEAD
+=======
+  - cython
+  - metpy
+  - dask
+>>>>>>> 0a2289ea74d47396011d37f7bda551721409d7e9
   - pip:
     - tensorflow
     - keras_core

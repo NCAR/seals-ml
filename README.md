@@ -8,6 +8,7 @@ The goal of this repository is to experiment with different machine learning arc
 * xarray
 * netcdf4
 * pandas
+* dask
 
 ## Installation
 
