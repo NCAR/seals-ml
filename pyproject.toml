@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "seals-ml"
 authors = [{name = "David John Gagne, Charlie Becker, Thomas Martin, John Schreck", email = "miles@ucar.edu"}]
-readme = {file = "README.md"}
+readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.8"
