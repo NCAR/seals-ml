@@ -6,7 +6,7 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=1, leak_height=0, resolution=2, sensor_type_mask=1, sensor_exist_mask=-1,
+                 sensor_height=1, leak_height=0, sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
@@ -16,7 +16,6 @@ class DataSampler(object):
         self.max_leak_loc = max_leak_loc
         self.sensor_height = sensor_height
         self.leak_height = leak_height
-        self.resolution = resolution
         self.sensor_exist_mask = sensor_exist_mask
         self.coord_vars = coord_vars
         self.met_vars = met_vars
@@ -26,11 +25,14 @@ class DataSampler(object):
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
-    def load_data(self, file_names):
+    def load_data(self, file_names, use_dask=True, swap_time_dim=True):
 
         """ load xarray datasets from a list of file names. """
-
-        self.data = xr.open_mfdataset(file_names, parallel=True).swap_dims({'time': 'timeDim'}).load()
+        if swap_time_dim == True:
+            self.data = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+        else:
+            self.data = xr.open_mfdataset(file_names, parallel=use_dask).load()
+        
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
@@ -83,9 +85,8 @@ class DataSampler(object):
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.leak_height, j_leak, i_leak, t+1:t+2]
 
-                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx, self.resolution)
-                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx, self.resolution)
-
+                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx)
+                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx)
                 expanded_vars = np.transpose(np.broadcast_to(derived_sensor_vars,
                                                              shape=(time_window_size,
                                                                     derived_sensor_vars.shape[0],
@@ -108,7 +109,7 @@ class DataSampler(object):
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
         targets = self.create_targets(leak_samples, true_leak_idx)
 
-        return sensor_samples, leak_samples, targets
+        return self.make_xr_ds(sensor_samples, leak_samples, targets)
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
@@ -150,20 +151,27 @@ class DataSampler(object):
 
         return np.expand_dims(targets, axis=-1)
 
-    def make_xr_da(self, encoder_x, decoder_x):
+    def make_xr_ds(self, encoder_x, decoder_x, targets):
         """ Convert numpy arrays from .sample() to xarray Arrays. """
 
         encoder_ds = xr.DataArray(encoder_x,
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
-                                          "u", "v", "w", "q_CH4"]})
+                                          "u", "v", "w", "q_CH4"]},
+                                  name="encoder_input")
+
         decoder_ds = xr.DataArray(decoder_x,
-                                  dims=['sample', 'pot_leak', 'time', 'variable', 'mask'],
+
+                                  dims=['sample', 'pot_leak', 'target_time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
-                                          "u", "v", "w", "q_CH4"]})
+                                          "u", "v", "w", "q_CH4"]},
+                                  name="decoder_input")
 
-        return encoder_ds, decoder_ds
+        targets = xr.DataArray(targets,
+                               dims=["sample", "pot_leak", "target_time"],
+                               name="target")
 
+        return xr.merge([encoder_ds, decoder_ds, targets])
 
 
 

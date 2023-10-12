@@ -136,7 +136,8 @@ def test_DataSampler():
     samples_per_window = 2
     window_stride = 50
 
-    encoder_input, decoder_input, targets = sampler.sample(time_window_size, samples_per_window, window_stride)
+    data = sampler.sample(time_window_size, samples_per_window, window_stride)
+    encoder_input, decoder_input, targets = data['encoder_input'], data['decoder_input'], data['target']
 
     total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
 
