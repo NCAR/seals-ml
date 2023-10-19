@@ -62,12 +62,15 @@ class DataSampler(object):
             print(t)
             for _ in range(samples_per_window):
 
-                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
-                n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
+                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
+                n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
 
                 reference_point = np.random.randint(low=0, high=self.iDim, size=3)
                 reference_point[-1] = self.sensor_height
+                reference_point[0] = self.x[reference_point[0]]
+                reference_point[1] = self.y[reference_point[1]]
+                reference_point[2] = self.z[reference_point[2]]
                 true_leak_i, true_leak_j = 15, 15
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
