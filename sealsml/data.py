@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy as np
 from sealsml.geometry import GeoCalculator
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -177,7 +178,29 @@ class DataSampler(object):
         return xr.merge([encoder_ds, decoder_ds, targets])
 
 
+class Scaler4D():
 
+    def __init__(self, kind="quantile"):
+        if kind == "quantile":
+            self.scaler = QuantileTransformer()
+        elif kind == "standard":
+            self.scaler = StandardScaler()
+        elif kind == "minmax":
+            self.scaler = MinMaxScaler()
+
+    def flatten_to_2D(self, X):
+
+        return np.reshape(X, newshape=(X.shape[0] * X.shape[1] * X.shape[2], X.shape[-1]))
+
+    def fit_transform(self, X):
+
+        x = self.flatten_to_2D(X)
+        return np.reshape(self.scaler.fit_transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
+
+    def transform(self, X):
+
+        x = self.flatten_to_2D(X)
+        return np.reshape(self.scaler.transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
 
 
 
