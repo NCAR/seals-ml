@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seals-ml"
+authors = [{name = "David John Gagne, Charlie Becker, Thomas Martin, John Schreck", email = "miles@ucar.edu"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = [
+   "numpy<1.24",
+   "scipy",
+   "matplotlib",
+   "xarray",
+   "pandas",
+   "netcdf4",
+   "pyyaml",
+   "pytest",
+   "tqdm",
+   "sphinx",
+   "numba",
+   "metpy",
+   "dask",
+   "bridgescaler",
+   "keras_core",
+   "keras_nlp",
+ ]
+[tool.setuptools]
+packages = ["sealsml", "sealsml.keras"]
+
+[tool.setuptools.dynamic]
+version = {file = "sealsml/VERSION"}
+readme = {file = ["README.md"]}
