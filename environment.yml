@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
-  - numpy
+  - numpy<1.24
   - scipy
   - matplotlib
   - xarray
@@ -16,12 +16,13 @@ dependencies:
   - jupyter
   - jupyterlab
   - tqdm
-  - sphinx
   - numba
   - cython
   - metpy
   - dask
   - pip:
+    - tensorflow
+    - keras_core
     - bridgescaler
     - pytest
     - .

@@ -14,6 +14,6 @@ def test_quantized_transformer():
     qt = QuantizedTransformer()
     qt.compile(loss="binary_crossentropy", optimizer="adam")
     y_pred = qt.predict([x_encoder, x_decoder])
-    print(y_pred)
     assert y_pred[:, :, 0].shape == y.shape
     qt.fit([x_encoder, x_decoder], y, batch_size=batch_size)
+
