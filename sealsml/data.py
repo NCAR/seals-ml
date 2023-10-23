@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy as np
 from sealsml.geometry import GeoCalculator
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -62,12 +63,15 @@ class DataSampler(object):
             print(t)
             for _ in range(samples_per_window):
 
-                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors)
-                n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc)
+                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
+                n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
 
                 reference_point = np.random.randint(low=0, high=self.iDim, size=3)
                 reference_point[-1] = self.sensor_height
+                reference_point[0] = self.x[reference_point[0]]
+                reference_point[1] = self.y[reference_point[1]]
+                reference_point[2] = self.z[reference_point[2]]
                 true_leak_i, true_leak_j = 15, 15
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
@@ -174,7 +178,29 @@ class DataSampler(object):
         return xr.merge([encoder_ds, decoder_ds, targets])
 
 
+class Scaler4D():
 
+    def __init__(self, kind="quantile"):
+        if kind == "quantile":
+            self.scaler = QuantileTransformer()
+        elif kind == "standard":
+            self.scaler = StandardScaler()
+        elif kind == "minmax":
+            self.scaler = MinMaxScaler()
+
+    def flatten_to_2D(self, X):
+
+        return np.reshape(X, newshape=(X.shape[0] * X.shape[1] * X.shape[2], X.shape[-1]))
+
+    def fit_transform(self, X):
+
+        x = self.flatten_to_2D(X)
+        return np.reshape(self.scaler.fit_transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
+
+    def transform(self, X):
+
+        x = self.flatten_to_2D(X)
+        return np.reshape(self.scaler.transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
 
 
 

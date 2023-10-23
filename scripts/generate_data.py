@@ -11,7 +11,7 @@ import glob
 def main(config, file):
 
     print(file)
-    sampler = DataSampler()
+    sampler = DataSampler(**config["sampler_args"])
     sampler.load_data(file)
     data = sampler.sample(time_window_size=config["time_window_size"],
                           samples_per_window=config["samples_per_window"],
