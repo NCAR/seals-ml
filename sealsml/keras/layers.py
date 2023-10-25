@@ -4,6 +4,7 @@ import keras_core.ops as ops
 
 
 class VectorQuantizer(layers.Layer):
+
     def __init__(self, num_embeddings, embedding_dim, beta=0.25, **kwargs):
         super().__init__(**kwargs)
         self.embedding_dim = embedding_dim
@@ -61,3 +62,50 @@ class VectorQuantizer(layers.Layer):
         # Derive the indices for minimum distances.
         encoding_indices = ops.argmin(distances, axis=1)
         return encoding_indices
+
+
+class ConvSensorEncoder(layers.Layer):
+    """
+    Performs a series of the same 1D convolutions and poolings on each sensor in an arbitrary length sequence of
+    sensors. Expects input of shape (batch_size, sensor, time, variable).
+
+    """
+    def __init__(self, min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3, conv_activation="relu",
+                 pooling="average", pool_size=2, padding="valid",
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.min_filters = min_filters
+        self.kernel_size = kernel_size
+        self.filter_growth_rate = filter_growth_rate
+        self.n_conv_layers = n_conv_layers
+        self.conv_activation = conv_activation
+        self.pooling = pooling
+        self.pool_size = pool_size
+        self.padding = padding
+        self.conv_layers = []
+        self.pooling_layers = []
+        curr_filters = min_filters
+        for c in range(self.n_conv_layers):
+            self.conv_layers.append(layers.Conv1D(curr_filters, self.kernel_size, padding=self.padding,
+                                                  activation=self.conv_activation))
+            if pooling == "average":
+                self.pooling_layers.append(layers.AveragePooling1D(self.pool_size))
+            else:
+                self.pooling_layers.append(layers.MaxPooling1D(self.pool_size))
+            curr_filters *= filter_growth_rate
+        return
+
+    def call(self, x):
+        input_shape = ops.shape(x)
+        outputs = []
+        for s in range(input_shape[1]):
+            sensor_output = x[:, s]
+            for c in range(self.n_conv_layers):
+                conv_output = self.conv_layers[c](sensor_output)
+                sensor_output = self.pooling_layers[c](conv_output)
+            sensor_output_shape = ops.shape(sensor_output)
+            sensor_output_flat = ops.reshape(sensor_output,
+                                             (sensor_output_shape[0], sensor_output_shape[1] * sensor_output_shape[2]))
+            outputs.append(sensor_output_flat)
+        final_output = ops.stack(outputs, axis=1)
+        return final_output

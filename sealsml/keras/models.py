@@ -1,7 +1,7 @@
 import keras_core.layers as layers
 import keras_core.models as models
 from keras_nlp.layers import TransformerDecoder, TransformerEncoder
-from .layers import VectorQuantizer
+from .layers import VectorQuantizer, ConvSensorEncoder
 
 
 class QuantizedTransformer(models.Model):
@@ -51,39 +51,59 @@ class QuantizedTransformer(models.Model):
         self.quantized_beta = quantized_beta
         self.output_activation = output_activation
         self.use_quantizer = use_quantizer
-        self.vector_quantizer = None
+        self.vector_quantizers = None
         self.n_outputs = n_outputs
         self.encoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation)
         self.decoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation)
-        self.transformer_encoder = TransformerEncoder(intermediate_dim=self.hidden_size,
+        self.transformer_encoders = [TransformerEncoder(intermediate_dim=self.hidden_size,
                                                       num_heads=self.n_heads,
                                                       dropout=self.dropout_rate,
                                                       activation=self.hidden_activation)
-        self.transformer_decoder = TransformerDecoder(intermediate_dim=self.hidden_size,
+                                     for n in range(self.encoder_layers)]
+        self.transformer_decoders = [TransformerDecoder(intermediate_dim=self.hidden_size,
                                                       num_heads=self.n_heads,
                                                       dropout=self.dropout_rate,
                                                       activation=self.hidden_activation)
+                                     for n in range(self.decoder_layers)]
         if self.use_quantizer:
-            self.vector_quantizer = VectorQuantizer(self.num_quantized_embeddings, self.hidden_size,
-                                                beta=self.quantized_beta)
+            self.vector_quantizers = [VectorQuantizer(self.num_quantized_embeddings, self.hidden_size,
+                                                    beta=self.quantized_beta) for n in range(self.encoder_layers)]
         self.output_layer = layers.Dense(n_outputs, activation=self.output_activation)
 
         return
 
     def call(self, inputs, training=False):
+        """
+        Args:
+            inputs (tuple): Inputs should contain at most
+                (encoder_input, decoder_input, encoder_padding_mask, decoder_padding_mask) but the mask variables
+                are optional. Using this order is required.
+            training (bool): if True run the layers in training mode.
+
+        """
         # First inputs element is the encoder input, which would be the sensors.
         encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
         decoder_input = inputs[1]
+        encoder_padding_mask = None
+        decoder_padding_mask = None
+        if len(inputs) > 2:
+            encoder_padding_mask = inputs[2]
+        if len(inputs) > 3:
+            decoder_padding_mask = inputs[3]
         encoder_hidden_out = self.encoder_hidden(encoder_input)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
-        encoder_output = self.transformer_encoder(encoder_hidden_out)
+        encoder_output = self.transformer_encoders[0](encoder_hidden_out, padding_mask=encoder_padding_mask)
         for e in range(1, self.encoder_layers):
-            encoder_output = self.transformer_encoder(encoder_output)
-        if self.use_quantizer:
-            encoder_output = self.vector_quantizer(encoder_output)
-        decoder_output = self.transformer_decoder(decoder_hidden_out, encoder_output)
+            if self.use_quantizer:
+                encoder_output = self.vector_quantizers[e](encoder_output)
+            encoder_output = self.transformer_encoders[e](encoder_output, padding_mask=encoder_padding_mask)
+        decoder_output = self.transformer_decoders[0](decoder_hidden_out, encoder_output,
+                                                      encoder_padding_mask=encoder_padding_mask,
+                                                      decoder_padding_mask=decoder_padding_mask)
         for d in range(1, self.decoder_layers):
-            decoder_output = self.transformer_decoder(decoder_hidden_out, encoder_output)
+            decoder_output = self.transformer_decoders[d](decoder_hidden_out, encoder_output,
+                                                          encoder_padding_mask=encoder_padding_mask,
+                                                          decoder_padding_mask=decoder_padding_mask)
         output = self.output_layer(decoder_output)
         return output
