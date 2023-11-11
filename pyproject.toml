@@ -24,7 +24,7 @@ dependencies = [
    "metpy",
    "dask",
    "bridgescaler",
-   "keras_core",
+   "tf_nightly",
    "keras_nlp",
  ]
 [tool.setuptools]

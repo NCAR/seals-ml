@@ -1,40 +1,31 @@
-import keras_core.layers as layers
-import keras_core.initializers as initializers
-import keras_core.ops as ops
+import keras.layers as layers
+import keras.initializers as initializers
+import keras.ops as ops
+import keras
 
-
+@keras.saving.register_keras_serializable(package="SEALS_keras")
 class VectorQuantizer(layers.Layer):
 
     def __init__(self, num_embeddings, embedding_dim, beta=0.25, **kwargs):
         super().__init__(**kwargs)
-        self.embedding_dim = embedding_dim
         self.num_embeddings = num_embeddings
-
+        self.embedding_dim = embedding_dim
         # The `beta` parameter is best kept between [0.25, 2] as per the paper.
         self.beta = beta
-
-        # Initialize the embeddings which we will quantize.
         self.embeddings = self.add_weight(
             shape=(self.embedding_dim, self.num_embeddings),
             initializer=initializers.RandomUniform,
             trainable=True,
-            name="embeddings_vqvae",
-        )
+            name="embeddings_vqvae")
 
     def call(self, x):
-        # Calculate the input shape of the inputs and
-        # then flatten the inputs keeping `embedding_dim` intact.
         input_shape = ops.shape(x)
-        #flattened = ops.reshape(x, [-1, self.embedding_dim])
         outputs = []
         for i in range(input_shape[1]):
         # Quantization.
             encoding_indices = self.get_code_indices(x[:, i])
             encodings = ops.one_hot(encoding_indices, self.num_embeddings)
             quantized = ops.matmul(encodings, ops.transpose(self.embeddings))
-
-            # Reshape the quantized values back to the original input shape
-            # quantized = ops.reshape(quantized, input_shape)
 
             # Calculate vector quantization loss and add that to the layer. You can learn more
             # about adding losses to different layers here:
@@ -58,12 +49,18 @@ class VectorQuantizer(layers.Layer):
             + ops.sum(self.embeddings ** 2, axis=0)
             - 2 * similarity
         )
-
         # Derive the indices for minimum distances.
         encoding_indices = ops.argmin(distances, axis=1)
         return encoding_indices
 
+    def get_config(self):
+        base_config = super().get_config()
+        param_config = dict(num_embeddings=self.num_embeddings,
+                            embedding_dim=self.embedding_dim,
+                            beta=self.beta)
+        return {**base_config, **param_config}
 
+@keras.saving.register_keras_serializable(package="SEALS_keras")
 class ConvSensorEncoder(layers.Layer):
     """
     Performs a series of the same 1D convolutions and poolings on each sensor in an arbitrary length sequence of
@@ -109,3 +106,17 @@ class ConvSensorEncoder(layers.Layer):
             outputs.append(sensor_output_flat)
         final_output = ops.stack(outputs, axis=1)
         return final_output
+
+    def get_config(self):
+        base_config = super().get_config()
+        param_config = dict(min_filters=self.min_filters,
+                            kernel_size=self.kernel_size,
+                            filter_growth_rate=self.filter_growth_rate,
+                            n_conv_layers=self.n_conv_layers,
+                            conv_activation=self.conv_activation,
+                            pooling=self.pooling,
+                            pool_size=self.pool_size,
+                            padding=self.padding)
+        return {**base_config, **param_config}
+
+
