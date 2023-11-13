@@ -60,6 +60,7 @@ class VectorQuantizer(layers.Layer):
                             beta=self.beta)
         return {**base_config, **param_config}
 
+
 @keras.saving.register_keras_serializable(package="SEALS_keras")
 class ConvSensorEncoder(layers.Layer):
     """
@@ -67,7 +68,7 @@ class ConvSensorEncoder(layers.Layer):
     sensors. Expects input of shape (batch_size, sensor, time, variable).
 
     """
-    def __init__(self, min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3, conv_activation="relu",
+    def __init__(self, min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3, hidden_activation="relu",
                  pooling="average", pool_size=2, padding="valid",
                  **kwargs):
         super().__init__(**kwargs)
@@ -75,7 +76,7 @@ class ConvSensorEncoder(layers.Layer):
         self.kernel_size = kernel_size
         self.filter_growth_rate = filter_growth_rate
         self.n_conv_layers = n_conv_layers
-        self.conv_activation = conv_activation
+        self.hidden_activation = hidden_activation
         self.pooling = pooling
         self.pool_size = pool_size
         self.padding = padding
@@ -83,8 +84,8 @@ class ConvSensorEncoder(layers.Layer):
         self.pooling_layers = []
         curr_filters = min_filters
         for c in range(self.n_conv_layers):
-            self.conv_layers.append(layers.Conv1D(curr_filters, self.kernel_size, padding=self.padding,
-                                                  activation=self.conv_activation))
+            self.conv_layers.append(layers.SeparableConv1D(curr_filters, self.kernel_size, padding=self.padding,
+                                                           activation=self.hidden_activation, use_bias=False))
             if pooling == "average":
                 self.pooling_layers.append(layers.AveragePooling1D(self.pool_size))
             else:
@@ -113,7 +114,7 @@ class ConvSensorEncoder(layers.Layer):
                             kernel_size=self.kernel_size,
                             filter_growth_rate=self.filter_growth_rate,
                             n_conv_layers=self.n_conv_layers,
-                            conv_activation=self.conv_activation,
+                            hidden_activation=self.hidden_activation,
                             pooling=self.pooling,
                             pool_size=self.pool_size,
                             padding=self.padding)

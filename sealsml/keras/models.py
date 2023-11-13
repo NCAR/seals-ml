@@ -35,7 +35,10 @@ class QuantizedTransformer(keras.models.Model):
                  dropout_rate=0.1,
                  use_quantizer=False,
                  quantized_beta=0.25,
-                 n_outputs=1, **kwargs):
+                 n_outputs=1,
+                 min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3,
+                 pooling="average", pool_size=2, padding="valid",
+                 **kwargs):
         super().__init__(**kwargs)
         assert encoder_layers > 0, "Should be at least 1 encoder layer"
         self.encoder_layers = encoder_layers
@@ -54,6 +57,22 @@ class QuantizedTransformer(keras.models.Model):
         self.output_activation = output_activation
         self.use_quantizer = use_quantizer
         self.n_outputs = n_outputs
+        self.min_filters= min_filters
+        self.kernel_size = kernel_size
+        self.filter_growth_rate = filter_growth_rate
+        self.n_conv_layers = n_conv_layers
+        self.pooling = pooling
+        self.pool_size = pool_size
+        self.padding = padding
+        self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
+                                "num_quantized_embeddings", "hidden_activation", "output_activation",
+                                "dropout_rate", "use_quantizer", "quantized_beta", "n_outputs", "min_filters",
+                                "kernel_size", "filter_growth_rate", "n_conv_layers", "pooling", "pool_size", "padding"]
+        self.conv_encoder = ConvSensorEncoder(min_filters=self.min_filters, kernel_size=self.kernel_size,
+                                              filter_growth_rate=self.filter_growth_rate,
+                                              n_conv_layers=self.n_conv_layers,
+                                              pooling=self.pooling, padding=self.padding,
+                                              hidden_activation=self.hidden_activation)
         self.encoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation,
                                            name="encoder_hidden")
         self.decoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation,
@@ -93,18 +112,18 @@ class QuantizedTransformer(keras.models.Model):
 
         """
         # First inputs element is the encoder input, which would be the sensors.
-        encoder_input_values = inputs[0]
+        encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
-        decoder_input_values = inputs[1]
+        decoder_input = inputs[1]
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
             encoder_padding_mask = inputs[2]
         if len(inputs) > 3:
             decoder_padding_mask = inputs[3]
-        encoder_input = encoder_input_values
-        decoder_input = decoder_input_values
-        encoder_hidden_out = self.encoder_hidden(encoder_input)
+        encoder_conv_out = self.conv_encoder(encoder_input)
+        print(encoder_conv_out.shape)
+        encoder_hidden_out = self.encoder_hidden(encoder_conv_out)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
         encoder_output = self.encoder_transformers[0](encoder_hidden_out,
                                                       padding_mask=encoder_padding_mask)
@@ -125,16 +144,5 @@ class QuantizedTransformer(keras.models.Model):
 
     def get_config(self):
         base_config = super().get_config()
-        parameter_config = {"encoder_layers": self.encoder_layers,
-                            "decoder_layers": self.decoder_layers,
-                            "hidden_size": self.hidden_size,
-                            "n_heads": self.n_heads,
-                            "num_quantized_embeddings": self.num_quantized_embeddings,
-                            "hidden_activation": self.hidden_activation,
-                            "output_activation": self.output_activation,
-                            "dropout_rate": self.dropout_rate,
-                            "use_quantizer": self.use_quantizer,
-                            "quantized_beta": self.quantized_beta,
-                            "n_outputs": self.n_outputs,
-                            }
+        parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
