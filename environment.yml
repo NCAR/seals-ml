@@ -23,5 +23,4 @@ dependencies:
   - pip:
     - bridgescaler
     - keras_nlp
-    - tf-nightly
     - .
