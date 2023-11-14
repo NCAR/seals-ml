@@ -21,8 +21,6 @@ dependencies:
   - metpy
   - dask
   - pip:
-    - tensorflow
-    - keras_core
     - bridgescaler
-    - pytest
+    - keras_nlp
     - .

@@ -24,8 +24,6 @@ dependencies = [
    "metpy",
    "dask",
    "bridgescaler",
-   "keras_core",
-   "keras_nlp",
  ]
 [tool.setuptools]
 packages = ["sealsml", "sealsml.keras"]
