@@ -1,5 +1,7 @@
 import numpy as np
 from sklearn.metrics import accuracy_score
+from hagelslag.evaluation.ContingencyTable import ContingencyTable
+from hagelslag.evaluation.ProbabilityMetrics import DistributedROC, DistributedReliability, DistributedCRPS
 
 def provide_metrics(y_true, probabilities):
 
