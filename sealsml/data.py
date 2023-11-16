@@ -200,7 +200,7 @@ class Preprocessor():
         decoder_data = ds['decoder_input']
         targets = ds['target'].values
 
-        return encoder_data, decoder_data, targets
+        return encoder_data, decoder_data, targets.squeeze()
 
     def preprocess(self, data, fit_scaler=True):
 
