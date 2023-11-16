@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy as np
 from sealsml.geometry import GeoCalculator
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -178,29 +178,76 @@ class DataSampler(object):
         return xr.merge([encoder_ds, decoder_ds, targets])
 
 
-class Scaler4D():
 
-    def __init__(self, kind="quantile"):
-        if kind == "quantile":
-            self.scaler = QuantileTransformer()
-        elif kind == "standard":
-            self.scaler = StandardScaler()
-        elif kind == "minmax":
-            self.scaler = MinMaxScaler()
+class Preprocessor():
 
-    def flatten_to_2D(self, X):
+    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
 
-        return np.reshape(X, newshape=(X.shape[0] * X.shape[1] * X.shape[2], X.shape[-1]))
+        self.sensor_pad_value = sensor_pad_value
+        self.sensor_type_value = sensor_type_value
 
-    def fit_transform(self, X):
+        if scaler_type.lower() == "standard":
+            self.scaler = DeepStandardScaler()
+        elif scaler_type.lower() == "minmax":
+            self.scaler = DeepMinMaxScaler()
+        elif scaler_type.lower() == "quantile":
+            self.scaler = DeepQuantileTransformer()
 
-        x = self.flatten_to_2D(X)
-        return np.reshape(self.scaler.fit_transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
+    def load_data(self, files):
 
-    def transform(self, X):
+        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested")
+        encoder_data = ds['encoder_input']
+        decoder_data = ds['decoder_input']
+        targets = ds['target'].values
 
-        x = self.flatten_to_2D(X)
-        return np.reshape(self.scaler.transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
+        return encoder_data, decoder_data, targets
+
+    def preprocess(self, data, fit_scaler=True):
+
+        imputed_data, mask = self.impute_mask(data)
+        padding_mask = mask[..., 0, 0]
+
+        if fit_scaler:
+            self.fit_scaler(imputed_data)
+
+        scaled_data = self.transform(imputed_data)
+        scaled_data = self.inv_impute_mask(scaled_data, mask).squeeze()
+
+        return scaled_data, padding_mask
+
+    def impute_mask(self, data):
+
+        arr = data[..., 0].values
+        mask = data[..., -1].values
+
+        arr[mask == self.sensor_pad_value] = np.nan
+        arr[mask == self.sensor_type_value] = np.nan
+
+        new_mask = np.zeros(shape=mask.shape)
+        new_mask[mask == self.sensor_pad_value] = 1
+        new_mask[mask == self.sensor_type_value] = 1
+
+        return arr, new_mask.astype(bool)
+
+    def inv_impute_mask(self, data, mask, impute_value=0):
+
+        data[mask == True] = impute_value
+
+        return data
+
+    def fit_scaler(self, data):
+
+        self.scaler.fit(data)
+
+    def transform(self, data):
+
+        scaled_data = self.scaler.transform(data)
+
+        return scaled_data
+
+
+
+
 
 
 
