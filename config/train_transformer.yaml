@@ -1,0 +1,36 @@
+data_path: "/glade/scratch/cbecker/SEALS_training_data_11152023/"
+out_path: "/glade/scratch/username/SEALS_output/"
+save: True
+validation_ratio: 0.2
+sensor_type_mask: -999
+sensor_exist_mask: -1
+scaler_type: "quantile"
+model:
+  encoder_layers: 2
+  decoder_layers: 2
+  hidden_size: 128
+  n_heads: 8
+  num_quantized_embeddings: 500
+  hidden_activation: "relu"
+  output_activation: "sigmoid"
+  dropout_rate: 0.1
+  use_quantizer: True
+  quantized_beta: 0.25
+  n_outputs: 1
+  min_filters: 4
+  kernel_size: 3
+  filter_growth_rate: 2
+  n_conv_layers: 3
+  pooling: "average"
+  pool_size: 2
+  padding: "valid"
+model_fit:
+  epochs: 5
+  verbose: 1
+  batch_size: 1024
+model_compile:
+  loss: "binary_crossentropy"
+  optimizer: "adam"
+  metrics: ["categorical_accuracy"]
+predict_batch_size: 10000
+
