@@ -32,12 +32,12 @@ class BaselineModels(object):
 
   def __init__(self, x_sensors, y_sensors, z_sensors, x_mesh, y_mesh):
 
-      self.x_sensors = x_sensors
-      self.y_sensors = y_sensors
-      self.z_sensors = z_sensors
+    self.x_sensors = x_sensors
+    self.y_sensors = y_sensors
+    self.z_sensors = z_sensors
 
-      self.x_mesh = x_mesh
-      self.y_mesh = y_mesh
+    self.x_mesh = x_mesh
+    self.y_mesh = y_mesh
 
   def scipy_interpolate(self, method='cubic'):
     """
@@ -69,7 +69,7 @@ class BaselineModels(object):
 
     return z_interpolated, max_z, max_indices
   
- def gaussian_process_interpolation(self, length_scale=10):
+  def gaussian_process_interpolation(self, length_scale=10):
     """
     Perform Gaussian Process interpolation on the given data.
 
@@ -111,7 +111,7 @@ class BaselineModels(object):
 
     return reshaped_gp_results, max_z_gp, max_indices_gp
 
-def random_forest_interpolation(self, max_depth=2, n_estimators=50, random_state=42):
+  def random_forest_interpolation(self, max_depth=2, n_estimators=50, random_state=42):
     """
     Perform Random Forest interpolation on the given data.
 
