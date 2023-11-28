@@ -1,6 +1,8 @@
-data_path: "/glade/scratch/cbecker/SEALS_training_data_11152023/"
-out_path: "/glade/scratch/username/SEALS_output/"
-save: True
+data_path: "/glade/work/cbecker/SEALS_training_data_20231121/"
+out_path: "/glade/work/username/SEALS_output/"
+random_seed: 812
+save_model: False
+save_output: False
 validation_ratio: 0.2
 sensor_type_mask: -999
 sensor_exist_mask: -1
@@ -25,7 +27,7 @@ model:
   pool_size: 2
   padding: "valid"
 model_fit:
-  epochs: 5
+  epochs: 2
   verbose: 1
   batch_size: 1024
 model_compile:
