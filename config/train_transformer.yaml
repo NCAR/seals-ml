@@ -1,9 +1,12 @@
-data_path: "/glade/work/cbecker/SEALS_training_data_20231121/"
-out_path: "/glade/work/username/SEALS_output/"
+data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
+out_path: "/glade/work/username/SEALS_output/train/"
+#data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
+#out_path: "/glade/scratch/username/SEALS_output/"
+#out_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/train/"
 random_seed: 812
-save_model: False
-save_output: False
-validation_ratio: 0.2
+save_model: True
+save_output: True
+validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
@@ -27,7 +30,7 @@ model:
   pool_size: 2
   padding: "valid"
 model_fit:
-  epochs: 2
+  epochs: 15
   verbose: 1
   batch_size: 1024
 model_compile:
