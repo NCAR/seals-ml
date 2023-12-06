@@ -1,6 +1,6 @@
 import keras.layers as layers
 import keras.initializers as initializers
-import keras_core.ops as ops
+import keras.ops as ops
 import keras
 
 @keras.saving.register_keras_serializable(package="SEALS_keras")

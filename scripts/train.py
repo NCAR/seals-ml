@@ -2,16 +2,19 @@ import yaml
 import os
 import argparse
 import glob
-from sealsml.keras.models import QuantizedTransformer
 from sealsml.data import Preprocessor
+from bridgescaler import save_scaler
+from sealsml.keras.models import QuantizedTransformer
 from sealsml.evaluate import provide_metrics
 from sklearn.model_selection import train_test_split
-from bridgescaler import save_scaler
 import keras
 import numpy as np
 import xarray as xr
 import datetime
 import time
+import tensorflow as tf
+tf.debugging.disable_traceback_filtering()
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
@@ -25,7 +28,6 @@ username = os.environ.get('USER')
 config["out_path"] = config["out_path"].replace("username", username)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
-print(files)
 
 training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
@@ -40,22 +42,30 @@ scaled_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
 print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 scaled_decoder, decoder_mask = p.preprocess(decoder_data, fit_scaler=False)
+encoder_mask = ~encoder_mask
+decoder_mask = ~decoder_mask
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, targets_val = p.load_data(validation)
 scaled_encoder_val, encoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
 scaled_decoder_val, decoder_mask_val = p.preprocess(decoder_data_val, fit_scaler=False)
+encoder_mask_val = ~encoder_mask_val
+decoder_mask_val = ~decoder_mask_val
+print(decoder_mask.shape, targets.shape)
 #
 # if config["save_model"]:
 #     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
 #     os.makedirs(config["out_path"], exist_ok=True)
 #     save_scaler(p.scaler, os.path.join(config["out_path"], f"scaler_{date_str}.json"))
 
-print(encoder_mask.shape, decoder_mask.shape, encoder_mask_val.shape, decoder_mask_val.shape)
-print(scaled_encoder.shape, scaled_decoder[..., :4].shape)
-
+print("encoder mask:", encoder_mask.shape)
+print("decoder mask:", decoder_mask.shape)
+print("encoder:", scaled_encoder.shape)
+print("decoder:", scaled_decoder[..., :4].shape)
+print(decoder_mask[0])
+print(targets.shape)
 model = QuantizedTransformer(**config["model"])
-model.compile(**config["model_compile"])
-
+model.compile(**config["model_compile"], jit_compile=False)
+print(model.summary())
 start = time.time()
 model.fit(x=(scaled_encoder, scaled_decoder[..., :4], encoder_mask, decoder_mask),
           y=targets,
