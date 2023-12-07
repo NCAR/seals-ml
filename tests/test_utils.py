@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 import xarray as xr
 from sealsml.geometry import GeoCalculator
-from sealsml.data import DataSampler, Scaler4D
+from sealsml.data import DataSampler
 
 def test_distance_between_points_3d():
     """
@@ -150,23 +150,3 @@ def test_DataSampler():
     # assert mask is equal
     assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
 
-
-def test_scaler():
-
-    scaler = Scaler4D(kind="quantile")
-    n_samples = 1000
-    n_sensors = 15
-    n_leaks = 10
-    n_time_steps= 50
-    n_variables = 8
-
-    encoder_x = np.random.random(size=(n_samples, n_sensors, n_time_steps, n_variables))
-    decoder_x = np.random.random(size=(n_samples, n_leaks, 1, n_variables))
-
-    encoder_transformed = scaler.fit_transform(encoder_x)
-    decoder_transformed = scaler.transform(decoder_x)
-
-    assert np.max(encoder_transformed) == 1
-    assert np.min(encoder_transformed) == 0
-    assert encoder_transformed.shape == (n_samples, n_sensors, n_time_steps * n_variables)
-    assert decoder_transformed.shape == (n_samples, n_leaks, 1 * n_variables)

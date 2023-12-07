@@ -23,7 +23,7 @@ dependencies:
   - pip:
     - bridgescaler
     - keras
-    - tensorflow
+    - tensorflow[and-cuda]
     - keras_nlp
     - hagelslag
     - .

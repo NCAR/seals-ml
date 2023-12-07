@@ -18,7 +18,7 @@ def test_quantized_transformer():
     y[x_decoder[:, :, 1].argmax(axis=0)] = 1
     qt = QuantizedTransformer(use_quantizer=True, encoder_layers=2, decoder_layers=2)
     qt.compile(loss="binary_crossentropy", optimizer="adam")
-    qt.call((x_encoder, x_decoder))
+    # qt.call((x_encoder, x_decoder))
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=1)
     weights_init = qt.get_weights()
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=1)

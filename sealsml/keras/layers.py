@@ -119,5 +119,3 @@ class ConvSensorEncoder(layers.Layer):
                             pool_size=self.pool_size,
                             padding=self.padding)
         return {**base_config, **param_config}
-
-
