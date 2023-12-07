@@ -1,5 +1,8 @@
 import xarray as xr
+import pandas as pd
 import numpy as np
+from os.path import join, exists
+from os import makedirs
 from sealsml.geometry import GeoCalculator
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 
@@ -230,6 +233,14 @@ class Preprocessor():
 
         return encoder_data, decoder_data, targets.squeeze()
 
+    def save_filenames(self, train_files, validation_files, out_path):
+        if not exists(out_path):
+            makedirs(out_path)
+        train_file_series = pd.Series(train_files, name="train_files")
+        train_file_series.to_csv(join(out_path, "train_files.csv"))
+        validation_file_series = pd.Series(validation_files, name="validation_files")
+        validation_file_series.to_csv(join(out_path, "validation_files.csv"))
+
     def preprocess(self, data, fit_scaler=True):
 
         imputed_data, mask = self.impute_mask(data)
@@ -273,4 +284,4 @@ class Preprocessor():
 
         return scaled_data
 
-
+    

@@ -1,6 +1,6 @@
 #data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
 data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
-out_path: "/glade/derecho/scratch/username/SEALS_output/train/"
+out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
 #data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
 #out_path: "/glade/scratch/username/SEALS_output/"
 #out_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/train/"
@@ -31,9 +31,9 @@ model:
   pool_size: 2
   padding: "valid"
 model_fit:
-  epochs: 100
+  epochs: 70
   verbose: 1
-  batch_size: 256
+  batch_size: 1024
 model_compile:
   loss: "binary_crossentropy"
   optimizer: "adam"

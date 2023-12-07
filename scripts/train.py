@@ -13,6 +13,7 @@ import xarray as xr
 import datetime
 import time
 import tensorflow as tf
+import pandas as pd
 tf.debugging.disable_traceback_filtering()
 
 
@@ -34,6 +35,7 @@ training, validation = train_test_split(files,
                                         random_state=config["random_seed"])
 
 p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
+p.save_filenames(training, validation, config["out_path"])
 start = time.time()
 encoder_data, decoder_data, targets = p.load_data(training)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
@@ -67,7 +69,7 @@ model = QuantizedTransformer(**config["model"])
 model.compile(**config["model_compile"], jit_compile=False)
 print(model.summary())
 start = time.time()
-model.fit(x=(scaled_encoder, scaled_decoder[..., :4], encoder_mask, decoder_mask),
+fit_hist = model.fit(x=(scaled_encoder, scaled_decoder[..., :4], encoder_mask, decoder_mask),
           y=targets,
           validation_data=((scaled_encoder_val, scaled_decoder_val[..., :4], encoder_mask_val, decoder_mask_val), targets_val),
           **config["model_fit"])
@@ -80,7 +82,7 @@ print(f"Minutes to run validation inference: {(time.time() - start) / 60 }")
 metrics = provide_metrics(targets_val, probabilities)
 
 print(metrics)
-date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 
 if config["save_model"]:
 
@@ -93,4 +95,5 @@ if config["save_output"]:
     output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], targets_val),
                                        probabilities=(["sample", "pot_leak_locs"], probabilities)))
     output.to_netcdf(os.path.join(config["out_path"], f"model_output_{date_str}.nc"))
-
+    loss_hist = pd.DataFrame(fit_hist.history)
+    loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.nc"))
