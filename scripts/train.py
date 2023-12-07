@@ -44,34 +44,26 @@ scaled_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
 print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 scaled_decoder, decoder_mask = p.preprocess(decoder_data, fit_scaler=False)
-encoder_mask = ~encoder_mask
-decoder_mask = ~decoder_mask
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, targets_val = p.load_data(validation)
 scaled_encoder_val, encoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
 scaled_decoder_val, decoder_mask_val = p.preprocess(decoder_data_val, fit_scaler=False)
-encoder_mask_val = ~encoder_mask_val
-decoder_mask_val = ~decoder_mask_val
-print(decoder_mask.shape, targets.shape)
-#
-# if config["save_model"]:
-#     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
-#     os.makedirs(config["out_path"], exist_ok=True)
-#     save_scaler(p.scaler, os.path.join(config["out_path"], f"scaler_{date_str}.json"))
-
 print("encoder mask:", encoder_mask.shape)
 print("decoder mask:", decoder_mask.shape)
 print("encoder:", scaled_encoder.shape)
 print("decoder:", scaled_decoder[..., :4].shape)
-print(decoder_mask[0])
 print(targets.shape)
 model = QuantizedTransformer(**config["model"])
 model.compile(**config["model_compile"], jit_compile=False)
 print(model.summary())
 start = time.time()
 fit_hist = model.fit(x=(scaled_encoder, scaled_decoder[..., :4], encoder_mask, decoder_mask),
-          y=targets,
-          validation_data=((scaled_encoder_val, scaled_decoder_val[..., :4], encoder_mask_val, decoder_mask_val), targets_val),
+                     y=targets,
+                     validation_data=((scaled_encoder_val,
+                                       scaled_decoder_val[..., :4],
+                                       encoder_mask_val,
+                                       decoder_mask_val),
+                                      targets_val),
           **config["model_fit"])
 print(f"Minutes to train model: {(time.time() - start) / 60 }")
 start = time.time()
@@ -96,4 +88,4 @@ if config["save_output"]:
                                        probabilities=(["sample", "pot_leak_locs"], probabilities)))
     output.to_netcdf(os.path.join(config["out_path"], f"model_output_{date_str}.nc"))
     loss_hist = pd.DataFrame(fit_hist.history)
-    loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.nc"))
+    loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.csv"))
