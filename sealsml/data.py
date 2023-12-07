@@ -11,9 +11,11 @@ class DataSampler(object):
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
                  sensor_height=1, leak_height=0, sensor_type_mask=1, sensor_exist_mask=-1,
-                 coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
+                 coord_vars=None,
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
+        if coord_vars is None:
+            coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.min_leak_loc = min_leak_loc
