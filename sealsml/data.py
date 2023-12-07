@@ -252,7 +252,7 @@ class Preprocessor():
         scaled_data = self.transform(imputed_data)
         scaled_data = self.inv_impute_mask(scaled_data, mask).squeeze()
 
-        return scaled_data, padding_mask
+        return scaled_data, ~padding_mask
 
     def impute_mask(self, data):
 
