@@ -40,7 +40,7 @@ class ScipyInterpolate(object):
     def __init__(self, method="cubic"):
         self.method = method
 
-    def fit(self, x, y, z):
+    def fit(self, x_test, y_test):
         """
         Stores the sensor data for later use in the predict method.
 
@@ -52,9 +52,9 @@ class ScipyInterpolate(object):
         Returns:
         - self (ScipyInterpolate): Fitted instance.
         """
-        self.x_sensors_ = x
-        self.y_sensors_ = y
-        self.z_sensors_ = z
+        self.x_sensors_ = x_test[:,0]
+        self.y_sensors_ = x_test[:,1]
+        self.z_sensors_ = y_test
         return self
 
     def predict(self, x_mesh, y_mesh):
@@ -92,26 +92,21 @@ class GaussianProcessInterpolator():
     def __init__(self, length_scale=10):
         self.length_scale = length_scale
 
-    def fit(self, x, y, z):
+    def fit(self, x_test, y_test):
         """
         Fits the Gaussian process model with the sensor data.
 
         Parameters:
-        - x_sensors (array-like): X-coordinates of the sensor data.
-        - y_sensors (array-like): Y-coordinates of the sensor data.
-        - z_sensors (array-like): Sensor values corresponding to (x_sensors, y_sensors).
+        - X Test (made up of X & Y locations) x_sensors (array-like): X-coordinates of the sensor data.
+        - Y_test: (array-like): Sensor values corresponding to X_test(x_sensors, y_sensors).
 
         Returns:
         - self (GaussianProcessInterpolator): Fitted instance.
         """
-        self.x_sensors_ = x
-        self.y_sensors_ = y
-        self.z_sensors_ = z
+        self.z_sensors_ = y_test
 
         # Combine sensor data into training features
-        x_train = np.column_stack((self.x_sensors_, self.y_sensors_))
-
-
+        x_train = x_test
 
         # Fit the Gaussian process model
         self.gp_model = GaussianProcessRegressor(kernel=RBF(length_scale=self.length_scale))
@@ -164,7 +159,7 @@ class RandomForestInterpolator():
         self.n_estimators = n_estimators
         self.random_state = random_state
 
-    def fit(self, x, y, z):
+    def fit(self, X_train, y_train):
         """
         Fits the Random Forest model with the sensor data.
 
@@ -177,19 +172,15 @@ class RandomForestInterpolator():
         - self (RandomForestInterpolator): Fitted instance.
         """
 
-        self.x_sensors_ = x
-        self.y_sensors_ = y
-        self.z_sensors_ = z
-
-
         # Combine sensor data into training features
-        x_train = np.column_stack((self.x_sensors_, self.y_sensors_))
+        self.x_train_ = X_train
+        self.y_train_ = y_train
 
         # Create the Random Forest Regressor
         self.rf_model = RandomForestRegressor(n_estimators=self.n_estimators, max_depth=self.max_depth, random_state=self.random_state)
 
         # Fit the model with the data
-        self.rf_model.fit(x_train, self.z_sensors_)
+        self.rf_model.fit(self.x_train_, self.y_train_)
 
         return self
 
