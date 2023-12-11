@@ -54,7 +54,7 @@ class ScipyInterpolate(object):
         self.z_sensors_ = y_test
         return self
 
-    def predict(self, x_test):
+    def predict(self, x_test, output_shape = (100,100)):
         """
         Performs interpolation and finds the global maximum on the provided mesh coordinates using the stored sensor data.
 
@@ -73,7 +73,7 @@ class ScipyInterpolate(object):
         from scipy.interpolate import griddata
 
         z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_test), method=self.method)
-        z_interpolated = z_interpolated.reshape(100, 100)
+        z_interpolated = z_interpolated.reshape(output_shape)
 
         max_z = np.nanmax(z_interpolated)
         max_indices = np.where(z_interpolated == max_z)
@@ -111,7 +111,7 @@ class GaussianProcessInterpolator():
 
         return self
 
-    def predict(self, x_test):
+    def predict(self, x_test, output_shape = (100,100)):
         """
         Performs interpolation on the provided mesh coordinates using the fitted Gaussian Process model.
 
@@ -124,8 +124,6 @@ class GaussianProcessInterpolator():
         - max_z (float): Global maximum value of the interpolated data.
         - max_indices (tuple): Indices of the global maximum in the interpolated data.
         """
-       
-       
         # Combine mesh coordinates into test features
         self.x_test_ = x_test
     
@@ -133,7 +131,7 @@ class GaussianProcessInterpolator():
         interpolated_values = self.gp_model.predict(self.x_test_)
 
         # Reshape interpolated values to match the mesh dimensions
-        interpolated_values = interpolated_values.reshape(100, 100)
+        interpolated_values = interpolated_values.reshape(output_shape)
 
         # Finding Global Max and its indices using the Gaussian process model
         max_z = np.nanmax(interpolated_values)
@@ -181,7 +179,7 @@ class RandomForestInterpolator():
 
         return self
 
-    def predict(self, x_test):
+    def predict(self, x_test, output_shape = (100,100)):
         """
         Performs interpolation on the provided mesh coordinates using the fitted Random Forest model.
 
@@ -201,7 +199,7 @@ class RandomForestInterpolator():
         interpolated_values_rf = self.rf_model.predict(self.x_test_)
 
         # Reshape interpolated values to match the mesh dimensions
-        interpolated_values_rf = interpolated_values_rf.reshape(100,100)
+        interpolated_values_rf = interpolated_values_rf.reshape(output_shape)
 
         # Finding Global Max and its indices using the Gaussian process model
         max_z = np.nanmax(interpolated_values_rf)
