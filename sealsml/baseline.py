@@ -1,11 +1,8 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 from scipy.interpolate import griddata
-
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
-
 from sklearn.ensemble import RandomForestRegressor
 
 ## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
@@ -57,7 +54,7 @@ class ScipyInterpolate(object):
         self.z_sensors_ = y_test
         return self
 
-    def predict(self, x_mesh, y_mesh):
+    def predict(self, x_test):
         """
         Performs interpolation and finds the global maximum on the provided mesh coordinates using the stored sensor data.
 
@@ -75,7 +72,9 @@ class ScipyInterpolate(object):
         """
         from scipy.interpolate import griddata
 
-        z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_mesh, y_mesh), method=self.method)
+        z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_test), method=self.method)
+        z_interpolated = z_interpolated.reshape(100, 100)
+
         max_z = np.nanmax(z_interpolated)
         max_indices = np.where(z_interpolated == max_z)
 
@@ -92,7 +91,7 @@ class GaussianProcessInterpolator():
     def __init__(self, length_scale=10):
         self.length_scale = length_scale
 
-    def fit(self, x_test, y_test):
+    def fit(self, x_train, y_train):
         """
         Fits the Gaussian process model with the sensor data.
 
@@ -103,18 +102,16 @@ class GaussianProcessInterpolator():
         Returns:
         - self (GaussianProcessInterpolator): Fitted instance.
         """
-        self.z_sensors_ = y_test
-
-        # Combine sensor data into training features
-        x_train = x_test
+        self.x_train_ = x_train
+        self.y_train_ = y_train
 
         # Fit the Gaussian process model
         self.gp_model = GaussianProcessRegressor(kernel=RBF(length_scale=self.length_scale))
-        self.gp_model.fit(x_train, self.z_sensors_)
+        self.gp_model.fit(x_train, self.y_train_)
 
         return self
 
-    def predict(self, x_mesh, y_mesh):
+    def predict(self, x_test):
         """
         Performs interpolation on the provided mesh coordinates using the fitted Gaussian Process model.
 
@@ -130,13 +127,13 @@ class GaussianProcessInterpolator():
        
        
         # Combine mesh coordinates into test features
-        x_test = np.column_stack((x_mesh.ravel(), y_mesh.ravel()))
-        print('shape of x_test', np.shape(x_test))
+        self.x_test_ = x_test
+    
         # Predict interpolated values
-        interpolated_values = self.gp_model.predict(x_test)
+        interpolated_values = self.gp_model.predict(self.x_test_)
 
         # Reshape interpolated values to match the mesh dimensions
-        interpolated_values = interpolated_values.reshape(x_mesh.shape)
+        interpolated_values = interpolated_values.reshape(100, 100)
 
         # Finding Global Max and its indices using the Gaussian process model
         max_z = np.nanmax(interpolated_values)
@@ -184,7 +181,7 @@ class RandomForestInterpolator():
 
         return self
 
-    def predict(self, x_mesh, y_mesh):
+    def predict(self, x_test):
         """
         Performs interpolation on the provided mesh coordinates using the fitted Random Forest model.
 
@@ -198,17 +195,16 @@ class RandomForestInterpolator():
         - max_indices (tuple): Indices of the global maximum in the interpolated data.
         """
         # Combine mesh coordinates into test features
-        x_test = np.column_stack((x_mesh.ravel(), y_mesh.ravel()))
+        self.x_test_ = x_test
 
         # Predict interpolated values
-        interpolated_values_rf = self.rf_model.predict(x_test)
+        interpolated_values_rf = self.rf_model.predict(self.x_test_)
 
         # Reshape interpolated values to match the mesh dimensions
-        interpolated_values_rf = interpolated_values_rf.reshape(x_mesh.shape)
+        interpolated_values_rf = interpolated_values_rf.reshape(100,100)
 
-        # Finding Global Max and its indices using the Random Forest model
-        max_z_rf = np.nanmax(interpolated_values_rf)
-        max_indices_rf = np.unravel_index(np.argmax(interpolated_values_rf), interpolated_values_rf.shape)
+        # Finding Global Max and its indices using the Gaussian process model
+        max_z = np.nanmax(interpolated_values_rf)
+        max_indices = np.where(max_z == interpolated_values_rf)
 
-        return interpolated_values_rf, max_z_rf, max_indices_rf
-    
+        return interpolated_values_rf, max_z, max_indices
