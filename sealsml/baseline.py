@@ -25,7 +25,59 @@ def create_meshgrid(x_sensors, y_sensors, buffer=6, grid_points=100):
     x_new, y_new = np.mgrid[min(x_sensors)-buffer:max(x_sensors)+buffer:grid_points*1j, min(y_sensors)-buffer:max(y_sensors)+buffer:grid_points*1j]
     return x_new, y_new
 
-# Everything below here should be an interpolator
+def nanargmax_to_one(arr):
+    # Find the index of the maximum non-NaN value
+    max_index = np.nanargmax(arr)
+
+    # Create a new array with 1 at the max_index and 0 elsewhere
+    result_array = np.zeros_like(arr)
+    result_array[max_index] = 1
+
+    return result_array
+
+def find_closest_values_with_indices(arr1, arr2):
+    """
+    Find the closest values in arr2 for each element in arr1 and return their values and indices.
+
+    Parameters:
+    - arr1 (list or array-like): The first array containing elements for which the closest values are sought.
+    - arr2 (list or array-like): The second array from which the closest values are selected.
+
+    Returns:
+    tuple: A tuple containing two elements:
+        - closest_values (list): A list of closest values for each element in arr1.
+        - closest_indices (list): A list of indices corresponding to the closest values in arr2.
+    """
+    # Convert input lists to NumPy arrays for better performance
+    arr1 = np.array(arr1)
+    arr2 = np.array(arr2)
+
+    # Initialize lists to store the closest values and their indices
+    closest_values = []
+    closest_indices = []
+
+    # Check if arr2 is empty
+    if len(arr2) == 0:
+        return closest_values, closest_indices
+
+    # Iterate over each element in arr1
+    for val1 in arr1:
+        # Calculate absolute differences for all elements in arr2
+        differences = np.abs(arr2 - val1)
+
+        # Find the index with the minimum difference
+        min_diff_index = np.argmin(differences)
+
+        # Append the closest value and its index to the respective lists
+        closest_values.append(arr2[min_diff_index])
+        closest_indices.append(min_diff_index)
+
+    # Return the lists of closest values and indices
+    return closest_values, closest_indices
+
+
+
+### Everything below here should just be an interpolator ###
 class ScipyInterpolate(object):
     """
     A scikit-learn compatible class for performing 2D interpolation using scipy's griddata and finding the global maximum.
@@ -75,10 +127,7 @@ class ScipyInterpolate(object):
         z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_test), method=self.method)
         z_interpolated = z_interpolated.reshape(output_shape)
 
-        max_z = np.nanmax(z_interpolated)
-        max_indices = np.where(z_interpolated == max_z)
-
-        return z_interpolated, max_z, max_indices
+        return z_interpolated
   
 class GaussianProcessInterpolator():
     """
@@ -133,11 +182,7 @@ class GaussianProcessInterpolator():
         # Reshape interpolated values to match the mesh dimensions
         interpolated_values = interpolated_values.reshape(output_shape)
 
-        # Finding Global Max and its indices using the Gaussian process model
-        max_z = np.nanmax(interpolated_values)
-        max_indices = np.where(max_z == interpolated_values)
-
-        return interpolated_values, max_z, max_indices
+        return interpolated_values
 
 class RandomForestInterpolator():
     """
@@ -166,8 +211,6 @@ class RandomForestInterpolator():
         Returns:
         - self (RandomForestInterpolator): Fitted instance.
         """
-
-        # Combine sensor data into training features
         self.x_train_ = X_train
         self.y_train_ = y_train
 
@@ -184,25 +227,21 @@ class RandomForestInterpolator():
         Performs interpolation on the provided mesh coordinates using the fitted Random Forest model.
 
         Parameters:
-        - x_mesh (array-like): X-coordinates for interpolation.
-        - y_mesh (array-like): Y-coordinates for interpolation.
+        - x_text:
+        - output_shape:
 
         Returns:
         - interpolated_values (ndarray): Interpolated values at the specified coordinates.
         - max_z (float): Global maximum value of the interpolated data.
         - max_indices (tuple): Indices of the global maximum in the interpolated data.
         """
-        # Combine mesh coordinates into test features
         self.x_test_ = x_test
+        self.output_shape_ = output_shape
 
         # Predict interpolated values
-        interpolated_values_rf = self.rf_model.predict(self.x_test_)
+        interpolated_values = self.rf_model.predict(self.x_test_)
 
         # Reshape interpolated values to match the mesh dimensions
-        interpolated_values_rf = interpolated_values_rf.reshape(output_shape)
+        interpolated_values_rf = interpolated_values.reshape(self.output_shape_)
 
-        # Finding Global Max and its indices using the Gaussian process model
-        max_z = np.nanmax(interpolated_values_rf)
-        max_indices = np.where(max_z == interpolated_values_rf)
-
-        return interpolated_values_rf, max_z, max_indices
+        return interpolated_values_rf
