@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from os.path import join, exists
 from os import makedirs
-from sealsml.geometry import GeoCalculator
+from sealsml.geometry import GeoCalculator, get_relative_azimuth
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 
 class DataSampler(object):
@@ -25,7 +25,7 @@ class DataSampler(object):
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
-        self.n_new_vars = len(coord_vars)
+        self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
@@ -60,7 +60,6 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
-        geom_calc = GeoCalculator()
         step_size = np.arange(0, self.time_steps - time_window_size, window_stride)
         sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors, 3))
         leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
@@ -84,36 +83,52 @@ class DataSampler(object):
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
 
-                sensor_phi = self.data[['u', 'v', 'w']].to_array().values[:, :,
-                             k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + 100].T
-                arr = np.zeros(shape=(4, n_sensors, time_window_size))
+                sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
+                             k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
+                sensor_array = np.zeros(shape=(6, n_sensors, time_window_size))
                 for n in range(n_sensors):
 
                     sensor_idx = np.stack([self.x[i_sensor[n]],
                                            self.y[j_sensor[n]],
                                            self.z[k_sensor[n]]]).T
-                    sensor_meta[(i * samples_per_window) + s, n, :] = sensor_idx
-                    d = geom_calc.get_geometry(sensor_idx, sensor_phi).T
-                    arr[:, n, :] = d
+                    sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
+                    derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
+                                                        u=sensor_phi[:, 2],
+                                                        x_ref=self.x[i_sensor[0]],
+                                                        y_ref=self.y[j_sensor[0]],
+                                                        z_ref=self.z[k_sensor[0]],
+                                                        x_target=self.x[i_sensor[n]],
+                                                        y_target=self.y[j_sensor[n]],
+                                                        z_target=self.z[k_sensor[n]],
+                                                        time_series=True)
+                    sensor_array[:, n, :] = derived_vars
 
-                leak_arr = np.zeros(shape=(4, n_leaks, 1))
+                leak_array = np.zeros(shape=(6, n_leaks, 1))
                 for l in range(n_leaks):
 
                     leak_idx = np.stack([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
                                          self.z[k_leak[l]]]).T
-                    leak_meta[(i * samples_per_window) + s, l, :] = leak_idx
-                    d = geom_calc.get_geometry(leak_idx, sensor_phi.mean(axis=0).reshape(1, 3)).T # take mean of winds
-                    leak_arr[:, l, :] = d
-
+                    leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
+                    derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
+                                                        u=sensor_phi[:, 2],
+                                                        x_ref=self.x[i_sensor[0]],
+                                                        y_ref=self.y[j_sensor[0]],
+                                                        z_ref=self.z[k_sensor[0]],
+                                                        x_target=self.x[i_leak[l]],
+                                                        y_target=self.y[j_leak[l]],
+                                                        z_target=self.z[k_leak[l]],
+                                                        time_series=False)
+                    leak_array[:, l, :] = derived_vars
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.leak_height, j_leak, i_leak, t:t+1]
 
-                sensor_sample[0, :self.n_new_vars, :] = arr
+                sensor_sample[0, :self.n_new_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
-                leak_sample[0, :self.n_new_vars, :] = leak_arr
+                leak_sample[0, :self.n_new_vars, :] = leak_array
+
                 leak_sample = self.create_mask(leak_sample, kind="leak")
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=self.sensor_exist_mask, axis=2)
