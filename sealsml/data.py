@@ -60,7 +60,7 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
-        step_size = np.arange(0, self.time_steps - time_window_size, window_stride)
+        step_size = np.arange(1, self.time_steps - time_window_size, window_stride)
         sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors, 3))
         leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
 
