@@ -22,9 +22,9 @@ dependencies:
   - dask
   - pip:
     - bridgescaler
-    - tf-nightly
-  #  - tensorflow[and-cuda]
-    - keras_nlp
-    - keras==3.0
+#    - tf-nightly
+#    - tensorflow[and-cuda]
+#    - keras_nlp
+#    - keras==3.0
     - hagelslag
     - .

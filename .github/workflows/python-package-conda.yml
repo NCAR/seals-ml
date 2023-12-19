@@ -19,9 +19,12 @@ jobs:
         activate-environment: test
     - shell: bash -l {0}
       run: |
-        pip install keras-nlp
-        pip uninstall -y tensorflow-text tensorflow keras
-        pip install tensorflow-text-nightly tf-nightly
+        pip install tensorflow
+        pip install keras_nlp
+        pip install keras==3.0
+#        pip install keras-nlp
+#        pip uninstall -y tensorflow-text tensorflow keras
+#        pip install tensorflow-text-nightly tf-nightly
         conda info
         conda list
         conda config --show-sources
