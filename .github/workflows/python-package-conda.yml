@@ -22,9 +22,6 @@ jobs:
         pip install tensorflow
         pip install keras_nlp
         pip install keras==3.0
-#        pip install keras-nlp
-#        pip uninstall -y tensorflow-text tensorflow keras
-#        pip install tensorflow-text-nightly tf-nightly
         conda info
         conda list
         conda config --show-sources
