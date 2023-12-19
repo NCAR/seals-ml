@@ -75,7 +75,34 @@ def find_closest_values_with_indices(arr1, arr2):
     # Return the lists of closest values and indices
     return closest_values, closest_indices
 
+def remove_zero_rows(arr):
+    """
+    Removes rows containing all zeros from a NumPy array.
 
+    Parameters:
+    - arr (numpy.ndarray): The input array from which rows with all zeros will be removed.
+
+    Returns:
+    numpy.ndarray: An array with rows containing all zeros removed.
+
+    Raises:
+    TypeError: If the input is not a NumPy array.
+    """
+    # Check if the input is a numpy array
+    if not isinstance(arr, np.ndarray):
+        raise TypeError("Input must be a numpy array")
+
+    # Check if the array is empty
+    if arr.size == 0:
+        return arr
+
+    # Find rows where all elements are zero
+    non_zero_rows = np.any(arr != 0, axis=1)
+
+    # Filter the array to keep only non-zero rows
+    result = arr[non_zero_rows]
+
+    return result
 
 ### Everything below here should just be an interpolator ###
 class ScipyInterpolate(object):
@@ -137,8 +164,10 @@ class GaussianProcessInterpolator():
     - length_scale (float, optional): Length scale for the RBF kernel. Default is 10.
     """
 
-    def __init__(self, length_scale=10):
+    def __init__(self, length_scale=5, n_restarts_optimizer=3, normalize_y=False):
         self.length_scale = length_scale
+        self.n_restarts_optimizer = n_restarts_optimizer
+        self.normalize_y = normalize_y
 
     def fit(self, x_train, y_train):
         """
@@ -155,7 +184,11 @@ class GaussianProcessInterpolator():
         self.y_train_ = y_train
 
         # Fit the Gaussian process model
-        self.gp_model = GaussianProcessRegressor(kernel=RBF(length_scale=self.length_scale))
+        kernel = 1.0 * RBF(length_scale_bounds=(1e-01, 1e02))
+        self.gp_model = GaussianProcessRegressor(kernel=kernel,
+                                                n_restarts_optimizer=self.n_restarts_optimizer,
+                                                normalize_y = self.normalize_y)
+        
         self.gp_model.fit(x_train, self.y_train_)
 
         return self
