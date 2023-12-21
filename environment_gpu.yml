@@ -1,4 +1,4 @@
-name: sealstf
+name: seals
 channels:
   - conda-forge
 dependencies:
@@ -22,9 +22,8 @@ dependencies:
   - dask
   - pip:
     - bridgescaler
-#    - tf-nightly
-#    - tensorflow[and-cuda]
-#    - keras_nlp
-#    - keras==3.0
+    - keras
+    - tensorflow[and-cuda]
+    - keras_nlp
     - hagelslag
     - .

@@ -122,7 +122,6 @@ class QuantizedTransformer(keras.models.Model):
         if len(inputs) > 3:
             decoder_padding_mask = inputs[3]
         encoder_conv_out = self.conv_encoder(encoder_input)
-        print(encoder_conv_out.shape)
         encoder_hidden_out = self.encoder_hidden(encoder_conv_out)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
         encoder_output = self.encoder_transformers[0](encoder_hidden_out,

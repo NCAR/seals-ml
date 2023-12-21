@@ -170,3 +170,29 @@ class GeoCalculator(object):
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
+
+def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
+
+  theta_wd = np.arctan2(v.mean(), u.mean())
+  x_relative = x_ref - x_target
+  y_relative = y_ref - y_target
+  x_rotated = x_relative * np.cos(theta_wd) - y_relative * np.sin(theta_wd)
+  y_rotated = x_relative * np.sin(theta_wd) + y_relative * np.cos(theta_wd)
+  radius_rotated = np.sqrt(x_rotated ** 2 + y_rotated ** 2)
+  distance = np.linalg.norm(np.column_stack([x_target, y_target, z_target]) -
+                            np.column_stack([x_ref, y_ref, z_ref]).flatten(), axis=1)
+  theta = np.arctan2(y_rotated, x_rotated)
+  elevation_theta = np.arctan2(z_target - z_ref, distance)
+
+  u_rot = u * np.cos(theta_wd) - v * np.sin(theta_wd)
+  v_rot = u * np.sin(theta_wd) + v * np.cos(theta_wd)
+  pos_vars = np.column_stack([radius_rotated, np.sin(theta), np.cos(theta), elevation_theta])
+
+  if time_series:
+    return np.column_stack([np.repeat(pos_vars, u.size, axis=0), u_rot, v_rot]).T
+  else:
+    return np.column_stack([pos_vars, u_rot[0], v_rot[0]]).T
+
+
+
+

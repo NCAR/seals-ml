@@ -1,0 +1,42 @@
+#data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
+data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
+out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
+#data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
+#out_path: "/glade/scratch/username/SEALS_output/"
+#out_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/train/"
+random_seed: 812
+save_model: True
+save_output: True
+validation_ratio: 0.3
+sensor_type_mask: -999
+sensor_exist_mask: -1
+scaler_type: "quantile"
+model:
+  encoder_layers: 2
+  decoder_layers: 2
+  hidden_size: 128
+  n_heads: 8
+  num_quantized_embeddings: 500
+  hidden_activation: "relu"
+  output_activation: "sigmoid"
+  dropout_rate: 0.2
+  use_quantizer: 0
+  quantized_beta: 0.25
+  n_outputs: 1
+  min_filters: 4
+  kernel_size: 3
+  filter_growth_rate: 2
+  n_conv_layers: 3
+  pooling: "average"
+  pool_size: 2
+  padding: "valid"
+model_fit:
+  epochs: 70
+  verbose: 1
+  batch_size: 1024
+model_compile:
+  loss: "binary_crossentropy"
+  optimizer: "adam"
+  metrics: ["binary_accuracy"]
+predict_batch_size: 10000
+

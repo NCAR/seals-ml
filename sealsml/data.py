@@ -1,7 +1,10 @@
 import xarray as xr
+import pandas as pd
 import numpy as np
-from sealsml.geometry import GeoCalculator
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
+from os.path import join, exists
+from os import makedirs
+from sealsml.geometry import GeoCalculator, get_relative_azimuth
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -22,7 +25,7 @@ class DataSampler(object):
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
-        self.n_new_vars = len(coord_vars)
+        self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
@@ -57,49 +60,76 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
-        geom_calc = GeoCalculator()
+        step_size = np.arange(1, self.time_steps - time_window_size, window_stride)
+        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors, 3))
+        leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
 
-        for t in np.arange(0, self.time_steps - time_window_size, window_stride):
+        for i, t in enumerate(step_size):
             print(t)
-            for _ in range(samples_per_window):
+            for s in range(samples_per_window):
 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
-
-                reference_point = np.random.randint(low=0, high=self.iDim, size=3)
-                reference_point[-1] = self.sensor_height
-                reference_point[0] = self.x[reference_point[0]]
-                reference_point[1] = self.y[reference_point[1]]
-                reference_point[2] = self.z[reference_point[2]]
                 true_leak_i, true_leak_j = 15, 15
 
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
                 j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                k_sensor = np.repeat(self.sensor_height, n_sensors)
                 i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
+                k_leak = np.repeat(self.leak_height, n_leaks)
+
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
-                sensor_idx = np.stack([self.x[i_sensor], self.y[j_sensor],
-                                       self.z[np.repeat(self.sensor_height, n_sensors)]]).T
-                leak_idx = np.stack([self.x[i_leak], self.y[j_leak], self.z[np.repeat(self.leak_height, n_leaks)]]).T
 
+                sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
+                             k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
+                sensor_array = np.zeros(shape=(6, n_sensors, time_window_size))
+                for n in range(n_sensors):
+
+                    sensor_idx = np.stack([self.x[i_sensor[n]],
+                                           self.y[j_sensor[n]],
+                                           self.z[k_sensor[n]]]).T
+                    sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
+                    derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
+                                                        u=sensor_phi[:, 2],
+                                                        x_ref=self.x[i_sensor[0]],
+                                                        y_ref=self.y[j_sensor[0]],
+                                                        z_ref=self.z[k_sensor[0]],
+                                                        x_target=self.x[i_sensor[n]],
+                                                        y_target=self.y[j_sensor[n]],
+                                                        z_target=self.z[k_sensor[n]],
+                                                        time_series=True)
+                    sensor_array[:, n, :] = derived_vars
+
+                leak_array = np.zeros(shape=(6, n_leaks, 1))
+                for l in range(n_leaks):
+
+                    leak_idx = np.stack([self.x[i_leak[l]],
+                                         self.y[j_leak[l]],
+                                         self.z[k_leak[l]]]).T
+                    leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
+                    derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
+                                                        u=sensor_phi[:, 2],
+                                                        x_ref=self.x[i_sensor[0]],
+                                                        y_ref=self.y[j_sensor[0]],
+                                                        z_ref=self.z[k_sensor[0]],
+                                                        x_target=self.x[i_leak[l]],
+                                                        y_target=self.y[j_leak[l]],
+                                                        z_target=self.z[k_leak[l]],
+                                                        time_series=False)
+                    leak_array[:, l, :] = derived_vars
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.leak_height, j_leak, i_leak, t+1:t+2]
+                                self.leak_height, j_leak, i_leak, t:t+1]
 
-                derived_sensor_vars = geom_calc.get_geometry(reference_point, sensor_idx)
-                derived_leak_vars = geom_calc.get_geometry(reference_point, leak_idx)
-                expanded_vars = np.transpose(np.broadcast_to(derived_sensor_vars,
-                                                             shape=(time_window_size,
-                                                                    derived_sensor_vars.shape[0],
-                                                                    self.n_new_vars)), axes=[2, 1, 0])
-                sensor_sample[0, :self.n_new_vars, :] = expanded_vars
+                sensor_sample[0, :self.n_new_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
-                leak_sample[0, :self.n_new_vars, :, 0] = derived_leak_vars.T
-                leak_sample = self.create_mask(leak_sample, kind="leak")
+                leak_sample[0, :self.n_new_vars, :] = leak_array
 
+                leak_sample = self.create_mask(leak_sample, kind="leak")
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
                                                            pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
@@ -109,11 +139,11 @@ class DataSampler(object):
                 leak_arrays.append(padded_leak_sample)
                 true_leak_idx.append(true_leak_pos)
 
-        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [sample, sensor, time, var]
+        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [samp, sensor, time, var]
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
         targets = self.create_targets(leak_samples, true_leak_idx)
 
-        return self.make_xr_ds(sensor_samples, leak_samples, targets)
+        return self.make_xr_ds(sensor_samples, leak_samples, targets, sensor_meta, leak_meta)
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
@@ -155,9 +185,8 @@ class DataSampler(object):
 
         return np.expand_dims(targets, axis=-1)
 
-    def make_xr_ds(self, encoder_x, decoder_x, targets):
+    def make_xr_ds(self, encoder_x, decoder_x, targets, sensor_meta, leak_meta):
         """ Convert numpy arrays from .sample() to xarray Arrays. """
-
         encoder_ds = xr.DataArray(encoder_x,
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
@@ -175,35 +204,99 @@ class DataSampler(object):
                                dims=["sample", "pot_leak", "target_time"],
                                name="target")
 
-        return xr.merge([encoder_ds, decoder_ds, targets])
+        sensor_locs = xr.DataArray(self.pad_along_axis(sensor_meta, target_length=self.max_trace_sensors,
+                                                       pad_value=0, axis=1),
+                                   dims=['sample', 'sensor', 'sensor_loc'],
+                                   coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
+                                   name="sensor_meta")
 
+        leak_locs = xr.DataArray(self.pad_along_axis(leak_meta, target_length=self.max_leak_loc,
+                                                     pad_value=0, axis=1),
+                                 dims=['sample', 'pot_leak', 'sensor_loc'],
+                                 coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
+                                 name="leak_meta")
 
-class Scaler4D():
+        met_sensor_loc = xr.DataArray(sensor_locs[:, 0],
+                                      dims=['sample', 'sensor_loc'],
+                                      coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
+                                      name="met_sensor_loc")
 
-    def __init__(self, kind="quantile"):
-        if kind == "quantile":
-            self.scaler = QuantileTransformer()
-        elif kind == "standard":
-            self.scaler = StandardScaler()
-        elif kind == "minmax":
-            self.scaler = MinMaxScaler()
-
-    def flatten_to_2D(self, X):
-
-        return np.reshape(X, newshape=(X.shape[0] * X.shape[1] * X.shape[2], X.shape[-1]))
-
-    def fit_transform(self, X):
-
-        x = self.flatten_to_2D(X)
-        return np.reshape(self.scaler.fit_transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
-
-    def transform(self, X):
-
-        x = self.flatten_to_2D(X)
-        return np.reshape(self.scaler.transform(x), newshape=(X.shape[0], X.shape[1], X.shape[2] * X.shape[-1]))
+        return xr.merge([encoder_ds, decoder_ds, targets, sensor_locs, leak_locs, met_sensor_loc])
 
 
 
+class Preprocessor():
 
+    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
 
+        self.sensor_pad_value = sensor_pad_value
+        self.sensor_type_value = sensor_type_value
 
+        if scaler_type.lower() == "standard":
+            self.scaler = DeepStandardScaler()
+        elif scaler_type.lower() == "minmax":
+            self.scaler = DeepMinMaxScaler()
+        elif scaler_type.lower() == "quantile":
+            self.scaler = DeepQuantileTransformer()
+
+    def load_data(self, files):
+
+        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=True)
+        encoder_data = ds['encoder_input']
+        decoder_data = ds['decoder_input']
+        targets = ds['target'].values
+
+        return encoder_data, decoder_data, targets.squeeze()
+
+    def save_filenames(self, train_files, validation_files, out_path):
+        if not exists(out_path):
+            makedirs(out_path)
+        train_file_series = pd.Series(train_files, name="train_files")
+        train_file_series.to_csv(join(out_path, "train_files.csv"))
+        validation_file_series = pd.Series(validation_files, name="validation_files")
+        validation_file_series.to_csv(join(out_path, "validation_files.csv"))
+
+    def preprocess(self, data, fit_scaler=True):
+
+        imputed_data, mask = self.impute_mask(data)
+        padding_mask = mask[..., 0, 0]
+
+        if fit_scaler:
+            self.fit_scaler(imputed_data)
+
+        scaled_data = self.transform(imputed_data)
+        scaled_data = self.inv_impute_mask(scaled_data, mask).squeeze()
+
+        return scaled_data, ~padding_mask
+
+    def impute_mask(self, data):
+
+        arr = data[..., 0].values
+        mask = data[..., -1].values
+
+        arr[mask == self.sensor_pad_value] = np.nan
+        arr[mask == self.sensor_type_value] = np.nan
+
+        new_mask = np.zeros(shape=mask.shape)
+        new_mask[mask == self.sensor_pad_value] = 1
+        new_mask[mask == self.sensor_type_value] = 1
+
+        return arr, new_mask.astype(bool)
+
+    def inv_impute_mask(self, data, mask, impute_value=0):
+
+        data[mask == True] = impute_value
+
+        return data
+
+    def fit_scaler(self, data):
+
+        self.scaler.fit(data)
+
+    def transform(self, data):
+
+        scaled_data = self.scaler.transform(data)
+
+        return scaled_data
+
+    
