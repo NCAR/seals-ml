@@ -10,6 +10,7 @@ import xarray as xr
 # Scientific computing and machine learning
 from scipy.interpolate import griddata
 from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process.kernels import RBF
 from sklearn.preprocessing import MinMaxScaler
 
