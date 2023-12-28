@@ -1,9 +1,17 @@
-import numpy as np
+# Standard library
+import sys
+import os
 
+# Data manipulation and analysis
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+# Scientific computing and machine learning
 from scipy.interpolate import griddata
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import MinMaxScaler
 
 ## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
 
@@ -278,3 +286,141 @@ class RandomForestInterpolator():
         interpolated_values_rf = interpolated_values.reshape(self.output_shape_)
 
         return interpolated_values_rf
+    
+
+### Putting Everything Together ###
+    
+def gaussian_interp(data, mesh_dim=30):
+    '''
+    Input is a Charlie-sampled dataset. Needs the meta, and not just the encoder/decoder. 
+    
+    Input is netCDF file direct which gets convered to xarray dataset.
+
+    '''
+    file_path = data
+    if not file_path.lower().endswith(".nc"):  # Case-insensitive check
+        raise ValueError("Input file must be a NetCDF file with a .nc extension.")
+
+    ds = xr.open_dataset(data)
+    
+    num_sensor_max = ds.dims['sensor']
+    reshape_val = ds.dims['sample'] * ds.dims['sensor'] 
+
+    # Create empty lists
+    all_reshaped_gp_results = []
+    leak_loc = []
+    leak_number = []
+
+    number_of_sensors = []
+    number_of_leaks = []
+    sample_number = []
+    pred_ch4 = []
+    sensor_ch4 = []
+    
+    reshaped  = np.reshape(ds.sensor_meta.values, (reshape_val ,3))
+    all_sensor_loc = remove_zero_rows(reshaped)
+
+    ## Making one grid for the entire file ## 
+    x_new, y_new = create_meshgrid(all_sensor_loc[:,0], all_sensor_loc[:,1], buffer=2, grid_points=mesh_dim)
+    
+    for i in ds.sample.values:
+        # print('sample number', i)
+
+        sensor_locations = remove_zero_rows(ds.sensor_meta.isel(sample=i).values)
+        num_of_sensors = sensor_locations.shape[0]
+
+        leak_locations = remove_zero_rows(ds.leak_meta.isel(sample=i).values)
+        num_of_leaks = leak_locations.shape[0]
+
+        ch4_data = ds.encoder_input.isel(sample=i, sensor=slice(0, num_of_sensors), mask=0).sel(variable='q_CH4').values
+        # We are going to take the median. Could also take the P80, etc. Most sensors are either on or off.
+        ch4_median = np.median(ch4_data, axis=1)
+    
+        # new mesh data points
+        X_test = np.column_stack((x_new.ravel(), y_new.ravel()))
+
+        X_train = np.column_stack((sensor_locations[:,0], sensor_locations[:,1]))
+        y_train = ch4_median
+
+        ## Make the model
+        gp_mo = GaussianProcessInterpolator(length_scale=10, n_restarts_optimizer=10, normalize_y=True) # this needs to be small to not barf
+        gp_mo.fit(X_train, y_train)
+
+        # Fit it - Interpolated Results
+        reshaped_gp_results = gp_mo.predict(X_test, output_shape = (mesh_dim,mesh_dim))
+
+        # Let's find the leak locations, and then mark that with a 1
+        closest_values_x, indicies_x = find_closest_values_with_indices(leak_locations[:,0], x_new.diagonal())
+        closest_values_y, indicies_y = find_closest_values_with_indices(leak_locations[:,1], y_new.diagonal())
+        gp_    = reshaped_gp_results[indicies_x, indicies_y]
+    
+        # need to pad to 20 to match leak locations
+        padded_array = np.pad(nanargmax_to_one(gp_), (0, 20 - len(nanargmax_to_one(gp_))), mode='constant')
+        padded_ch4 =   np.pad((gp_), (0, 20 - len(nanargmax_to_one(gp_))), mode='constant')
+
+        # let's also store what sensor is leaking:
+        where_padded_one = np.where(padded_array == 1)
+
+        # Let's store sensor median values, padded to max number of sensros (10)
+        padded_sensor_ch4 = np.pad(ch4_median, (0, 10 - len(ch4_median)), mode='constant')
+
+        # append it
+        sample_number.append(i) 
+
+        number_of_sensors.append(num_of_sensors)
+        number_of_leaks.append(num_of_leaks)
+    
+        sensor_ch4.append(padded_sensor_ch4)
+
+        leak_number.append(np.asarray(where_padded_one)[0][0])
+        pred_ch4.append(padded_ch4)
+
+        leak_loc.append(padded_array)
+        all_reshaped_gp_results.append(reshaped_gp_results)
+    # no longer in the loop
+    ## Make an xarray results file ##
+
+    # Define coordinates
+    coords = {'SampleNumber': sample_number}
+
+    # Create DataArrays
+    number_of_sensors_da = xr.DataArray(number_of_sensors, coords=[('SampleNumber', sample_number)], name='NumberOfSensors')
+    number_of_leaks_da = xr.DataArray(number_of_leaks, coords=[('SampleNumber', sample_number)], name='NumberOfLeaks')
+    leak_number_da = xr.DataArray(leak_number, coords=[('SampleNumber', sample_number)], name='LeakNumber')
+
+    leak_loc_da = xr.DataArray(
+        np.asarray(leak_loc),
+        coords={'SampleNumber': sample_number, 'MaxNumLeaks': np.arange(np.asarray(leak_loc).shape[1])},
+        name='leak_loc'
+    )
+
+    ch4_pred_da = xr.DataArray(
+        np.asarray(pred_ch4),
+        coords={'SampleNumber': sample_number, 'MaxNumLeaks': np.arange(np.asarray(leak_loc).shape[1])},
+        name='ch4_at_each_leak_location'
+    )
+
+    sensor_ch4_da = xr.DataArray(
+        np.asarray(sensor_ch4),
+        coords={'SampleNumber': sample_number, 'MaxNumSensors': np.arange(num_sensor_max)},
+        name='median_ch4_at_each_sensor'
+    )
+
+    interpolation_da = xr.DataArray(
+        np.asarray(all_reshaped_gp_results),
+        coords={'SampleNumber': sample_number, 'x': x_new.diagonal(), 'y': y_new.diagonal()},
+        name='GaussianProcessesInterpolation'
+    )
+
+    dataset = xr.Dataset(
+        {'NumberOfSensors': number_of_sensors_da, 
+        'SensorMedian_ch4': sensor_ch4_da,
+        'NumberOfLeaks': number_of_leaks_da, 
+        'LeakNumber': leak_number_da,
+        'PredLeakLocation': leak_loc_da,
+        'Predch4value': ch4_pred_da,
+        'interpolation': interpolation_da},
+        coords=coords
+    )
+
+    return dataset 
