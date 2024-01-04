@@ -298,8 +298,8 @@ def gaussian_interp(data, mesh_dim=30):
     Input is netCDF file direct which gets convered to xarray dataset.
 
     '''
-    file_path = data
-    if not file_path.lower().endswith(".nc"):  # Case-insensitive check
+    
+    if not data.lower().endswith(".nc"):  # Case-insensitive check
         raise ValueError("Input file must be a NetCDF file with a .nc extension.")
 
     ds = xr.open_dataset(data)
