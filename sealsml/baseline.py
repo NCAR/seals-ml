@@ -158,8 +158,6 @@ class ScipyInterpolate(object):
         Note:
         - The function uses the interpolation method specified during initialization.
         """
-        from scipy.interpolate import griddata
-
         z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_test), method=self.method)
         z_interpolated = z_interpolated.reshape(output_shape)
 
