@@ -264,7 +264,7 @@ class RandomForestInterpolator():
 
         return self
 
-    def predict(self, x_test, output_shape = (100,100)):
+    def predict(self, x, output_shape = (100,100)):
         """
         Performs interpolation on the provided mesh coordinates using the fitted Random Forest model.
 
@@ -277,7 +277,7 @@ class RandomForestInterpolator():
         - max_z (float): Global maximum value of the interpolated data.
         - max_indices (tuple): Indices of the global maximum in the interpolated data.
         """
-        self.x_test_ = x_test
+        self.x_test_ = x
         self.output_shape_ = output_shape
 
         # Predict interpolated values
