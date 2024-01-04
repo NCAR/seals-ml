@@ -125,7 +125,7 @@ class ScipyInterpolate(object):
     def __init__(self, method="cubic"):
         self.method = method
 
-    def fit(self, x_test, y_test):
+    def fit(self, x_train, y_train):
         """
         Stores the sensor data for later use in the predict method.
 
@@ -137,9 +137,9 @@ class ScipyInterpolate(object):
         Returns:
         - self (ScipyInterpolate): Fitted instance.
         """
-        self.x_sensors_ = x_test[:,0]
-        self.y_sensors_ = x_test[:,1]
-        self.z_sensors_ = y_test
+        self.x_sensors_ = x_train[:,0]
+        self.y_sensors_ = x_train[:,1]
+        self.z_sensors_ = y_train
         return self
 
     def predict(self, x_test, output_shape = (100,100)):
