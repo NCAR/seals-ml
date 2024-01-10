@@ -15,7 +15,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 ## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
 
-# This is not an interpolator
 def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     """
     Convert polar coordinates to Cartesian coordinates.
@@ -140,7 +139,114 @@ def remove_all_rows_with_val(arr, value_to_drop=0):
     return result
 
 
-### Everything below here should just be an interpolator ###
+
+class GPModel():
+    def __init__(self, num_met_sensors =1, normalize_y = True, n_restarts_optimizer=16):
+
+        self.num_met_sensors = num_met_sensors
+        self.normalize_y = normalize_y 
+        self.n_restarts_optimizer = n_restarts_optimizer
+
+    def fit(self, x, y):
+        '''
+        Due to how the interpolator works, there is no 'fit' needed ie a training dataset. 
+        
+        This fit function just checks that both inputs are numpy arrays.
+        '''
+        print('fit does nothing')
+        self.x_ = x
+        self.y_ = y
+       
+        if not isinstance(self.x_, np.ndarray) or not isinstance(self.y_, np.ndarray):
+            raise TypeError("Inputs must be NumPy arrays")
+        
+    def predict(self, x, y):
+        '''
+        This function uses numpy arrays as input
+
+        x: same shape as encoder.values where each dimension is sample, sensor, time, variable ,mask 
+        y: same shape as decoder.values where each dimension is sample, pot_leak, target_time, variable, mask
+
+        The variable should have a length of 8: ['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv', 'u', 'v', 'w', 'q_CH4']
+        
+        This model does not use any wind information (u,v,w)
+        '''
+        self.encoder = x
+        self.decoder = y
+
+        # Create empty lists
+        leak_loc = []
+
+        # This is just used for debugging. Since it's outside of the loop, should not affect runtime that much.
+        print('encoder shape (x)', np.shape(self.encoder))
+        print('decoder shape (y)', np.shape(self.decoder))
+        
+        # Collapse on time. Time steps should be constant for this model. 
+        median_time = np.median(self.encoder, axis=2) # this can be changed to 80th percentile or w/e
+
+        # make xarray datasets
+        dataset = xr.Dataset({"data": (["sample", "sensor", "variables", "mask"], median_time)})       
+        decoder_dataset = xr.Dataset({"data": (["sample", "leak_locations","target_time", "variables", "mask"], self.decoder)})
+    
+        for i in dataset.sample:
+            # pulling the information from the sensors, distance, azi_sin and azi_cos and ch4
+            ref_dist = dataset.isel(mask = 0, sample=i).data.values[:,0]
+            azi_sin  = dataset.isel(mask = 0, sample=i).data.values[:,1]
+            azi_cos  = dataset.isel(mask = 0, sample=i).data.values[:,2]
+            ch4_data = dataset.isel(mask = 0, sample=i).data.values[:,7]
+
+            combined_sensor = np.column_stack((ref_dist, azi_sin, azi_cos, ch4_data))
+
+            # Number of met sensors is set constant here. This is one spot where some more clever logic might be needed
+            combined_sensor = combined_sensor[self.num_met_sensors:] # drops the met sensor, in this case it's the first row. 
+            drop_masked_sensor =  remove_all_rows_with_val(combined_sensor, -1) # This line basically up-padds to the correct number of sensors
+            
+            x_, y_ = polar_to_cartesian(drop_masked_sensor[:,0], drop_masked_sensor[:,1], drop_masked_sensor[:,2])
+            ch4_data = drop_masked_sensor[:,3]
+
+            # Same workflow, now for (potential) leak locations
+            ref_dist_leak = decoder_dataset.isel(mask = 0, target_time=0, sample=i).data.values[:,0]
+            azi_sin_leak  = decoder_dataset.isel(mask = 0, target_time=0, sample=i).data.values[:,1]
+            azi_cos_leak  = decoder_dataset.isel(mask = 0, target_time=0, sample=i).data.values[:,2]
+
+            combined_leak_loc = np.column_stack((ref_dist_leak, azi_sin_leak, azi_cos_leak))
+            drop_masked_leaks =  remove_all_rows_with_val(combined_leak_loc, -1) # this drops all padded leaks
+
+            x_leaks, y_leaks = polar_to_cartesian(drop_masked_leaks[:,0], drop_masked_leaks[:,1], drop_masked_leaks[:,2])
+
+            # At this point, we have x,y and (median) ch4 for sensors, and x and y locations for potential leak locations
+           
+            # X and Y of sensors in cartesian coordiantes
+            X_train = np.column_stack((x_.ravel(), y_.ravel()))
+
+            # CH4 data from those sensors
+            y_train = ch4_data
+
+            # X and Y locations of the potential leaks
+            X_test = np.column_stack((x_leaks.ravel(), y_leaks.ravel()))
+
+            ## Make the model
+            kernel = 1.0 * RBF(length_scale_bounds=(1e-01, 1e03))
+            
+            gp_model = GaussianProcessRegressor(kernel=kernel,
+                                                n_restarts_optimizer=self.n_restarts_optimizer,
+                                                normalize_y = self.normalize_y)
+        
+            gp_model.fit(X_train, y_train)
+            gp_results = gp_model.predict(X_test)
+
+            # need to pad to 20 to match leak locations
+            padded_array = np.pad(nanargmax_to_one(gp_results), (0, decoder_dataset.leak_locations.size - len(nanargmax_to_one(gp_results))), mode='constant')
+
+            leak_loc.append(padded_array)
+
+        return np.asarray(leak_loc)  
+
+
+#### Everything below here should just be an interpolator ####
+# The below is useful if we want a grided output. 
+    
+
 class ScipyInterpolate(object):
     """
     A scikit-learn compatible class for performing 2D interpolation using scipy's griddata and finding the global maximum.
@@ -312,9 +418,7 @@ class RandomForestInterpolator():
         interpolated_values_rf = interpolated_values.reshape(self.output_shape_)
 
         return interpolated_values_rf
-    
 
-### Putting Everything Together ###
 # This will probably be deleted at a later date 
     
 def gaussian_interp(data, mesh_dim=30):
