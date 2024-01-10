@@ -4,7 +4,6 @@ import os
 
 # Data manipulation and analysis
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 # Scientific computing and machine learning
@@ -17,6 +16,33 @@ from sklearn.preprocessing import MinMaxScaler
 ## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
 
 # This is not an interpolator
+def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
+    """
+    Convert polar coordinates to Cartesian coordinates.
+
+    Parameters:
+    - distance (float or np.array): Radial distance or array of radial distances
+    - ref_azi_sin (float or np.array): Sine of the reference azimuth angle
+    - ref_azi_cos (float or np.array): Cosine of the reference azimuth angle
+
+    Returns:
+    - np.array: Cartesian coordinates, each row containing [x, y]
+    """
+    # Convert inputs to arrays if they are not already
+    distance = np.asarray(distance)
+    ref_azi_sin = np.asarray(ref_azi_sin)
+    ref_azi_cos = np.asarray(ref_azi_cos)
+    
+    # Check if the sizes of distance and ref_azi_sin/ref_azi_cos are the same
+    if distance.size != ref_azi_sin.size or distance.size != ref_azi_cos.size:
+        raise ValueError("The sizes of distance, ref_azi_sin, and ref_azi_cos must be the same.")
+    
+    # Calculate Cartesian coordinates
+    x = distance * ref_azi_cos
+    y = distance * ref_azi_sin
+    
+    return x, y
+
 def create_meshgrid(x_sensors, y_sensors, buffer=6, grid_points=100):
     """
     Create a meshgrid based on sensor positions.
@@ -84,7 +110,7 @@ def find_closest_values_with_indices(arr1, arr2):
     # Return the lists of closest values and indices
     return closest_values, closest_indices
 
-def remove_zero_rows(arr):
+def remove_all_rows_with_val(arr, value_to_drop=0):
     """
     Removes rows containing all zeros from a NumPy array.
 
@@ -106,12 +132,13 @@ def remove_zero_rows(arr):
         return arr
 
     # Find rows where all elements are zero
-    non_zero_rows = np.any(arr != 0, axis=1)
+    non_zero_rows = np.any(arr != value_to_drop, axis=1)
 
     # Filter the array to keep only non-zero rows
     result = arr[non_zero_rows]
 
     return result
+
 
 ### Everything below here should just be an interpolator ###
 class ScipyInterpolate(object):
@@ -287,78 +314,7 @@ class RandomForestInterpolator():
         return interpolated_values_rf
     
 
-#### This will be modified ####
-
-class GPModel():
-    def fit(self):
-        print('fit does nothing')
-    
-    def predict(self, data, mesh_dim=30):
-        '''
-         Input is a Charlie-sampled dataset. Needs the meta, and not just the encoder/decoder. 
-    
-         Input is netCDF file direct which gets convered to xarray dataset.
-
-        '''
-
-        ds = xr.open_dataset(data)
-        reshape_val = ds.dims['sample'] * ds.dims['sensor'] 
-
-        # Create empty lists
-        leak_loc = []
-        sample_number = []
-
-        reshaped  = np.reshape(ds.sensor_meta.values, (reshape_val ,3))
-        all_sensor_loc = remove_zero_rows(reshaped)
-
-        ## Making one grid for the entire file ## 
-        x_new, y_new = create_meshgrid(all_sensor_loc[:,0], all_sensor_loc[:,1], buffer=2, grid_points=mesh_dim)
-    
-        for i in ds.sample.values:
-            # print('sample number', i)
-
-            sensor_locations = remove_zero_rows(ds.sensor_meta.isel(sample=i).values)
-            num_of_sensors = sensor_locations.shape[0]
-
-            leak_locations = remove_zero_rows(ds.leak_meta.isel(sample=i).values)
-            # num_of_leaks = leak_locations.shape[0]
-
-            ch4_data = ds.encoder_input.isel(sample=i, sensor=slice(0, num_of_sensors), mask=0).sel(variable='q_CH4').values
-            # We are going to take the median. Could also take the P80, etc. Most sensors are either on or off.
-            ch4_median = np.median(ch4_data, axis=1)
-    
-            # new mesh data points
-            X_test = np.column_stack((x_new.ravel(), y_new.ravel()))
-
-            X_train = np.column_stack((sensor_locations[:,0], sensor_locations[:,1]))
-            y_train = ch4_median
-
-            ## Make the model
-            gp_mo = GaussianProcessInterpolator(length_scale=10, n_restarts_optimizer=10, normalize_y=True) # this needs to be small to not barf
-            gp_mo.fit(X_train, y_train)
-
-            # Fit it - Interpolated Results
-            reshaped_gp_results = gp_mo.predict(X_test, output_shape = (mesh_dim,mesh_dim))
-
-            # Let's find the leak locations, and then mark that with a 1
-            closest_values_x, indicies_x = find_closest_values_with_indices(leak_locations[:,0], x_new.diagonal())
-            closest_values_y, indicies_y = find_closest_values_with_indices(leak_locations[:,1], y_new.diagonal())
-            gp_    = reshaped_gp_results[indicies_x, indicies_y]
-    
-            # need to pad to 20 to match leak locations
-            padded_array = np.pad(nanargmax_to_one(gp_), (0, 20 - len(nanargmax_to_one(gp_))), mode='constant')
-
-            # append it
-            sample_number.append(i) 
-
-            leak_loc.append(padded_array)
-
-        return np.asarray(leak_loc)  
-
-
-
 ### Putting Everything Together ###
-
 # This will probably be deleted at a later date 
     
 def gaussian_interp(data, mesh_dim=30):
@@ -389,7 +345,7 @@ def gaussian_interp(data, mesh_dim=30):
     sensor_ch4 = []
     
     reshaped  = np.reshape(ds.sensor_meta.values, (reshape_val ,3))
-    all_sensor_loc = remove_zero_rows(reshaped)
+    all_sensor_loc = remove_all_rows_with_val(reshaped)
 
     ## Making one grid for the entire file ## 
     x_new, y_new = create_meshgrid(all_sensor_loc[:,0], all_sensor_loc[:,1], buffer=2, grid_points=mesh_dim)
@@ -397,10 +353,10 @@ def gaussian_interp(data, mesh_dim=30):
     for i in ds.sample.values:
         # print('sample number', i)
 
-        sensor_locations = remove_zero_rows(ds.sensor_meta.isel(sample=i).values)
+        sensor_locations = remove_all_rows_with_val(ds.sensor_meta.isel(sample=i).values)
         num_of_sensors = sensor_locations.shape[0]
 
-        leak_locations = remove_zero_rows(ds.leak_meta.isel(sample=i).values)
+        leak_locations = remove_all_rows_with_val(ds.leak_meta.isel(sample=i).values)
         num_of_leaks = leak_locations.shape[0]
 
         ch4_data = ds.encoder_input.isel(sample=i, sensor=slice(0, num_of_sensors), mask=0).sel(variable='q_CH4').values
