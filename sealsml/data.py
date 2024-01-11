@@ -204,6 +204,9 @@ class DataSampler(object):
                                dims=["sample", "pot_leak", "target_time"],
                                name="target")
 
+        target_ch4 = xr.DataArray(decoder_ds.sel(variable='q_CH4').isel(mask=0),
+                                  name="target_ch4")
+
         sensor_locs = xr.DataArray(self.pad_along_axis(sensor_meta, target_length=self.max_trace_sensors,
                                                        pad_value=0, axis=1),
                                    dims=['sample', 'sensor', 'sensor_loc'],
@@ -221,7 +224,7 @@ class DataSampler(object):
                                       coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
                                       name="met_sensor_loc")
 
-        return xr.merge([encoder_ds, decoder_ds, targets, sensor_locs, leak_locs, met_sensor_loc])
+        return xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc])
 
 
 
@@ -241,7 +244,7 @@ class Preprocessor():
 
     def load_data(self, files):
 
-        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=True)
+        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False)
         encoder_data = ds['encoder_input']
         decoder_data = ds['decoder_input']
         targets = ds['target'].values
