@@ -20,7 +20,11 @@ def test_GPModel():
 
     # Test Case #2
     data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
-
+    
+    predictions = model.predict(data.encoder_input.values, 
+                                data.decoder_input.values)
+    
+    assert(data.encoder_input.values.shape[0] == predictions.shape[0])
 
 
 def test_distance_between_points_3d():
