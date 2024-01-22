@@ -4,6 +4,20 @@ import xarray as xr
 from sealsml.geometry import GeoCalculator
 from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
+from sealsml.baseline import polar_to_cartesian
+
+
+def test_polar_to_cart():
+    # Test with single values
+    distance = 2.0
+    ref_azi_sin = 0.5
+    ref_azi_cos = np.sqrt(3) / 2
+
+    x, y = polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos)
+
+    assert np.isclose(x, distance * ref_azi_cos, rtol=1e-4)
+    assert np.isclose(y, distance * ref_azi_sin, rtol=1e-4)
+
 
 def test_GPModel():
     """
