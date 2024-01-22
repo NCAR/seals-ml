@@ -3,6 +3,25 @@ import numpy as np
 import xarray as xr
 from sealsml.geometry import GeoCalculator
 from sealsml.data import DataSampler
+from sealsml.baseline import GPModel
+
+def test_GPModel():
+    """
+    Tests the `GPModel` function.
+
+    This function should have a scikit-learn interface
+
+    """
+    # Test Case #1, make sure that .fit reads in numpy arrays
+    x = np.random.rand(1, 99)
+    y = np.random.rand(1, 99)
+    model = GPModel()
+    model.fit(x, y)
+
+    # Test Case #2
+    data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
+
+
 
 def test_distance_between_points_3d():
     """
