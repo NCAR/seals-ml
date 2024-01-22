@@ -19,7 +19,8 @@ def test_GPModel():
     model.fit(x, y)
 
     # Test Case #2
-    data = xr.open_dataset('../../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc')
+    test_data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
+    data = xr.open_dataset(test_data)
     
     predictions = model.predict(data.encoder_input.values, 
                                 data.decoder_input.values)
