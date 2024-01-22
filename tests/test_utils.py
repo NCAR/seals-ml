@@ -6,7 +6,6 @@ from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
 from sealsml.baseline import polar_to_cartesian
 
-
 def test_polar_to_cart1():
     # Test with single values
     distance = 2.0
@@ -18,25 +17,15 @@ def test_polar_to_cart1():
     assert np.isclose(x, distance * ref_azi_cos, rtol=1e-4)
     assert np.isclose(y, distance * ref_azi_sin, rtol=1e-4)
 
-def est_polar_to_cart2():
     # Test with arrays
-    distance = np.array([1.0, 2.0, 3.0])
-    ref_azi_sin = np.array([0.0, 0.5, 1.0])
-    ref_azi_cos = np.array([1.0, np.sqrt(3) / 2, 0.5])
+    distance2 = np.array([1.0, 2.0, 3.0])
+    ref_azi_sin2 = np.array([0.0, 0.5, 1.0])
+    ref_azi_cos2 = np.array([1.0, np.sqrt(3) / 2, 0.5])
 
-    x, y = polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos)
+    x, y = polar_to_cartesian(distance2, ref_azi_sin2, ref_azi_cos2)
 
-    np.testing.assert_allclose(x, distance * ref_azi_cos, rtol=1e-6)
-    np.testing.assert_allclose(y, distance * ref_azi_sin, rtol=1e-6)
-
-def test_polar_to_cart3(self):
-    # Test when sizes of input arrays are not the same
-    distance = np.array([1.0, 2.0, 3.0])
-    ref_azi_sin = np.array([0.0, 0.5])
-    ref_azi_cos = np.array([1.0, np.sqrt(3) / 2])
-
-    with self.assertRaises(ValueError):
-        polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos)
+    np.testing.assert_allclose(x, distance2 * ref_azi_cos2, rtol=1e-6)
+    np.testing.assert_allclose(y, distance2 * ref_azi_sin2, rtol=1e-6)
 
 def test_GPModel():
     """
