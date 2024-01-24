@@ -193,6 +193,29 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
   else:
     return np.column_stack([pos_vars, u_rot[0], v_rot[0]]).T
 
+def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
+    """
+    Convert polar coordinates to Cartesian coordinates.
 
+    Parameters:
+    - distance (float or np.array): Radial distance or array of radial distances
+    - ref_azi_sin (float or np.array): Sine of the reference azimuth angle
+    - ref_azi_cos (float or np.array): Cosine of the reference azimuth angle
 
-
+    Returns:
+    - np.array: Cartesian coordinates, each row containing [x, y]
+    """
+    # Convert inputs to arrays if they are not already
+    distance = np.asarray(distance)
+    ref_azi_sin = np.asarray(ref_azi_sin)
+    ref_azi_cos = np.asarray(ref_azi_cos)
+    
+    # Check if the sizes of distance and ref_azi_sin/ref_azi_cos are the same
+    if distance.size != ref_azi_sin.size or distance.size != ref_azi_cos.size:
+        raise ValueError("The sizes of distance, ref_azi_sin, and ref_azi_cos must be the same.")
+    
+    # Calculate Cartesian coordinates
+    x = distance * ref_azi_cos
+    y = distance * ref_azi_sin
+    
+    return x, y

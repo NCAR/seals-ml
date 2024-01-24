@@ -1,8 +1,62 @@
+import os
 import pytest
 import numpy as np
 import xarray as xr
-from sealsml.geometry import GeoCalculator
+
+# Our functiuons 
+from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler
+from sealsml.baseline import GPModel
+
+def test_polar_to_cart1():
+    # Test with single values
+    distance = 2.0
+    ref_azi_sin = 0.5
+    ref_azi_cos = np.sqrt(3) / 2
+
+    x, y = polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos)
+
+    assert np.isclose(x, distance * ref_azi_cos, rtol=1e-4)
+    assert np.isclose(y, distance * ref_azi_sin, rtol=1e-4)
+
+    # Test with arrays
+    distance2 = np.array([1.0, 2.0, 3.0])
+    ref_azi_sin2 = np.array([0.0, 0.5, 1.0])
+    ref_azi_cos2 = np.array([1.0, np.sqrt(3) / 2, 0.5])
+
+    x, y = polar_to_cartesian(distance2, ref_azi_sin2, ref_azi_cos2)
+
+    np.testing.assert_allclose(x, distance2 * ref_azi_cos2, rtol=1e-6)
+    np.testing.assert_allclose(y, distance2 * ref_azi_sin2, rtol=1e-6)
+
+def test_GPModel():
+    """
+    Tests the `GPModel` function.
+
+    This function should have a scikit-learn interface
+
+    """
+    # Test Case #1, make sure that .fit reads in numpy arrays
+    rand1 = np.random.rand(1, 99)
+    rand2 = np.random.rand(1, 27)
+    model = GPModel()
+    model.fit(rand1, rand2)
+
+    # Test Case #2
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc')
+    test_data = os.path.expanduser(test_data_path)
+    assert os.path.exists(test_data), f"File not found: {test_data}"
+
+    # Open up the netCDF using xarray
+    data = xr.open_dataset(test_data)
+    
+    predictions = model.predict(data.encoder_input.values, 
+                                data.decoder_input.values)
+    # Encoder shape
+    assert(data.encoder_input.values.shape[0] == predictions.shape[0])
+    assert(data.encoder_input.values.shape[0] == predictions.sum())
+    # Decoder shape
+    assert(data.decoder_input.values.shape[:2] == predictions.shape[:2])
 
 def test_distance_between_points_3d():
     """
