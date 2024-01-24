@@ -1,10 +1,11 @@
 import pytest
 import numpy as np
 import xarray as xr
-from sealsml.geometry import GeoCalculator
+
+# Our functiuons 
+from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
-from sealsml.geometry import polar_to_cartesian
 
 def test_polar_to_cart1():
     # Test with single values
@@ -41,13 +42,16 @@ def test_GPModel():
     model.fit(rand1, rand2)
 
     # Test Case #2
-    #test_data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
-    #data = xr.open_dataset(test_data)
+    test_data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
+    data = xr.open_dataset(test_data)
     
-    #predictions = model.predict(data.encoder_input.values, 
-    #                            data.decoder_input.values)
-    
-    #assert(data.encoder_input.values.shape[0] == predictions.shape[0])
+    predictions = model.predict(data.encoder_input.values, 
+                                data.decoder_input.values)
+    # Encoder shape
+    assert(data.encoder_input.values.shape[0] == predictions.shape[0])
+    assert(data.encoder_input.values.shape[0] == predictions.sum())
+    # Decoder shape
+    assert(data.decoder_input.values.shape[:2] == predictions.shape[:2])
 
 
 def test_distance_between_points_3d():
