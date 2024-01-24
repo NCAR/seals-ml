@@ -1,3 +1,4 @@
+import os
 import pytest
 import numpy as np
 import xarray as xr
@@ -42,7 +43,10 @@ def test_GPModel():
     model.fit(rand1, rand2)
 
     # Test Case #2
-    test_data = '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc'
+    test_data = os.path.expanduser('~/seals-ml/test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc')
+    assert os.path.exists(test_data), f"File not found: {test_data}"
+
+    # Open up the netCDF using xarray
     data = xr.open_dataset(test_data)
     
     predictions = model.predict(data.encoder_input.values, 
@@ -52,7 +56,6 @@ def test_GPModel():
     assert(data.encoder_input.values.shape[0] == predictions.sum())
     # Decoder shape
     assert(data.decoder_input.values.shape[:2] == predictions.shape[:2])
-
 
 def test_distance_between_points_3d():
     """
