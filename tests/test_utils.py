@@ -4,7 +4,7 @@ import xarray as xr
 from sealsml.geometry import GeoCalculator
 from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
-from sealsml.baseline import polar_to_cartesian
+from sealsml.geometry import polar_to_cartesian
 
 def test_polar_to_cart1():
     # Test with single values
