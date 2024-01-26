@@ -3,7 +3,7 @@ import pandas as pd
 import math
 from typing import Tuple
 
-
+## Should be removed and use metpy functions
 def polar(u, v):
     """
     Converts u,v time series at a point to wind speed and wind direction using only numpy.
@@ -63,6 +63,8 @@ def polar2d(u2d, v2d, m, n):
             angle2d[i][j] = math.degrees(math.atan2(v2d[i][j], u2d[i][j]))
 
     return angle2d, speed2d
+
+## Keep these functions below
 
 def findmaxC(CH4, times):
    """
