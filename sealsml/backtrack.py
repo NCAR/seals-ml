@@ -64,52 +64,51 @@ def polar2d(u2d, v2d, m, n):
 
     return angle2d, speed2d
 
-def findmaxC(CH4, times, n):
-    """
-    Finds the maximum CH4 concentration in a time series for a sensor.
+def findmaxC(CH4, times):
+   """
+   Finds the maximum CH4 concentration in a time series for a sensor.
 
-    Args:
-        CH4 (list): A list of CH4 concentration values.
-        times (list): A list of corresponding timestamps.
-        n (int): The length of the CH4 and times lists.
+   Args:
+       CH4 (list): A list of CH4 concentration values.
+       times (list): A list of corresponding timestamps.
 
-    Returns:
-        tuple: A tuple containing the following:
-            maxC (float): The maximum CH4 concentration.
-            time_maxC (float): The time at which the maximum CH4 concentration occurs.
-            ijkmax (int): The index in the time series for the maximum CH4 concentration.
+   Returns:
+       tuple: A tuple containing the following:
+           maxC (float): The maximum CH4 concentration.
+           time_maxC (float): The time at which the maximum CH4 concentration occurs.
+           ijkmax (int): The index in the time series for the maximum CH4 concentration.
 
-    Raises:
-        ValueError: If the lengths of the CH4 and times lists are not equal.
+   Raises:
+       ValueError: If the lengths of the CH4 and times lists are not equal.
 
-    Notes:
-        * If no maximum is found (e.g., all values are constant or zero), the function
-          returns the value and time at the midpoint of the time series.
-        * This is an arbitrary choice, and other strategies could be used (e.g.,
-          returning NaN or None).
+   Notes:
+       * If no maximum is found (e.g., all values are constant or zero), the function
+         returns the value and time at the midpoint of the time series.
+       * This is an arbitrary choice, and other strategies could be used (e.g.,
+         returning NaN or None).
+   """
 
-    """
+   if len(CH4) != len(times):
+       raise ValueError("The lengths of the CH4 and times lists must be equal.")
 
-    if len(CH4) != len(times):
-        raise ValueError("The lengths of the CH4 and times lists must be equal.")
+   n = len(CH4)  # Determine the size automatically
 
-    max_c = 0.0
-    time_max_c = 0.0
-    ijk_max = 0
+   max_c = 0.0
+   time_max_c = 0.0
+   ijk_max = 0
 
-    for i in range(n):
-        if CH4[i] > max_c:
-            max_c = CH4[i]
-            time_max_c = times[i]
-            ijk_max = i
+   for i in range(n):
+       if CH4[i] > max_c:
+           max_c = CH4[i]
+           time_max_c = times[i]
+           ijk_max = i
 
-    # If no maximum is found, return the midpoint value
+   # If no maximum is found, return the midpoint value
+   if max_c == 0.0 or ijk_max == 0:
+       ijk_max = int(n / 2)
+       time_max_c = times[ijk_max]
 
-    if max_c == 0.0 or ijk_max == 0:
-        ijk_max = int(n / 2)
-        time_max_c = times[ijk_max]
-
-    return max_c, time_max_c, ijk_max
+   return max_c, time_max_c, ijk_max
 
 def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
     """
