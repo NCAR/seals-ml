@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import math
 
+
+
 def polar(u, v):
     """
     Converts u,v time series at a point to wind speed and wind direction using only numpy.
@@ -15,13 +17,7 @@ def polar(u, v):
             angle (numpy.ndarray): 1D array of wind directions in degrees (0 = East, counterclockwise).
             speed (numpy.ndarray): 1D array of wind speeds.
 
-    Raises:
-        ValueError: If u and v have different lengths.
-
     """
-
-    if len(u) != len(v):
-        raise ValueError("u and v must have the same length.")
 
     speed = np.sqrt(u**2 + v**2)
 
