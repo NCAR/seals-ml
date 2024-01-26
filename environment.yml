@@ -18,7 +18,7 @@ dependencies:
   - tqdm
   - numba
   - cython
-  - metpy
+  - metpy=>1.6.0
   - dask
   - pip:
     - bridgescaler
