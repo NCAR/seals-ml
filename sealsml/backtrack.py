@@ -1,70 +1,5 @@
 import numpy as np
-import pandas as pd
-import math
 from typing import Tuple
-
-## Should be removed and use metpy functions
-def polar(u, v):
-    """
-    Converts u,v time series at a point to wind speed and wind direction using only numpy.
-
-    Args:
-        u (numpy.ndarray): 1D array of horizontal wind components in the x-direction (East-West).
-        v (numpy.ndarray): 1D array of horizontal wind components in the y-direction (North-South).
-
-    Returns:
-        tuple: A tuple containing the following:
-            angle (numpy.ndarray): 1D array of wind directions in degrees (0 = East, counterclockwise).
-            speed (numpy.ndarray): 1D array of wind speeds.
-
-    """
-
-    speed = np.sqrt(u**2 + v**2)
-
-    # Use numpy's arctangent-2 function with correction for quadrant
-    angle = np.rad2deg(np.arctan2(v, u))
-    angle[angle < 0] += 360
-
-    return angle, speed
-
-def polar2d(u2d, v2d, m, n):
-    """
-    Computes wind speed and direction for a 2D u,v wind field.
-
-    Args:
-        u2d (numpy.ndarray): 2D array of horizontal wind components in the x-direction.
-        v2d (numpy.ndarray): 2D array of horizontal wind components in the y-direction.
-        m (int): Number of rows in the u2d and v2d arrays.
-        n (int): Number of columns in the u2d and v2d arrays.
-
-    Returns:
-        tuple: A tuple containing the following:
-            angle2d (numpy.ndarray): 2D array of wind directions in degrees (0 = East, counterclockwise).
-            speed2d (numpy.ndarray): 2D array of wind speeds.
-
-    Raises:
-        ValueError: If u2d and v2d have different shapes.
-
-    Notes:
-        * The function assumes that u2d and v2d have the same dimensions.
-        * Wind directions are calculated using the atan2 function, which accounts for quadrant differences.
-
-    """
-
-    if u2d.shape != v2d.shape:
-        raise ValueError("u2d and v2d must have the same shape.")
-
-    angle2d = np.zeros_like(u2d)
-    speed2d = np.zeros_like(u2d)
-
-    for i in range(m):
-        for j in range(n):
-            speed2d[i][j] = np.sqrt(u2d[i][j]**2 + v2d[i][j]**2)
-            angle2d[i][j] = math.degrees(math.atan2(v2d[i][j], u2d[i][j]))
-
-    return angle2d, speed2d
-
-## Keep these functions below
 
 def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
     """
@@ -89,7 +24,6 @@ def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
         * This is an arbitrary choice, and other strategies could be used (e.g.,
           returning NaN or None).
     """
-
     if not CH4.shape == times.shape:
         raise ValueError("The shapes of the CH4 and times arrays must be equal.")
 
@@ -123,7 +57,7 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
 
     Returns:
         Scaled U and V wind componets. 
-        
+
         tuple: A tuple containing the following:
             avg_u (float): Average x-component wind vector component over the backtrack time interval.
             avg_v (float): Average y-component wind vector component over the backtrack time interval.
@@ -146,12 +80,16 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
     ijk = ijk_start
     ux_sum = 0.0
     vy_sum = 0.0
-    xdist = 0.0
-    ydist = 0.0
+    dx = 0.0
+    dy = 0.0
     total_dist = 0.0
+    num_steps = 0
 
     # Backtrack along the velocity path
     while (total_dist < pathmax) and ijk > 0:
+        # step counter
+        num_steps += 1
+        
         u_bar = 0.5 * (u_sonic[ijk] + u_sonic[ijk - 1])
         v_bar = 0.5 * (v_sonic[ijk] + v_sonic[ijk - 1])
         xnm1 = xn - dt * u_bar
@@ -161,12 +99,14 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         vy_sum += v_bar
         xn = xnm1
         yn = ynm1
-        xdist = abs(sensor_x - xn)
-        ydist = abs(sensor_y - yn)
-        total_dist = np.sqrt(xdist**2 + ydist**2)
+        # Calculating Distance (removed math function for performance)
+        dx = sensor_x - xn
+        dy = sensor_y - yn
+        distance_squared = dx**2 + dy**2
+        total_dist = np.sqrt(distance_squared)
 
     # Compute average horizontal wind components
-    avg_u = ux_sum / max(1, (ijk_start - ijk))
-    avg_v = vy_sum / max(1, (ijk_start - ijk))
+    avg_u = ux_sum / np.max(1, (num_steps))
+    avg_v = vy_sum / np.max(1, (num_steps))
 
     return avg_u, avg_v
