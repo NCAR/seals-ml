@@ -1,5 +1,7 @@
+# Functions for B Travis 
 import numpy as np
 from typing import Tuple
+import math
 
 def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
     """
@@ -41,19 +43,18 @@ def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
 
     return max_c, time_max_c, max_idx
 
-
 def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
     """
     Backtracks along a velocity path until a specified distance is traversed and returns the average velocity vector.
 
     Args:
-        ijk_start (int): Index in the time series at which to start backtracking.
-        u_sonic (list): List of x-component wind values at the sonic anemometer vs time.
-        v_sonic (list): List of y-component wind values at the sonic anemometer vs time.
-        dt (float): Time step size.
-        sensor_x (float): X-coordinate of the sensor.
+        ijk_start (int): Index in the time series at which to start backtracking. (time step)
+        u_sonic (list): List of x-component wind values at the sonic anemometer vs time. (m/s)
+        v_sonic (list): List of y-component wind values at the sonic anemometer vs time. (m/s)
+        dt (float): Time step size. 
+        sensor_x (float): X-coordinate of the sensor. 
         sensor_y (float): Y-coordinate of the sensor.
-        pathmax (float): Maximum backtrack path length.
+        pathmax (float): Maximum backtrack path length. (distance in meters?)
 
     Returns:
         Scaled U and V wind componets. 
@@ -102,11 +103,12 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         # Calculating Distance (removed math function for performance)
         dx = sensor_x - xn
         dy = sensor_y - yn
-        distance_squared = dx**2 + dy**2
-        total_dist = np.sqrt(distance_squared)
+        total_dist = np.sqrt((dx**2 + dy**2))
 
+    # This print statement is just for debugging
+    print('ijk_start-ijk:', (ijk_start-ijk))
     # Compute average horizontal wind components
-    avg_u = ux_sum / np.max(1, (num_steps))
-    avg_v = vy_sum / np.max(1, (num_steps))
+    avg_u = ux_sum / max(1, (ijk_start-ijk))
+    avg_v = vy_sum / max(1, (ijk_start-ijk))
 
     return avg_u, avg_v
