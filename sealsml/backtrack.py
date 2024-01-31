@@ -66,53 +66,7 @@ def polar2d(u2d, v2d, m, n):
 
 ## Keep these functions below
 
-def findmaxC(CH4, times):
-   """
-   Finds the maximum CH4 concentration in a time series for a sensor.
-
-   Args:
-       CH4 (list): A list of CH4 concentration values.
-       times (list): A list of corresponding timestamps.
-
-   Returns:
-       tuple: A tuple containing the following:
-           maxC (float): The maximum CH4 concentration.
-           time_maxC (float): The time at which the maximum CH4 concentration occurs.
-           ijkmax (int): The index in the time series for the maximum CH4 concentration.
-
-   Raises:
-       ValueError: If the lengths of the CH4 and times lists are not equal.
-
-   Notes:
-       * If no maximum is found (e.g., all values are constant or zero), the function
-         returns the value and time at the midpoint of the time series.
-       * This is an arbitrary choice, and other strategies could be used (e.g.,
-         returning NaN or None).
-   """
-
-   if len(CH4) != len(times):
-       raise ValueError("The lengths of the CH4 and times lists must be equal.")
-
-   n = len(CH4)  # Determine the size automatically
-
-   max_c = 0.0
-   time_max_c = 0.0
-   ijk_max = 0
-
-   for i in range(n):
-       if CH4[i] > max_c:
-           max_c = CH4[i]
-           time_max_c = times[i]
-           ijk_max = i
-
-   # If no maximum is found, return the midpoint value
-   if max_c == 0.0 or ijk_max == 0:
-       ijk_max = int(n / 2)
-       time_max_c = times[ijk_max]
-
-   return max_c, time_max_c, ijk_max
-
-def findmaxCH4_noloop(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
+def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
     """
     Finds the first occurrence of the maximum CH4 concentration in a time series for a sensor.
 
@@ -168,6 +122,8 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         pathmax (float): Maximum backtrack path length.
 
     Returns:
+        Scaled U and V wind componets. 
+        
         tuple: A tuple containing the following:
             avg_u (float): Average x-component wind vector component over the backtrack time interval.
             avg_v (float): Average y-component wind vector component over the backtrack time interval.
