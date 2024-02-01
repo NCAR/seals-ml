@@ -1,6 +1,6 @@
 # Functions for B Travis 
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 import math
 
 def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
@@ -43,7 +43,7 @@ def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
 
     return max_c, time_max_c, max_idx
 
-def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
+def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
     """
     Backtracks along a velocity path until a specified distance is traversed and returns the average velocity vector.
 
@@ -57,7 +57,7 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         pathmax (float): Maximum backtrack path length. (distance in meters?)
 
     Returns:
-        Scaled U and V wind componets. 
+        Scaled U and V wind componets. These are post-processed later. 
 
         tuple: A tuple containing the following:
             avg_u (float): Average x-component wind vector component over the backtrack time interval.
@@ -71,9 +71,12 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         * The function stops backtracking if it reaches the beginning of the time series (ijk = 0) or if the total distance traveled exceeds pathmax.
 
     """
-
+    
     if len(u_sonic) != len(v_sonic):
         raise ValueError("The lengths of u_sonic and v_sonic lists must be equal.")
+
+    if not all(np.size(arg) == 1 for arg in [ijk_start, sensor_x, sensor_y, pathmax]):
+        raise ValueError("ijk_start, sensor_x, sensor_y, and pathmax should all have a length of 1.")
 
     # Initialize variables
     xn = sensor_x
@@ -84,15 +87,16 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
     dx = 0.0
     dy = 0.0
     total_dist = 0.0
-    num_steps = 0
+    HALF = 0.5
 
     # Backtrack along the velocity path
-    while (total_dist < pathmax) and ijk > 0:
-        # step counter
-        num_steps += 1
-        
-        u_bar = 0.5 * (u_sonic[ijk] + u_sonic[ijk - 1])
-        v_bar = 0.5 * (v_sonic[ijk] + v_sonic[ijk - 1])
+    while total_dist < pathmax and ijk > 0:
+        u_current, u_previous = u_sonic[ijk], u_sonic[ijk - 1]
+        v_current, v_previous = v_sonic[ijk], v_sonic[ijk - 1]
+
+        u_bar = HALF * (u_current + u_previous)
+        v_bar = HALF * (v_current + v_previous)
+
         xnm1 = xn - dt * u_bar
         ynm1 = yn - dt * v_bar
         ijk -= 1
@@ -100,15 +104,15 @@ def backtrack(ijk_start, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
         vy_sum += v_bar
         xn = xnm1
         yn = ynm1
-        # Calculating Distance (removed math function for performance)
+        # Calculating Distance
         dx = sensor_x - xn
         dy = sensor_y - yn
         total_dist = np.sqrt((dx**2 + dy**2))
 
-    # This print statement is just for debugging
-    print('ijk_start-ijk:', (ijk_start-ijk))
     # Compute average horizontal wind components
-    avg_u = ux_sum / max(1, (ijk_start-ijk))
-    avg_v = vy_sum / max(1, (ijk_start-ijk))
+    denominator = max(1, (ijk_start - ijk))
+    
+    avg_u = ux_sum / denominator
+    avg_v = vy_sum / denominator
 
     return avg_u, avg_v
