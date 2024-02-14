@@ -56,6 +56,7 @@ print(targets.shape)
 
 date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 out_path = os.path.join(config["out_path"], date_str)
+os.makedirs(out_path, exist_ok=False)
 
 for model_name in config["models"]:
     start = time.time()
@@ -84,7 +85,6 @@ for model_name in config["models"]:
     if config["save_model"]:
         if model_name != "gaussian_process":
             model.save(os.path.join(out_path, f"{model_name}_{date_str}.keras"))
-        os.makedirs(out_path, exist_ok=True)
         if not scaler_saved:
             save_scaler(p.scaler, os.path.join(out_path, f"scaler_{date_str}.json"))
             scaler_saved = True
