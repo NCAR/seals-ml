@@ -159,10 +159,10 @@ class GPModel():
         print('decoder shape (y)', np.shape(self.decoder))
         
         # Collapse on time. Time steps should be constant for this model. 
-        median_time = np.median(self.encoder, axis=2) # this can be changed to 80th percentile or w/e
+        max_time = np.max(self.encoder, axis=2) # this can be changed to 80th percentile or w/e
 
         # make xarray datasets
-        dataset = xr.Dataset({"data": (["sample", "sensor", "variables"], median_time)})
+        dataset = xr.Dataset({"data": (["sample", "sensor", "variables"], max_time)})
         decoder_dataset = xr.Dataset({"data": (["sample", "leak_locations", "variables"], self.decoder)})
     
         for i in dataset.sample:
