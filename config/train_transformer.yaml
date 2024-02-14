@@ -13,7 +13,7 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-models: ['gaussian_process']
+models: ['transformer', 'gaussian_process']
 transformer:
   kwargs:
     encoder_layers: 2
@@ -35,7 +35,7 @@ transformer:
     pool_size: 2
     padding: "valid"
   fit:
-    epochs: 70
+    epochs: 7
     verbose: 1
     batch_size: 1024
   compile:
