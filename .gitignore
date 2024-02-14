@@ -130,10 +130,13 @@ dmypy.json
 # Pyre type checker
 .pyre/
 data/.DS_Store
-*.nc
 data/FE_CBL2m_Ug5.4
 data/FE_CBL2m_Ug5.7
 utils/.DS_Store
 tests/.DS_Store
 .DS_Store
+sealsml/.DS_Store
+data/SBL2m_Ug2p5_src10kg_a.5
+data/SBL2m_Ug10_src1-8kg_a.5
+data/SBL2m_Ug10_src10kg_a.6
 sealsml/.DS_Store
