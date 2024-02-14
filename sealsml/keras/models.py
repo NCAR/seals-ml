@@ -5,6 +5,10 @@ from keras.saving import deserialize_keras_object
 import keras
 
 
+# If using TensorFlow, this will make GPU ops as deterministic as possible,
+# but it will affect the overall performance, so be mindful of that.
+# tf.config.experimental.enable_op_determinism()
+
 class QuantizedTransformer(keras.models.Model):
     """
     Transformer model with an optional vector quantizer layer in the encoder branch to produce sharper forecasts.
@@ -114,7 +118,7 @@ class QuantizedTransformer(keras.models.Model):
         # First inputs element is the encoder input, which would be the sensors.
         encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
-        decoder_input = inputs[1]
+        decoder_input = inputs[1][..., :4]
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
