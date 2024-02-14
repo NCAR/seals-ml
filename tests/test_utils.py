@@ -40,7 +40,7 @@ def test_GPModel():
     rand1 = np.random.rand(1, 99)
     rand2 = np.random.rand(1, 27)
     model = GPModel()
-    model.fit(rand1, rand2)
+    model.fit(x=(rand1, rand2), y=None)
 
     # Test Case #2
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/training_data_SBL2m_Ug2p5_src1-8kg_b.5.nc')
@@ -49,13 +49,15 @@ def test_GPModel():
 
     # Open up the netCDF using xarray
     data = xr.open_dataset(test_data)
-    
-    predictions = model.predict(x=(data.encoder_input.values, data.decoder_input.values))
+    encoder = data.encoder_input.values[..., 0]
+    decoder = data.decoder_input.values[:, :, 0, :, 0]
+
+    predictions = model.predict(x=(encoder, decoder))
     # Encoder shape
-    assert(data.encoder_input.values.shape[0] == predictions.shape[0])
-    assert(data.encoder_input.values.shape[0] == predictions.sum())
+    assert(encoder.shape[0] == predictions.shape[0])
+    assert(encoder.shape[0] == predictions.sum())
     # Decoder shape
-    assert(data.decoder_input.values.shape[:2] == predictions.shape[:2])
+    assert(decoder.shape[:2] == predictions.shape[:2])
 
 def test_distance_between_points_3d():
     """
