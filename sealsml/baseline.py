@@ -11,9 +11,11 @@ from scipy.interpolate import griddata
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.gaussian_process.kernels import RBF
+from sklearn.preprocessing import MinMaxScaler
 from sealsml.geometry import polar_to_cartesian
 
 ## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
+
 
 def create_meshgrid(x_sensors, y_sensors, buffer=6, grid_points=100):
     """
@@ -114,13 +116,12 @@ def remove_all_rows_with_val(arr, value_to_drop=0):
 
 
 class GPModel():
-  
+
     def __init__(self, num_met_sensors=1, normalize_y=True, n_restarts_optimizer=16, length_scale_bounds=(1e-02, 1e02)):
 
         self.num_met_sensors = num_met_sensors
         self.normalize_y = normalize_y 
         self.n_restarts_optimizer = n_restarts_optimizer
-
         self.length_scale_bounds = length_scale_bounds
 
     def fit(self, x, y, **kwargs):
@@ -137,11 +138,6 @@ class GPModel():
             raise TypeError("Inputs must be NumPy arrays")
         
     def predict(self, x, batch_size=None):
-        self.x_ = x
-        self.y_ = y
-       
-        if not isinstance(self.x_, np.ndarray) or not isinstance(self.y_, np.ndarray):
-            raise TypeError("Inputs must be NumPy arrays")
         '''
         This function uses numpy arrays as input
 
@@ -166,7 +162,6 @@ class GPModel():
         median_time = np.median(self.encoder, axis=2) # this can be changed to 80th percentile or w/e
 
         # make xarray datasets
-
         dataset = xr.Dataset({"data": (["sample", "sensor", "variables"], median_time)})
         decoder_dataset = xr.Dataset({"data": (["sample", "leak_locations", "variables"], self.decoder)})
     
@@ -208,7 +203,6 @@ class GPModel():
             X_test = np.column_stack((x_leaks.ravel(), y_leaks.ravel()))
 
             ## Make the model
-
             kernel = 1.0 * RBF(length_scale_bounds=self.length_scale_bounds)
             
             gp_model = GaussianProcessRegressor(kernel=kernel,
@@ -219,9 +213,9 @@ class GPModel():
             gp_results = gp_model.predict(X_test)
 
             # need to pad to 20 to match leak locations
-
             padded_array = np.pad(nanargmax_to_one(gp_results),
                                   (0, decoder_dataset.leak_locations.size - len(nanargmax_to_one(gp_results))), mode='constant')
+
             leak_loc.append(padded_array)
 
         return np.asarray(leak_loc)  
