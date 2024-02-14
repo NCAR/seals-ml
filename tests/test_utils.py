@@ -50,8 +50,7 @@ def test_GPModel():
     # Open up the netCDF using xarray
     data = xr.open_dataset(test_data)
     
-    predictions = model.predict(data.encoder_input.values, 
-                                data.decoder_input.values)
+    predictions = model.predict(x=(data.encoder_input.values, data.decoder_input.values))
     # Encoder shape
     assert(data.encoder_input.values.shape[0] == predictions.shape[0])
     assert(data.encoder_input.values.shape[0] == predictions.sum())
