@@ -88,9 +88,9 @@ class DataSampler(object):
                 sensor_array = np.zeros(shape=(6, n_sensors, time_window_size))
                 for n in range(n_sensors):
 
-                    sensor_idx = np.stack([self.x[i_sensor[n]],
+                    sensor_idx = np.array([self.x[i_sensor[n]],
                                            self.y[j_sensor[n]],
-                                           self.z[k_sensor[n]]]).T
+                                           self.z[k_sensor[n]]])
                     sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
                     derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
                                                         u=sensor_phi[:, 2],
@@ -106,9 +106,9 @@ class DataSampler(object):
                 leak_array = np.zeros(shape=(6, n_leaks, 1))
                 for l in range(n_leaks):
 
-                    leak_idx = np.stack([self.x[i_leak[l]],
+                    leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
-                                         self.z[k_leak[l]]]).T
+                                         self.z[k_leak[l]]])
                     leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
                     derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
                                                         u=sensor_phi[:, 2],
