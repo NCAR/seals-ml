@@ -1,21 +1,15 @@
-# Standard library
-import sys
-import os
-
 # Data manipulation and analysis
 import numpy as np
 import xarray as xr
 
-# Scientific computing and machine learning
-from scipy.interpolate import griddata
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.gaussian_process.kernels import RBF
-from sklearn.preprocessing import MinMaxScaler
+# seals geo stuff
 from sealsml.geometry import polar_to_cartesian
 
-## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
+# scikit-learn ML packages
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF
 
+## Need a few functuons for the baseline ML, since the inputs are different enough did not put them in the class
 
 def create_meshgrid(x_sensors, y_sensors, buffer=6, grid_points=100):
     """
@@ -112,8 +106,6 @@ def remove_all_rows_with_val(arr, value_to_drop=0):
     result = arr[non_zero_rows]
 
     return result
-
-
 
 class GPModel():
 
@@ -220,59 +212,8 @@ class GPModel():
 
         return np.asarray(leak_loc)  
 
-
 #### Everything below here should just be an interpolator ####
 # The below is useful if we want a grided output. 
-    
-
-class ScipyInterpolate(object):
-    """
-    A scikit-learn compatible class for performing 2D interpolation using scipy's griddata and finding the global maximum.
-
-    Parameters:
-    - method (str, optional): Interpolation method, default is 'cubic'.
-    """
-
-    def __init__(self, method="cubic"):
-        self.method = method
-
-    def fit(self, x_train, y_train):
-        """
-        Stores the sensor data for later use in the predict method.
-
-        Parameters:
-        - x (array-like): X-coordinates of the sensor data.
-        - y (array-like): Y-coordinates of the sensor data.
-        - z (array-like): Sensor values corresponding to (x, y).
-
-        Returns:
-        - self (ScipyInterpolate): Fitted instance.
-        """
-        self.x_sensors_ = x_train[:,0]
-        self.y_sensors_ = x_train[:,1]
-        self.z_sensors_ = y_train
-        return self
-
-    def predict(self, x_test, output_shape = (100,100)):
-        """
-        Performs interpolation and finds the global maximum on the provided mesh coordinates using the stored sensor data.
-
-        Parameters:
-        - x_mesh (array-like): X-coordinates for which to interpolate.
-        - y_mesh (array-like): Y-coordinates for which to interpolate.
-
-        Returns:
-        - z_interpolated (ndarray): Interpolated values at the specified coordinates.
-        - max_z (float): Global maximum value of the interpolated data.
-        - max_indices (tuple): Indices of the global maximum in the interpolated data.
-
-        Note:
-        - The function uses the interpolation method specified during initialization.
-        """
-        z_interpolated = griddata((self.x_sensors_, self.y_sensors_), self.z_sensors_, (x_test), method=self.method)
-        z_interpolated = z_interpolated.reshape(output_shape)
-
-        return z_interpolated
   
 class GaussianProcessInterpolator():
     """
@@ -334,68 +275,6 @@ class GaussianProcessInterpolator():
         interpolated_values = interpolated_values.reshape(output_shape)
 
         return interpolated_values
-
-class RandomForestInterpolator():
-    """
-    A scikit-learn compatible class for performing Random Forest interpolation.
-
-    Parameters:
-    - max_depth (int, optional): Maximum depth of the decision trees. Default is 2.
-    - n_estimators (int, optional): Number of trees in the forest. Default is 50.
-    - random_state (int, optional): Seed for random number generation. Default is 42.
-    """
-
-    def __init__(self, max_depth=2, n_estimators=50, random_state=42):
-        self.max_depth = max_depth
-        self.n_estimators = n_estimators
-        self.random_state = random_state
-
-    def fit(self, X_train, y_train):
-        """
-        Fits the Random Forest model with the sensor data.
-
-        Parameters:
-        - x_sensors (array-like): X-coordinates of the sensor data.
-        - y_sensors (array-like): Y-coordinates of the sensor data.
-        - z_sensors (array-like): Sensor values corresponding to (x_sensors, y_sensors).
-
-        Returns:
-        - self (RandomForestInterpolator): Fitted instance.
-        """
-        self.x_train_ = X_train
-        self.y_train_ = y_train
-
-        # Create the Random Forest Regressor
-        self.rf_model = RandomForestRegressor(n_estimators=self.n_estimators, max_depth=self.max_depth, random_state=self.random_state)
-
-        # Fit the model with the data
-        self.rf_model.fit(self.x_train_, self.y_train_)
-
-        return self
-
-    def predict(self, x, output_shape = (100,100)):
-        """
-        Performs interpolation on the provided mesh coordinates using the fitted Random Forest model.
-
-        Parameters:
-        - x_text:
-        - output_shape:
-
-        Returns:
-        - interpolated_values (ndarray): Interpolated values at the specified coordinates.
-        - max_z (float): Global maximum value of the interpolated data.
-        - max_indices (tuple): Indices of the global maximum in the interpolated data.
-        """
-        self.x_test_ = x
-        self.output_shape_ = output_shape
-
-        # Predict interpolated values
-        interpolated_values = self.rf_model.predict(self.x_test_)
-
-        # Reshape interpolated values to match the mesh dimensions
-        interpolated_values_rf = interpolated_values.reshape(self.output_shape_)
-
-        return interpolated_values_rf
 
 # This will probably be deleted at a later date 
     
@@ -531,5 +410,4 @@ def gaussian_interp(data, mesh_dim=30):
         'interpolation': interpolation_da},
         coords=coords
     )
-
     return dataset 
