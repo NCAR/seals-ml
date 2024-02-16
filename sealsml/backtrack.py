@@ -3,17 +3,17 @@ import numpy as np
 from typing import Tuple, List
 import math
 
-def pathmax(factor_x=[0.4], x_width, factor_y=[0.4], y_width):
+def pathmax(x_width, y_width, factor_x=[0.4], factor_y=[0.4]):
     """
     This function calculates the pathmax, which is the minimum of the product of factor_x and x_width and the product of factor_y and y_width.
 
     x_width and y_width should be in meters
     
     Args:
-        factor_x: The factor to multiply by x_width. Should be a NumPy array with the same shape as x_width and y_width.
         x_width: The width in the x-direction. Should be a NumPy array with the same shape as factor_x and y_width.
-        factor_y: The factor to multiply by y_width. Should be a NumPy array with the same shape as factor_x and y_width.
         y_width: The width in the y-direction. Should be a NumPy array with the same shape as factor_x and y_width.
+        factor_x: The factor to multiply by x_width. Should be a NumPy array with the same shape as x_width and y_width.
+        factor_y: The factor to multiply by y_width. Should be a NumPy array with the same shape as factor_x and y_width.
 
     Returns:
         The pathmax value as a NumPy array.
