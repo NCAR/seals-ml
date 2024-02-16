@@ -5,6 +5,7 @@ import glob
 from sealsml.data import Preprocessor
 from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer
+from sealsml.baseline import GPModel
 from sealsml.evaluate import provide_metrics
 from sklearn.model_selection import train_test_split
 import keras
@@ -15,7 +16,6 @@ import time
 import tensorflow as tf
 import pandas as pd
 tf.debugging.disable_traceback_filtering()
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
@@ -30,7 +30,7 @@ config["out_path"] = config["out_path"].replace("username", username)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
-training, validation = train_test_split(files,
+training, validation = train_test_split(files[:3],
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
 
@@ -53,39 +53,47 @@ print("decoder mask:", decoder_mask.shape)
 print("encoder:", scaled_encoder.shape)
 print("decoder:", scaled_decoder[..., :4].shape)
 print(targets.shape)
-model = QuantizedTransformer(**config["model"])
-model.compile(**config["model_compile"], jit_compile=False)
-print(model.summary())
-start = time.time()
-fit_hist = model.fit(x=(scaled_encoder, scaled_decoder[..., :4], encoder_mask, decoder_mask),
-                     y=targets,
-                     validation_data=((scaled_encoder_val,
-                                       scaled_decoder_val[..., :4],
-                                       encoder_mask_val,
-                                       decoder_mask_val),
-                                      targets_val),
-          **config["model_fit"])
-print(f"Minutes to train model: {(time.time() - start) / 60 }")
-start = time.time()
-probabilities = model.predict(x=(scaled_encoder_val, scaled_decoder_val[..., :4], encoder_mask_val, decoder_mask_val),
-                      batch_size=config["predict_batch_size"]).squeeze()
-print(f"Minutes to run validation inference: {(time.time() - start) / 60 }")
 
-metrics = provide_metrics(targets_val, probabilities)
-
-print(metrics)
 date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
+out_path = os.path.join(config["out_path"], date_str)
+os.makedirs(out_path, exist_ok=False)
 
-if config["save_model"]:
+for model_name in config["models"]:
+    start = time.time()
 
-    os.makedirs(config["out_path"], exist_ok=True)
-    save_scaler(p.scaler, os.path.join(config["out_path"], f"scaler_{date_str}.json"))
-    model.save(os.path.join(config["out_path"], f"model_{date_str}.keras"))
+    if model_name == "transformer":
+        model = QuantizedTransformer(**config[model_name]["kwargs"])
+        model.compile(**config[model_name]["compile"])
+    elif model_name == "gaussian_process":
+        model = GPModel(**config[model_name]["kwargs"])
+    elif model_name == "back_tracker":
+        continue
+    fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+                         y=targets,
+                         validation_data=((scaled_encoder_val,
+                                           scaled_decoder_val,
+                                           encoder_mask_val,
+                                           decoder_mask_val),
+                                          targets_val),
+                         **config[model_name]["fit"])
+    print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
+    output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
+                           batch_size=config["predict_batch_size"]).squeeze()
+    metrics = provide_metrics(targets_val, output)
+    print(metrics)
+    scaler_saved = False
+    if config["save_model"]:
+        if model_name != "gaussian_process":
+            model.save(os.path.join(out_path, f"{model_name}_{date_str}.keras"))
+        if not scaler_saved:
+            save_scaler(p.scaler, os.path.join(out_path, f"scaler_{date_str}.json"))
+            scaler_saved = True
 
-if config["save_output"]:
+    if config["save_output"]:
 
-    output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], targets_val),
-                                       probabilities=(["sample", "pot_leak_locs"], probabilities)))
-    output.to_netcdf(os.path.join(config["out_path"], f"model_output_{date_str}.nc"))
-    loss_hist = pd.DataFrame(fit_hist.history)
-    loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.csv"))
+        output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], targets_val),
+                                           probabilities=(["sample", "pot_leak_locs"], output)))
+        output.to_netcdf(os.path.join(out_path, f"model_output_{date_str}.nc"))
+        # loss_hist = pd.DataFrame(fit_hist.history)
+        # loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.csv"))
+
