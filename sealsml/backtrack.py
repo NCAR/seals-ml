@@ -3,35 +3,41 @@ import numpy as np
 from typing import Tuple, List
 import math
 
-def pathmax(factor_x, x_width, factor_y, y_width):
-  """
-  This function calculates the pathmax, which is the minimum of the product of factor_x and x_width and the product of factor_y and y_width.
+def pathmax(factor_x=[0.4], x_width, factor_y=[0.4], y_width):
+    """
+    This function calculates the pathmax, which is the minimum of the product of factor_x and x_width and the product of factor_y and y_width.
 
-  Args:
-    factor_x: The factor to multiply by x_width. Should be a NumPy array with the same shape as x_width and y_width.
-    x_width: The width in the x-direction. Should be a NumPy array with the same shape as factor_x and y_width.
-    factor_y: The factor to multiply by y_width. Should be a NumPy array with the same shape as factor_x and y_width.
-    y_width: The width in the y-direction. Should be a NumPy array with the same shape as factor_x and y_width.
+    x_width and y_width should be in meters
+    
+    Args:
+        factor_x: The factor to multiply by x_width. Should be a NumPy array with the same shape as x_width and y_width.
+        x_width: The width in the x-direction. Should be a NumPy array with the same shape as factor_x and y_width.
+        factor_y: The factor to multiply by y_width. Should be a NumPy array with the same shape as factor_x and y_width.
+        y_width: The width in the y-direction. Should be a NumPy array with the same shape as factor_x and y_width.
 
-  Returns:
-    The pathmax value as a NumPy array.
+    Returns:
+        The pathmax value as a NumPy array.
 
-  Raises:
-    TypeError: If any of the inputs are not NumPy arrays or do not have the same shape.
-  """
-  # Convert all inputs to NumPy arrays
-  factor_x = np.asarray(factor_x)
-  x_width = np.asarray(x_width)
-  factor_y = np.asarray(factor_y)
-  y_width = np.asarray(y_width)
+    Raises:
+        TypeError: If any of the inputs are not NumPy arrays or do not have the same shape.
+        ValueError: If any of the factors are not within the valid range [0, 0.75].
+    """
+    # Convert all inputs to NumPy arrays
+    factor_x = np.asarray(factor_x)
+    x_width = np.asarray(x_width)
+    factor_y = np.asarray(factor_y)
+    y_width = np.asarray(y_width)
 
-  # Check if all inputs have the same length
-  if not np.array_equal(factor_x.shape, x_width.shape) or not np.array_equal(factor_x.shape, factor_y.shape) \
-    or not np.array_equal(factor_x.shape, y_width.shape):
-      raise TypeError("All inputs must have the same length.")
+    # Check if all inputs have the same shape
+    if not (factor_x.shape == x_width.shape == factor_y.shape == y_width.shape):
+        raise TypeError("All inputs must have the same shape.")
 
-  # Calculate pathmax using NumPy operations
-  return np.minimum(factor_x * x_width, factor_y * y_width)
+    # Check if factors are within the valid range [0, 0.75]
+    if not (0 <= np.min(factor_x) <= 0.75) or not (0 <= np.min(factor_y) <= 0.75):
+        raise ValueError("Factors should range between 0 and 0.75.")
+
+    # Calculate pathmax using NumPy operations
+    return np.minimum(factor_x * x_width, factor_y * y_width)
 
 def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
     """
