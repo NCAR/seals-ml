@@ -43,6 +43,7 @@ class DataSampler(object):
         self.x = self.data['xPos'][0, 0, :].values
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
+        self.leak_rate = self.data['srcAuxScMassSpecValue']
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
@@ -88,9 +89,9 @@ class DataSampler(object):
                 sensor_array = np.zeros(shape=(6, n_sensors, time_window_size))
                 for n in range(n_sensors):
 
-                    sensor_idx = np.stack([self.x[i_sensor[n]],
+                    sensor_idx = np.array([self.x[i_sensor[n]],
                                            self.y[j_sensor[n]],
-                                           self.z[k_sensor[n]]]).T
+                                           self.z[k_sensor[n]]])
                     sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
                     derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
                                                         u=sensor_phi[:, 2],
@@ -106,9 +107,9 @@ class DataSampler(object):
                 leak_array = np.zeros(shape=(6, n_leaks, 1))
                 for l in range(n_leaks):
 
-                    leak_idx = np.stack([self.x[i_leak[l]],
+                    leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
-                                         self.z[k_leak[l]]]).T
+                                         self.z[k_leak[l]]])
                     leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
                     derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
                                                         u=sensor_phi[:, 2],
@@ -191,37 +192,44 @@ class DataSampler(object):
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
                                           "u", "v", "w", "q_CH4"]},
-                                  name="encoder_input")
+                                  name="encoder_input").astype('float32')
 
         decoder_ds = xr.DataArray(decoder_x,
 
                                   dims=['sample', 'pot_leak', 'target_time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv",
                                           "u", "v", "w", "q_CH4"]},
-                                  name="decoder_input")
+                                  name="decoder_input").astype('float32')
 
         targets = xr.DataArray(targets,
                                dims=["sample", "pot_leak", "target_time"],
-                               name="target")
+                               name="target").astype('int')
+
+        target_ch4 = xr.DataArray(decoder_ds.sel(variable='q_CH4').isel(mask=0),
+                                  name="target_ch4")
 
         sensor_locs = xr.DataArray(self.pad_along_axis(sensor_meta, target_length=self.max_trace_sensors,
                                                        pad_value=0, axis=1),
                                    dims=['sample', 'sensor', 'sensor_loc'],
                                    coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
-                                   name="sensor_meta")
+                                   name="sensor_meta").astype('float32')
 
         leak_locs = xr.DataArray(self.pad_along_axis(leak_meta, target_length=self.max_leak_loc,
                                                      pad_value=0, axis=1),
                                  dims=['sample', 'pot_leak', 'sensor_loc'],
                                  coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
-                                 name="leak_meta")
+                                 name="leak_meta").astype('float32')
 
         met_sensor_loc = xr.DataArray(sensor_locs[:, 0],
                                       dims=['sample', 'sensor_loc'],
                                       coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
-                                      name="met_sensor_loc")
+                                      name="met_sensor_loc").astype('float32')
 
-        return xr.merge([encoder_ds, decoder_ds, targets, sensor_locs, leak_locs, met_sensor_loc])
+        leak_rate = xr.DataArray(np.repeat(self.leak_rate, targets.shape[0]).astype('float32'),
+                                 dims=['sample'],
+                                 name='leak_rate')
+
+        return xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
 
 
 
@@ -241,7 +249,7 @@ class Preprocessor():
 
     def load_data(self, files):
 
-        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=True)
+        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False)
         encoder_data = ds['encoder_input']
         decoder_data = ds['decoder_input']
         targets = ds['target'].values
