@@ -152,56 +152,31 @@ def test_dip():
 
 def test_DataSampler():
 
-    u = np.random.random(size=(361, 15, 30,  30))
-    v = np.random.random(size=(361, 15, 30, 30))
-    w = np.random.random(size=(361, 15, 30, 30))
-    ch4 = np.random.random(size=(361, 15, 30, 30))
-    xPos = np.random.random(size=(15, 30,  30))
-    yPos = np.random.random(size=(15, 30, 30))
-    zPos = np.random.random(size=(15, 30, 30))
-    ref_distance = np.zeros(shape=(15, 30, 30))
-    ref_azi_sin = np.zeros(shape=(15, 30, 30))
-    ref_azi_cos = np.zeros(shape=(15, 30, 30))
-    ref_elv = np.zeros(shape=(15, 30, 30))
-
     sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, sensor_height=3,
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
 
-    sampler.data = xr.Dataset(data_vars=dict(u=(["timeDim", "kDim", "jDim", "iDim"], u),
-                                             v=(["timeDim", "kDim", "jDim", "iDim"], v),
-                                             w=(["timeDim", "kDim", "jDim", "iDim"], w),
-                                             xPos=(["kDim", "jDim", "iDim"], xPos),
-                                             yPos=(["kDim", "jDim", "iDim"], yPos),
-                                             zPos=(["kDim", "jDim", "iDim"], zPos),
-                                             q_CH4=(["time", "kDim", "jDim", "iDim"], ch4),
-                                             ref_distance=(["kDim", "jDim", "iDim"], ref_distance),
-                                             ref_azi_sin=(["kDim", "jDim", "iDim"], ref_azi_sin),
-                                             ref_azi_cos=(["kDim", "jDim", "iDim"], ref_azi_cos),
-                                             ref_elv=(["kDim", "jDim", "iDim"], ref_elv)))
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/CBL2m_Ug2p5_src1-8kg_a.1')
+    test_data = os.path.expanduser(test_data_path)
+    sampler.load_data([test_data])
 
-    sampler.data = sampler.data.swap_dims({"time": "timeDim"})
-    sampler.time_steps = len(sampler.data['timeDim'].values)
-    sampler.iDim = len(sampler.data.iDim)
-    sampler.jDim = len(sampler.data.jDim)
-    sampler.x = np.linspace(0, 58, 30)
-    sampler.y = np.linspace(0, 58, 30)
-    sampler.z = np.linspace(0, 56, 15)
-    time_window_size = 100
+    time_window_size = 20
     samples_per_window = 2
-    window_stride = 50
+    window_stride = 10
 
     data = sampler.sample(time_window_size, samples_per_window, window_stride)
     encoder_input, decoder_input, targets = data['encoder_input'], data['decoder_input'], data['target']
 
-    total_samples = (((sampler.time_steps - time_window_size) // window_stride) + 1) * samples_per_window
+    step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
+    total_samples = samples_per_window * len(step_size)
 
     assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
     assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
 
     rand_sample = np.random.randint(1, total_samples, 1)[0]
-    rand_time_1, rand_time_2 = np.random.randint(0, 100,  1)[0], np.random.randint(0, 100,  1)[0]
+    rand_time_1, rand_time_2 = (np.random.randint(0, time_window_size,  1)[0],
+                                np.random.randint(0, time_window_size,  1)[0])
     # assert mask is equal
     assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
 
