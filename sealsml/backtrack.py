@@ -155,7 +155,6 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-
 def create_backtrack_mlp_training_data(x, num_met_sensors =1, num_sensors = 3):
     '''
     This function uses numpy arrays as input
