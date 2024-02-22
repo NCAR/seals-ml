@@ -229,8 +229,8 @@ class DataSampler(object):
                                  dims=['sample'],
                                  name='leak_rate')
 
-        return xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
-
+        ds = xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
+        return ds
 
 
 class Preprocessor():
@@ -252,9 +252,10 @@ class Preprocessor():
         ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False)
         encoder_data = ds['encoder_input']
         decoder_data = ds['decoder_input']
-        targets = ds['target'].values
+        leak_location = ds['target'].values
+        leak_rate = ds['leak_rate'].values
 
-        return encoder_data, decoder_data, targets.squeeze()
+        return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
 
     def save_filenames(self, train_files, validation_files, out_path):
         if not exists(out_path):
