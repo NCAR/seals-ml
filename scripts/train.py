@@ -4,7 +4,7 @@ import argparse
 import glob
 from sealsml.data import Preprocessor
 from bridgescaler import save_scaler
-from sealsml.keras.models import QuantizedTransformer
+from sealsml.keras.models import QuantizedTransformer, TEncoder
 from sealsml.baseline import GPModel
 from sealsml.evaluate import provide_metrics
 from sklearn.model_selection import train_test_split
@@ -30,14 +30,14 @@ config["out_path"] = config["out_path"].replace("username", username)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
-training, validation = train_test_split(files[:3],
+training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
 
 p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
 p.save_filenames(training, validation, config["out_path"])
 start = time.time()
-encoder_data, decoder_data, targets = p.load_data(training)
+encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
 start = time.time()
 scaled_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
@@ -45,15 +45,9 @@ print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 scaled_decoder, decoder_mask = p.preprocess(decoder_data, fit_scaler=False)
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
-encoder_data_val, decoder_data_val, targets_val = p.load_data(validation)
+encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
 scaled_encoder_val, encoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
 scaled_decoder_val, decoder_mask_val = p.preprocess(decoder_data_val, fit_scaler=False)
-print("encoder mask:", encoder_mask.shape)
-print("decoder mask:", decoder_mask.shape)
-print("encoder:", scaled_encoder.shape)
-print("decoder:", scaled_decoder[..., :4].shape)
-print(targets.shape)
-
 date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 out_path = os.path.join(config["out_path"], date_str)
 os.makedirs(out_path, exist_ok=False)
@@ -61,25 +55,35 @@ os.makedirs(out_path, exist_ok=False)
 for model_name in config["models"]:
     start = time.time()
 
-    if model_name == "transformer":
+    if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
         model.compile(**config[model_name]["compile"])
+        y, y_val = leak_location, leak_location_val
+    elif model_name == 'transformer_leak_rate':
+        model = TEncoder(**config[model_name]["kwargs"])
+        model.compile(**config[model_name]["compile"])
+        y, y_val = leak_rate, leak_rate_val
     elif model_name == "gaussian_process":
         model = GPModel(**config[model_name]["kwargs"])
+        y, y_val = leak_location, leak_location_val
     elif model_name == "back_tracker":
         continue
+    else:
+        ValueError("Incompatible model type (name)")
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
-                         y=targets,
+                         y=y,
                          validation_data=((scaled_encoder_val,
                                            scaled_decoder_val,
                                            encoder_mask_val,
                                            decoder_mask_val),
-                                          targets_val),
+                                          y_val),
                          **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
                            batch_size=config["predict_batch_size"]).squeeze()
-    metrics = provide_metrics(targets_val, output)
+    output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+                                 batch_size=config["predict_batch_size"]).squeeze()
+    metrics = provide_metrics(y_val, output)
     print(metrics)
     scaler_saved = False
     if config["save_model"]:
@@ -90,10 +94,16 @@ for model_name in config["models"]:
             scaler_saved = True
 
     if config["save_output"]:
-
-        output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], targets_val),
-                                           probabilities=(["sample", "pot_leak_locs"], output)))
-        output.to_netcdf(os.path.join(out_path, f"model_output_{date_str}.nc"))
-        # loss_hist = pd.DataFrame(fit_hist.history)
-        # loss_hist.to_csv(os.path.join(config["out_path"], f"model_hist_{date_str}.csv"))
+        if len(y_val.shape) > 1:
+            model_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], y_val),
+                                      probabilities=(["sample", "pot_leak_locs"], output)))
+        else:
+            model_output = xr.Dataset(data_vars=dict(targets=(["sample"], y_val),
+                                      leak_rate_prediction=(["sample"], output)))
+            model_output_train = xr.Dataset(data_vars=dict(targets=(["sample"], y),
+                                            leak_rate_prediction=(["sample"], output_train)))
+        model_output.to_netcdf(os.path.join(out_path, f"{model_name}_output_{date_str}.nc"))
+        model_output_train.to_netcdf(os.path.join(out_path, f"{model_name}_output_train_{date_str}.nc"))
+        loss_hist = pd.DataFrame(fit_hist.history)
+        loss_hist.to_csv(os.path.join(out_path, f"{model_name}_model_hist_{date_str}.csv"))
 
