@@ -155,7 +155,14 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def create_backtrack_mlp_training_data(x, num_met_sensors =1, num_sensors = 3):
+def create_backtrack_mlp_training_data(x, 
+                                       num_met_sensors = 1, 
+                                       num_sensors = 3, 
+                                       factor_x = 0.4, 
+                                       x_width = 40, 
+                                       factor_y = 0.4,
+                                       y_width = 40,
+                                       dt = 1):
     '''
     This function uses numpy arrays as input
     The variable should have a length of 8: ['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv', 'u', 'v', 'w', 'q_CH4']
@@ -163,19 +170,13 @@ def create_backtrack_mlp_training_data(x, num_met_sensors =1, num_sensors = 3):
     print('Shape of input x', x.shape)
 
     n_timesteps = x.shape[2]
-
-    factor_x = 0.4
-    x_width = 40
-    factor_y = 0.4
-    y_width = 40
-
-    dt = 1
+    n_samples = x.shape[0]
 
     pathmax_value = pathmax( x_width, y_width, factor_x, factor_y)
 
     complete_array = []
 
-    for i in range(x.shape[0]): # this loop might be unessary
+    for i in range(n_samples): # this loop might be unessary
         # print('sample numnber', i)
 
         # append to some lists
@@ -230,19 +231,23 @@ def create_backtrack_mlp_training_data(x, num_met_sensors =1, num_sensors = 3):
         backtrack_v_array = np.array(backtrack_v_).reshape(3, 1)
         merged_array = np.concatenate((backtrack_u_array, backtrack_v_array, repeated_pos, ch4_matrix_array), axis=1)
         complete_array.append(merged_array)
+    
     # Goal to export:
     # backtrack_u, backtrack_v, x, y, z, x1, y1, z1, x2, y2, z2, ch4, ch4-1, ch4-2
-    # that three times
+    # that three times (or number of times of sensors)
         
     # need to fix some of these hard-codeded variables
-    print('shape of export array:', np.array(complete_array).reshape(600 * 3, 14).shape)
-    return np.array(complete_array).reshape(600 * 3, 14)
+    export_array =  np.array(complete_array).reshape(n_samples * num_sensors, 14)   
+    
+    print('shape of export array:', export_array.shape)
+    return export_array
 
 def mlp_target_output(y, target, number_of_sensors = 3):
     # creates the x, y, z export of the 'true leak'
+    # This does not include leak rate
     export_array = []
+
     num_sensors_int = np.int64(number_of_sensors)
-    print(type(num_sensors_int))
     winners = np.argmax(target.squeeze(), axis=1)
     num_samples = np.int64(winners.shape)
     
@@ -262,6 +267,7 @@ def mlp_target_output(y, target, number_of_sensors = 3):
         row_array = np.asarray([x_, y_, z_])
         repeated_array = np.tile(row_array, (number_of_sensors, 1))
         export_array.append(repeated_array)
-    reshape_size = num_sensors_int*num_samples
     
-    return np.array(export_array).reshape(np.int64(reshape_size[0]), num_sensors_int)
+    reshape_size = num_sensors_int*num_samples
+    export_array = np.array(export_array).reshape(np.int64(reshape_size[0]), num_sensors_int)
+    return export_array
