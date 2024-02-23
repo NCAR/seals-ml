@@ -6,7 +6,6 @@ import math
 from geometry import GeoCalculator, polar_to_cartesian
 from baseline import remove_all_rows_with_val
 
-
 def pathmax(x_width, y_width, factor_x=[0.4], factor_y=[0.4]):
     """
     This function calculates the pathmax, which is the minimum of the product of factor_x and x_width and the product of factor_y and y_width.
