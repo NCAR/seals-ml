@@ -3,8 +3,8 @@ import numpy as np
 from typing import Tuple, List
 import math
 
-from geometry import GeoCalculator, polar_to_cartesian
-from baseline import remove_all_rows_with_val
+from sealsml.geometry import GeoCalculator, polar_to_cartesian
+from sealsml.baseline import remove_all_rows_with_val
 
 def pathmax(x_width, y_width, factor_x=[0.4], factor_y=[0.4]):
     """

@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 
 # seals geo stuff
-from geometry import polar_to_cartesian
+from sealsml.geometry import polar_to_cartesian
 
 # scikit-learn ML packages
 from sklearn.gaussian_process import GaussianProcessRegressor
