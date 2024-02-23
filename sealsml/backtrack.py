@@ -3,7 +3,8 @@ import numpy as np
 from typing import Tuple, List
 import math
 
-from geometry import polar_to_cartesian
+from sealsml.geometry import GeoCalculator, polar_to_cartesian
+from sealsml.baseline import remove_all_rows_with_val
 
 def pathmax(x_width, y_width, factor_x=[0.4], factor_y=[0.4]):
     """
@@ -245,6 +246,7 @@ def create_backtrack_mlp_training_data(x,
 def mlp_target_output(y, target, number_of_sensors = 3):
     # creates the x, y, z export of the 'true leak'
     # This does not include leak rate
+    # y = decoder input 
     export_array = []
 
     num_sensors_int = np.int64(number_of_sensors)
@@ -271,3 +273,42 @@ def mlp_target_output(y, target, number_of_sensors = 3):
     reshape_size = num_sensors_int*num_samples
     export_array = np.array(export_array).reshape(np.int64(reshape_size[0]), num_sensors_int)
     return export_array
+
+def argmin_mlp_eval(y, mlp_output):
+    # y = decoder input 
+    # mlp_output = predicted xyz
+    export_array = []
+    y_squeezed = y.squeeze()
+    
+    if mlp_output.shape[0] != y.squeeze().shape[0]:
+        raise ValueError("Arrays must have the same length (number of samples)")
+
+    print('Number of samples:', y_squeezed.shape[0])
+    print('Max number of leaks:', y_squeezed.shape[1])
+
+    for q in np.arange(y_squeezed.shape[0]):
+        
+        ref_dist = y[q][:, :, 0].T[0]
+        azi_sin  = y[q][:, :, 1].T[0]
+        azi_cos  = y[q][:, :, 2].T[0]
+        ref_elevation  = y[q][:, :, 3].T[0]
+        ## 
+        result = np.column_stack((ref_dist, azi_sin, azi_cos, ref_elevation))
+        dropped_array = remove_all_rows_with_val(result, value_to_drop=-1)
+
+        # 
+        x_, y_ = polar_to_cartesian(dropped_array[:, 0], dropped_array[:, 1], dropped_array[:, 2])
+        z_ = dropped_array[:, 3]
+        xyz_ = np.column_stack((x_, y_ ,z_))
+        
+        geo = GeoCalculator(np.expand_dims(mlp_output[1], axis=1).T, xyz_ )
+        distance = geo.distance_between_points_3d()
+        
+        arg_min = np.argmin(distance)
+        
+        zeros_array = np.zeros((y_squeezed.shape[1], 1))
+        zeros_array[arg_min] = 1
+
+        export_array.append(zeros_array.T)  
+    print('Export shape',np.asarray(export_array).shape)      
+    return np.asarray(export_array)
