@@ -13,7 +13,8 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-models: ['transformer_leak_rate']
+#models: ['transformer_leak_rate']
+models: ['backtracker']
 transformer_leak_loc:
   kwargs:
     encoder_layers: 2
@@ -44,22 +45,22 @@ transformer_leak_loc:
     metrics: ["binary_accuracy"]
 transformer_leak_rate:
   kwargs:
-    encoder_layers: 1
+    encoder_layers: 2
     hidden_size: 128
-    n_heads: 1
+    n_heads: 2
     num_quantized_embeddings: 500
     hidden_activation: "relu"
     output_activation: "linear"
     dropout_rate: 0.4
-    use_quantizer: False
+    use_quantizer: True
     quantized_beta: 0.25
     n_outputs: 1
     min_filters: 4
     kernel_size: 3
     filter_growth_rate: 2
     n_conv_layers: 3
-    pooling: "average"
-    pool_size: 2
+    pooling: "max"
+    pool_size: 10
     padding: "valid"
   fit:
     epochs: 20
@@ -67,8 +68,26 @@ transformer_leak_rate:
     batch_size: 512
   compile:
     loss: "mse"
-    optimizer: "adam"
+#    optimizer: "adam"
     metrics: [ "mse" ]
+backtracker:
+  kwargs:
+    hidden_layers: 1
+    hidden_neurons: 128
+    activation: 'relu'
+    output_activation: 'linear'
+    optimizer: 'adam'
+    loss: 'mse'
+    lr: 0.001
+    l2_weight: 0.00001
+    batch_size: 128
+    use_dropout: False
+    dropout_alpha: 0.2
+    epochs: 20
+    decay: None
+    verbose: 1
+  fit:
+    kwargs: None
 gaussian_process:
   kwargs:
     num_met_sensors: 1
