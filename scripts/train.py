@@ -4,7 +4,7 @@ import argparse
 import glob
 from sealsml.data import Preprocessor
 from bridgescaler import save_scaler
-from sealsml.keras.models import QuantizedTransformer, TEncoder
+from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
 from sealsml.evaluate import provide_metrics
 from sklearn.model_selection import train_test_split
@@ -30,7 +30,7 @@ config["out_path"] = config["out_path"].replace("username", username)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
-training, validation = train_test_split(files,
+training, validation = train_test_split(files[:3],
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
 
@@ -54,7 +54,6 @@ os.makedirs(out_path, exist_ok=False)
 
 for model_name in config["models"]:
     start = time.time()
-
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
         model.compile(**config[model_name]["compile"])
@@ -66,8 +65,9 @@ for model_name in config["models"]:
     elif model_name == "gaussian_process":
         model = GPModel(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
-    elif model_name == "back_tracker":
-        continue
+    elif model_name == "backtracker":
+        model = BackTrackerDNN(**config[model_name]["kwargs"])
+        y, y_val = leak_location, leak_location_val
     else:
         ValueError("Incompatible model type (name)")
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
