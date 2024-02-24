@@ -6,7 +6,7 @@ import math
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.baseline import remove_all_rows_with_val
 
-def pathmax(x_width, y_width, factor_x=[0.4], factor_y=[0.4]):
+def pathmax(x_width, y_width, factor_x=0.4, factor_y=0.4):
     """
     This function calculates the pathmax, which is the minimum of the product of factor_x and x_width and the product of factor_y and y_width.
 
@@ -156,24 +156,16 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def create_backtrack_mlp_training_data(x, 
-                                       num_met_sensors = 1, 
-                                       num_sensors = 3, 
-                                       factor_x = 0.4, 
-                                       x_width = 40, 
-                                       factor_y = 0.4,
-                                       y_width = 40,
-                                       dt = 1):
-    '''
+def create_backtrack_mlp_training_data(x, num_met_sensors=1, num_sensors=3, factor_x=0.4, x_width=40,
+                                       factor_y=0.4,  y_width=40, dt=1):
+    """
     This function uses numpy arrays as input
     The variable should have a length of 8: ['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv', 'u', 'v', 'w', 'q_CH4']
-    '''
-    print('Shape of input x', x.shape)
-
+    """
     n_timesteps = x.shape[2]
     n_samples = x.shape[0]
 
-    pathmax_value = pathmax( x_width, y_width, factor_x, factor_y)
+    pathmax_value = pathmax(x_width, y_width, factor_x, factor_y)
 
     complete_array = []
 
@@ -219,7 +211,8 @@ def create_backtrack_mlp_training_data(x,
             max_c, time_max_c, max_idx = findmaxCH4(ch4_data, np.arange(n_timesteps)) 
             #print('max_c, max_idx, time_max_c')
             #print(max_c, max_idx, time_max_c)
-            backtrack_u, backtrack_v = backtrack(ijk_start=time_max_c, u_sonic=u.ravel(), v_sonic=v.ravel(), dt=dt, sensor_x=x_met[0], sensor_y=y_met[0], pathmax=pathmax_value)
+            backtrack_u, backtrack_v = backtrack(ijk_start=time_max_c, u_sonic=u.ravel(), v_sonic=v.ravel(),
+                                                 dt=dt, sensor_x=x_met[0], sensor_y=y_met[0], pathmax=pathmax_value)
 
             # append
             backtrack_u_.append(backtrack_u)
@@ -243,7 +236,7 @@ def create_backtrack_mlp_training_data(x,
     print('shape of export array:', export_array.shape)
     return export_array
 
-def mlp_target_output(y, target, number_of_sensors = 3):
+def mlp_target_output(y, target, number_of_sensors=3):
     # creates the x, y, z export of the 'true leak'
     # This does not include leak rate
     # y = decoder input 
@@ -258,8 +251,10 @@ def mlp_target_output(y, target, number_of_sensors = 3):
     for q in np.arange(len(winners)):
         leak_ = winners[q]
         # print('leak:', leak_)
-        # pulling that data out 
-        dist_sin_cos_elevation = y[q][leak_][:, :4].ravel()
+        # pulling that data out
+        # print("Y SHAPE", y.shape)
+        # print("TARGET SHAPE:", target.shape)
+        dist_sin_cos_elevation = y[q][leak_][:4].ravel()
     
         x_, y_ = polar_to_cartesian(dist_sin_cos_elevation[0], 
                                     dist_sin_cos_elevation[1], 
@@ -272,6 +267,7 @@ def mlp_target_output(y, target, number_of_sensors = 3):
     
     reshape_size = num_sensors_int*num_samples
     export_array = np.array(export_array).reshape(np.int64(reshape_size[0]), num_sensors_int)
+    print('EXPORT ARRAY:', export_array.shape)
     return export_array
 
 def argmin_mlp_eval(y, mlp_output):
