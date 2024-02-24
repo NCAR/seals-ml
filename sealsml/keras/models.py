@@ -4,7 +4,7 @@ from .layers import VectorQuantizer, ConvSensorEncoder
 from keras.saving import deserialize_keras_object
 import keras
 import keras.ops as ops
-from keras.models import Model
+from keras.models import Model, save_model
 from keras.layers import (
     Dense,
     Dropout, Input
@@ -290,7 +290,7 @@ class TEncoder(keras.models.Model):
         return {**base_config, **parameter_config}
 
 
-class BackTrackerDNN(object):
+class BackTrackerDNN(keras.Model):
     """
     A Dense Neural Network Model that can support arbitrary numbers of hidden layers.
 
@@ -314,6 +314,7 @@ class BackTrackerDNN(object):
                  output_activation="linear", optimizer="adam", optimizer_obj=None, loss="mse", lr=0.001,
                  use_dropout=False, dropout_alpha=0.1, batch_size=128, epochs=2, l2_weight=0.01, sgd_momentum=0.9,
                  adam_beta_1=0.9, adam_beta_2=0.999, decay=0, verbose=0):
+        super().__init__()
         self.hidden_layers = hidden_layers
         assert hidden_layers > 0, "hidden layers must be greater than or equal to 1"
         self.hidden_neurons = hidden_neurons
@@ -391,5 +392,5 @@ class BackTrackerDNN(object):
         y_out = self.model.predict(create_backtrack_mlp_training_data(x[0]), batch_size=batch_size)
         return y_out
 
-    def save_model(self, path):
+    def save(self, path):
         save_model(self, filepath=path)
