@@ -61,14 +61,14 @@ def test_transformer_regressor():
     assert new_model.summary() == model.summary(), "models do not match"
 
 
-#def test_backtracker():
-#    from keras.models import load_model
-#    np.random.seed(32525)
-#    print("x encoder shape", x_encoder.shape)
-#    print("x decoder shape", x_decoder.shape)
-#    model = BackTrackerDNN()
-#    weights_init = model.get_weights()
-#    model.fit((x_encoder, x_decoder), y)
+def test_backtracker():
+    from keras.models import load_model
+    np.random.seed(32525)
+    print("x encoder shape", x_encoder.shape)
+    print("x decoder shape", x_decoder.shape)
+    model = BackTrackerDNN()
+    weights_init = model.get_weights()
+    model.fit((x_encoder, x_decoder), y)
 #    weights_after = model.get_weights()
 #    weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
 #    assert not np.any(weights_constant), "Weights are not changing somewhere"
