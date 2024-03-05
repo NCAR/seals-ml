@@ -69,14 +69,16 @@ def test_backtracker():
     model = BackTrackerDNN()
     weights_init = model.get_weights()
     model.fit((x_encoder, x_decoder), y)
-#    weights_after = model.get_weights()
-#    weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
-#    assert not np.any(weights_constant), "Weights are not changing somewhere"
-#    y_pred = model.predict([x_encoder, x_decoder], batch_size=batch_size)
-#    assert y_pred[:, 0].shape == y.shape
-#    model.save("./test_model_3.keras")
-#    new_model = load_model("./test_model_3.keras")
-#    y_pred_new = new_model.predict([x_encoder, x_decoder], batch_size=batch_size)
-#    max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
-#    assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
-#    assert new_model.summary() == model.summary(), "models do not match"
+    # I commented out the below to pass the tests, but I am uncommenting for futher debugging by CBecker
+
+    weights_after = model.get_weights()
+    weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
+    assert not np.any(weights_constant), "Weights are not changing somewhere"
+    y_pred = model.predict([x_encoder, x_decoder], batch_size=batch_size)
+    assert y_pred[:, 0].shape == y.shape
+    model.save("./test_model_3.keras")
+    new_model = load_model("./test_model_3.keras")
+    y_pred_new = new_model.predict([x_encoder, x_decoder], batch_size=batch_size)
+    max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
+    assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
+    assert new_model.summary() == model.summary(), "models do not match"
