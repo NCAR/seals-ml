@@ -11,7 +11,8 @@ from keras.layers import (
 )
 from keras.optimizers import Adam, SGD
 from keras.regularizers import l1, l2, l1_l2
-from sealsml.backtrack import create_backtrack_mlp_training_data, mlp_target_output
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
+from sealsml.backtrack import preprocess
 
 
 # If using TensorFlow, this will make GPU ops as deterministic as possible,
@@ -289,7 +290,7 @@ class TEncoder(keras.models.Model):
         parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
 
-
+# @keras.saving.register_keras_serializable(package="SEALS_keras")
 class BackTrackerDNN(keras.Model):
     """
     A Dense Neural Network Model that can support arbitrary numbers of hidden layers.
@@ -313,7 +314,7 @@ class BackTrackerDNN(keras.Model):
     def __init__(self, hidden_layers=1, hidden_neurons=32, activation="relu", leaky_alpha=0.1,
                  output_activation="linear", optimizer="adam", optimizer_obj=None, loss="mse", lr=0.001,
                  use_dropout=False, dropout_alpha=0.1, batch_size=128, epochs=2, l2_weight=0.01, sgd_momentum=0.9,
-                 adam_beta_1=0.9, adam_beta_2=0.999, decay=0, verbose=0):
+                 adam_beta_1=0.9, adam_beta_2=0.999, decay=0, verbose=0, **kwargs):
         super().__init__()
         self.hidden_layers = hidden_layers
         assert hidden_layers > 0, "hidden layers must be greater than or equal to 1"
@@ -354,7 +355,8 @@ class BackTrackerDNN(keras.Model):
         for h in range(self.hidden_layers):
             nn_model = Dense(self.hidden_neurons,
                              activation=self.activation,
-                             kernel_regularizer=l2(self.l2_weight),
+                             # kernel_regularizer=l2(self.l2_weight),
+                             kernel_regularizer=None,
                              name=f"dense_{h:02d}",)(nn_model)
             if self.use_dropout:
                 nn_model = Dropout(self.dropout_alpha, name=f"dropout_h_{h:02d}")(nn_model)
@@ -368,29 +370,30 @@ class BackTrackerDNN(keras.Model):
         self.model.compile(optimizer=self.optimizer_obj, loss=self.loss)
 
     def fit(self, x, y, validation_data=None, **kwargs):
-        x_processed = create_backtrack_mlp_training_data(x[0])
-        y_processed = mlp_target_output(x[1], y)
-        inputs = x_processed.shape[1]
+
+        inputs = x[0].shape[1]
         if len(y.shape) == 1:
             outputs = 1
         else:
-            outputs = y_processed.shape[1]
+            outputs = y.shape[1]
         self.build_neural_network(inputs, outputs)
         self.model.summary()
         if isinstance(validation_data, tuple):
-            validation = (create_backtrack_mlp_training_data(validation_data[0][0]),
-                          mlp_target_output(validation_data[0][1], validation_data[1]))
+            validation = (validation_data[0][0], validation_data[1])
         else:
             validation = None
-        self.model.fit(x_processed, y_processed, batch_size=self.batch_size, epochs=self.epochs,
+
+        self.model.fit(x[0], y, batch_size=self.batch_size, epochs=self.epochs,
                        verbose=self.verbose, validation_data=validation)
         return self.model.history.history
 
     def predict(self, x, batch_size=None):
         if batch_size is None:
             batch_size = self.batch_size
-        y_out = self.model.predict(create_backtrack_mlp_training_data(x[0]), batch_size=batch_size)
+        y_out = self.model.predict(x[0], batch_size=batch_size)
         return y_out
 
-    def save(self, path):
-        save_model(self, filepath=path)
+    def get_config(self):
+        base_config = super().get_config()
+        # parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
+        return base_config
