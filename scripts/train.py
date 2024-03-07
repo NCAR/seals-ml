@@ -6,13 +6,18 @@ from sealsml.data import Preprocessor, save_output
 from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
+from sealsml.backtrack import preprocess
 from sklearn.model_selection import train_test_split
 import keras
 import numpy as np
 import datetime
 import time
+import xarray as xr
 import tensorflow as tf
 import pandas as pd
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
+from sealsml.backtrack import create_binary_preds_relative
+from sealsml.evaluate import provide_metrics
 tf.debugging.disable_traceback_filtering()
 
 parser = argparse.ArgumentParser()
@@ -28,7 +33,7 @@ config["out_path"] = config["out_path"].replace("username", username)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
-training, validation = train_test_split(files[:3],
+training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
 
@@ -65,7 +70,13 @@ for model_name in config["models"]:
         y, y_val = leak_location, leak_location_val
     elif model_name == "backtracker":
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        y, y_val = leak_location, leak_location_val
+        x, y = preprocess(xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False),
+                          n_sensors=3)
+        x_val, y_val = preprocess(xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False),
+                                  n_sensors=3)
+        scaler = DeepQuantileTransformer()
+        scaled_encoder = scaler.fit_transform(x)
+        scaled_encoder_val = scaler.transform(x_val)
     else:
         raise ValueError(f"Incompatible model type {model_name}")
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
@@ -81,6 +92,15 @@ for model_name in config["models"]:
                            batch_size=config["predict_batch_size"]).squeeze()
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                  batch_size=config["predict_batch_size"]).squeeze()
+
+    if model_name == "backtracker":
+        backtracker_targets = create_binary_preds_relative(validation, output)
+        pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'))
+        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+            os.path.join(out_path, 'seals_train_preds.csv'))
+        pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'))
+        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'))
+
     scaler_saved = False
     if config["save_model"]:
         if model_name != "gaussian_process":
