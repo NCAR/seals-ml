@@ -1,3 +1,4 @@
+from sealsml.keras.layers import VectorQuantizer
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.data import Preprocessor
 from sealsml.backtrack import preprocess, create_binary_preds_relative
@@ -5,7 +6,7 @@ import numpy as np
 import xarray as xr
 from keras.models import load_model
 
-test_data = ["../test_data/test_data_CBL2m_Ug10_src1-8kg_a.3.nc"]
+test_data = ["../test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc"]
 p = Preprocessor(scaler_type="quantile", sensor_pad_value=-1, sensor_type_value=-999)
 encoder_data, decoder_data, y, y_leak_rate = p.load_data(test_data)
 x_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
