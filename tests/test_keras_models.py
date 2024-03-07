@@ -8,7 +8,7 @@ from keras.models import load_model
 from os.path import exists
 
 test_data = ["../test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc"]
-if test_data[0] not exists:
+if not exists(test_data[0]):
     test_data = ["test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc"]
 p = Preprocessor(scaler_type="quantile", sensor_pad_value=-1, sensor_type_value=-999)
 encoder_data, decoder_data, y, y_leak_rate = p.load_data(test_data)
