@@ -261,40 +261,6 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 #     return export_array
     # return export_array
 
-# def argmin_mlp_eval(y, mlp_output):
-#     # y = decoder input
-#     # mlp_output = predicted xyz
-#     export_array = []
-#     y_squeezed = y.squeeze()
-#
-#     if mlp_output.shape[0] != y.squeeze().shape[0]:
-#         raise ValueError("Arrays must have the same length (number of samples)")
-#
-#     for q in np.arange(y_squeezed.shape[0]):
-#
-#         ref_dist = y[q][:, 0].T[0]
-#         azi_sin  = y[q][:, 1].T[0]
-#         azi_cos  = y[q][:, 2].T[0]
-#         ref_elevation  = y[q][:, 3].T[0]
-#         ##
-#         result = np.column_stack((ref_dist, azi_sin, azi_cos, ref_elevation))
-#         dropped_array = remove_all_rows_with_val(result, value_to_drop=-1)
-#         #
-#         x_, y_ = polar_to_cartesian(dropped_array[:, 0], dropped_array[:, 1], dropped_array[:, 2])
-#         z_ = dropped_array[:, 3]
-#         xyz_ = np.column_stack((x_, y_ ,z_))
-#
-#         geo = GeoCalculator(np.expand_dims(mlp_output[1], axis=1).T, xyz_ )
-#         distance = geo.distance_between_points_3d()
-#
-#         arg_min = np.argmin(distance)
-#
-#         zeros_array = np.zeros((y_squeezed.shape[1], 1))
-#         zeros_array[arg_min] = 1
-#
-#         export_array.append(zeros_array.T)
-#     return np.asarray(export_array).squeeze()
-
 def preprocess(data, n_sensors=3):
 
     encoder = data['encoder_input'].load()
@@ -358,14 +324,15 @@ def preprocess(data, n_sensors=3):
     return input_array, target_array
 
 
-def create_binary_preds_relative(data, y_pred):
+def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, num_sensors=3):
 
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values
     met_locs = data['met_sensor_loc'].values
-    xyz_pred = y_pred[:, :3]
+    xyz_pred = y_pred[:, :num_sensors]
     location_array = np.zeros(shape=y_true.shape[:-1])
-
+    
+    # The loop has to exist due to different number of leaks per sample
     for s in range(n_samples):
         pot_leak_locs = remove_all_rows_with_val(y_true[s], value_to_drop=0)
         pred_coord = xyz_pred[s]
