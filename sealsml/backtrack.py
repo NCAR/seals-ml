@@ -153,116 +153,8 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-# def create_backtrack_mlp_training_data(x, num_met_sensors=1, num_sensors=3, factor_x=0.4, x_width=40,
-#                                        factor_y=0.4,  y_width=40, dt=1):
-#     """
-#     This function uses numpy arrays as input
-#     The variable should have a length of 8: ['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv', 'u', 'v', 'w', 'q_CH4']
-#     """
-#     n_timesteps = x.shape[2]
-#     n_samples = x.shape[0]
-#     x = x[..., 0]
-#     pathmax_value = pathmax(x_width, y_width, factor_x, factor_y)
-#
-#     complete_array = []
-#
-#     for i in range(n_samples): # this loop might be unessary
-#         # print('sample numnber', i)
-#
-#         # append to some lists
-#         backtrack_u_ = []
-#         backtrack_v_ = []
-#         max_idx_ = []
-#         ch4_matrix = []
-#
-#         ## U & V time series extracted from met sensor
-#         u = x[i][[0], :, 4]
-#         v = x[i][[0], :, 5]
-#
-#         # pulling met sensor location
-#         # right now this is not an issue because the met sensor is 0,0, will need to think about when we add a second one
-#         met_dist = x[i][[0], :, 0].T[0]
-#         met_azi_sin  = x[i][[0], :, 1].T[0]
-#         met_azi_cos  = x[i][[0], :, 2].T[0]
-#         x_met, y_met = polar_to_cartesian(met_dist, met_azi_sin, met_azi_cos)
-#
-#         # pulling the information from the ch4 sensors, distance, azi_sin and azi_cos and ch4
-#         ref_dist = x[i][[1, 2, 3], :, 0].T[0]
-#         azi_sin  = x[i][[1, 2, 3], :, 1].T[0]
-#         azi_cos  = x[i][[1, 2, 3], :, 2].T[0]
-#         ch4_data_ts = x[i][[1, 2, 3], :, 7]
-#         x_, y_ = polar_to_cartesian(ref_dist, azi_sin, azi_cos)
-#         ref_elevation  = x[i][[1, 2, 3], :, 3].T[0]
-#         stacked_data = np.column_stack((x_, y_, ref_elevation))
-#         # This variable is 3 by 9
-#         repeated_pos = np.repeat(stacked_data, num_sensors).reshape(9, num_sensors).T
-#         ## emissions data
-#         for q in range(num_sensors):
-#
-#             # print('sensor number', q+1)
-#
-#             ch4_data = x[i][[1, 2, 3], :, 7][q]
-#             # findmaxch4
-#             max_c, time_max_c, max_idx = findmaxCH4(ch4_data, np.arange(n_timesteps))
-#             backtrack_u, backtrack_v = backtrack(ijk_start=time_max_c, u_sonic=u.ravel(), v_sonic=v.ravel(),
-#                                                  dt=dt, sensor_x=x_met[0], sensor_y=y_met[0], pathmax=pathmax_value)
-#
-#             # append
-#             backtrack_u_.append(backtrack_u)
-#             backtrack_v_.append(backtrack_v)
-#             max_idx_.append(max_idx)
-#
-#         ch4_matrix.append(ch4_data_ts[:, max_idx_].T)
-#         ch4_matrix_array = np.array(ch4_matrix).squeeze()
-#         backtrack_u_array = np.array(backtrack_u_).reshape(3, 1)
-#         backtrack_v_array = np.array(backtrack_v_).reshape(3, 1)
-#         merged_array = np.concatenate((backtrack_u_array, backtrack_v_array, repeated_pos, ch4_matrix_array), axis=1)
-#         complete_array.append(merged_array)
-#
-#     # Goal to export:
-#     # backtrack_u, backtrack_v, x, y, z, x1, y1, z1, x2, y2, z2, ch4, ch4-1, ch4-2
-#     # that three times (or number of times of sensors)
-#
-#     # need to fix some of these hard-codeded variables
-#     export_array = np.array(complete_array).reshape(n_samples * num_sensors, 14)
-#
-#     return export_array
-
-# def mlp_target_output(y, target, number_of_sensors=3):
-#     # creates the x, y, z export of the 'true leak'
-#     # This does not include leak rate
-#     # y = decoder input
-#     export_array = []
-#
-#     num_sensors_int = np.int64(number_of_sensors)
-#     winners = np.argmax(target.squeeze(), axis=1)
-#     num_samples = np.int64(winners.shape)
-#
-#     # figuring out which one is the leaky one
-#     for q in np.arange(len(winners)):
-#         leak_ = winners[q]
-#         # print('leak:', leak_)
-#         # pulling that data out
-#         # print("Y SHAPE", y.shape)
-#         # print("TARGET SHAPE:", target.shape)
-#         dist_sin_cos_elevation = y[q][leak_][:4].ravel()
-#
-#         x_, y_ = polar_to_cartesian(dist_sin_cos_elevation[0],
-#                                     dist_sin_cos_elevation[1],
-#                                     dist_sin_cos_elevation[2])
-#
-#         z_ = dist_sin_cos_elevation[3]
-#         row_array = np.asarray([x_, y_, z_])
-#         repeated_array = np.tile(row_array, (number_of_sensors, 1))
-#         export_array.append(repeated_array)
-#
-#     reshape_size = num_sensors_int*num_samples
-#     export_array = np.array(export_array).reshape(np.int64(reshape_size[0]), num_sensors_int)
-#     return export_array
-    # return export_array
-
-def preprocess(data, n_sensors=3):
-
+def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+    # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
     targets = data['target'].values
     target_mask = np.argwhere(targets == 1)
@@ -272,7 +164,7 @@ def preprocess(data, n_sensors=3):
     n_timesteps = encoder.shape[2]
     input_array = np.zeros(shape=(n_samples, 4 * n_sensors + 2))
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
-    pathmax_value = pathmax(x_width=40, y_width=40, factor_x=0.4, factor_y=0.4)
+    pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
                     variable=('u'),
                     mask=0)
@@ -323,13 +215,13 @@ def preprocess(data, n_sensors=3):
 
     return input_array, target_array
 
-
-def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, num_sensors=3):
-
+def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, n_sensors=3):
+    # This function creates the padded binary array (0,1 for leak) used for evaluation
+    # output is a np.array in the shape of max potential leaks by number of samples
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values
     met_locs = data['met_sensor_loc'].values
-    xyz_pred = y_pred[:, :num_sensors]
+    xyz_pred = y_pred[:, :n_sensors]
     location_array = np.zeros(shape=y_true.shape[:-1])
     
     # The loop has to exist due to different number of leaks per sample
