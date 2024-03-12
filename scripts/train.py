@@ -2,19 +2,22 @@ import yaml
 import os
 import argparse
 import glob
-from sealsml.data import Preprocessor
+from sealsml.data import Preprocessor, save_output
 from bridgescaler import save_scaler
-from sealsml.keras.models import QuantizedTransformer, TEncoder
+from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
-from sealsml.evaluate import provide_metrics
+from sealsml.backtrack import preprocess
 from sklearn.model_selection import train_test_split
 import keras
 import numpy as np
-import xarray as xr
 import datetime
 import time
+import xarray as xr
 import tensorflow as tf
 import pandas as pd
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
+from sealsml.backtrack import create_binary_preds_relative
+from sealsml.evaluate import provide_metrics
 tf.debugging.disable_traceback_filtering()
 
 parser = argparse.ArgumentParser()
@@ -54,7 +57,6 @@ os.makedirs(out_path, exist_ok=False)
 
 for model_name in config["models"]:
     start = time.time()
-
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
         model.compile(**config[model_name]["compile"])
@@ -66,10 +68,17 @@ for model_name in config["models"]:
     elif model_name == "gaussian_process":
         model = GPModel(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
-    elif model_name == "back_tracker":
-        continue
+    elif model_name == "backtracker":
+        model = BackTrackerDNN(**config[model_name]["kwargs"])
+        x, y = preprocess(xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False),
+                          n_sensors=3)
+        x_val, y_val = preprocess(xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False),
+                                  n_sensors=3)
+        scaler = DeepQuantileTransformer()
+        scaled_encoder = scaler.fit_transform(x)
+        scaled_encoder_val = scaler.transform(x_val)
     else:
-        ValueError("Incompatible model type (name)")
+        raise ValueError(f"Incompatible model type {model_name}")
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                          y=y,
                          validation_data=((scaled_encoder_val,
@@ -83,8 +92,15 @@ for model_name in config["models"]:
                            batch_size=config["predict_batch_size"]).squeeze()
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                  batch_size=config["predict_batch_size"]).squeeze()
-    metrics = provide_metrics(y_val, output)
-    print(metrics)
+
+    if model_name == "backtracker":
+        backtracker_targets = create_binary_preds_relative(validation, output)
+        pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'))
+        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+            os.path.join(out_path, 'seals_train_preds.csv'))
+        pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'))
+        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'))
+
     scaler_saved = False
     if config["save_model"]:
         if model_name != "gaussian_process":
@@ -94,16 +110,13 @@ for model_name in config["models"]:
             scaler_saved = True
 
     if config["save_output"]:
-        if len(y_val.shape) > 1:
-            model_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], y_val),
-                                      probabilities=(["sample", "pot_leak_locs"], output)))
-        else:
-            model_output = xr.Dataset(data_vars=dict(targets=(["sample"], y_val),
-                                      leak_rate_prediction=(["sample"], output)))
-            model_output_train = xr.Dataset(data_vars=dict(targets=(["sample"], y),
-                                            leak_rate_prediction=(["sample"], output_train)))
-        model_output.to_netcdf(os.path.join(out_path, f"{model_name}_output_{date_str}.nc"))
-        model_output_train.to_netcdf(os.path.join(out_path, f"{model_name}_output_train_{date_str}.nc"))
+
+        save_output(out_path=os.path.join(out_path, f"{model_name}_output_{date_str}.nc"),
+                    train_targets=y,
+                    val_targets=y_val,
+                    train_predictions=output_train,
+                    val_predictions=output,
+                    model_name=model_name)
         loss_hist = pd.DataFrame(fit_hist.history)
         loss_hist.to_csv(os.path.join(out_path, f"{model_name}_model_hist_{date_str}.csv"))
 
