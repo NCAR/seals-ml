@@ -13,8 +13,10 @@ sampler_args:
   max_trace_sensors: 10
   min_leak_loc: 5
   max_leak_loc: 20
-  sensor_height: 1
-  leak_height: 0
+  sensor_height_min: 2
+  sensor_height_max: 4
+  leak_height_min: 0 
+  leak_height_max: 4 
   sensor_type_mask: -999
   sensor_exist_mask: -1
   coord_vars: ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
