@@ -103,12 +103,30 @@ class DataSampler(object):
                     k_sensor = np.random.randint(low=senor_height_min_index, 
                                                  high=senor_height_max_index, 
                                                  size=n_sensors)
+                # end of sensor vertical sampling logic
 
                 # Leaks in ijk (xyz) space
                 i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
-                k_leak = np.repeat(self.leak_height, n_leaks)
 
+                # Converting to index space
+                leak_height_max_index = int(np.rint(self.leak_height_max/self.z_res))
+                leak_height_min_index = int(np.rint(self.leak_height_min/self.z_res))
+
+                ## start of leak vertical logic 
+                if leak_height_max_index > self.kDim:
+                    raise ValueError("Max leak height is greater than domain, please pick a smaller number")
+                elif self.leak_height_min > leak_height_max_index:
+                    raise ValueError("Min leak height is greater than the maximum (in index space), please try again")
+                elif leak_height_min_index == leak_height_max_index:
+                    k_leak = np.repeat(leak_height_max_index, 
+                                       n_leaks)
+                else:
+                    k_leak = np.random.randint(low=leak_height_min_index, 
+                                               high=leak_height_max_index, 
+                                               size=n_leaks)
+                # end of vertical sample logic for leaks
+                
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
 
