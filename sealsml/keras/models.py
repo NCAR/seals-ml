@@ -270,7 +270,7 @@ class TEncoder(keras.models.Model):
         print("ENCODER OUTPUT SHAPE:", encoder_output.shape)
 
         encoder_output_flat = ops.reshape(encoder_output,
-                                          new_shape=(-1, encoder_output.shape[-2] * encoder_output.shape[-1]))
+                                          newshape=(-1, encoder_output.shape[-2] * encoder_output.shape[-1]))
         print("ENCODER FLATTENED OUTPUT SHAPE:", encoder_output_flat.shape)
         output = self.output_hidden(encoder_output_flat)
 

@@ -21,7 +21,7 @@ jobs:
       run: |
         pip install tensorflow
         pip install keras_nlp
-        pip install keras==3.0
+        pip install keras
         conda info
         conda list
         conda config --show-sources
