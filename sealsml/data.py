@@ -10,7 +10,11 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
-                 sensor_height=1, leak_height=0, sensor_type_mask=1, sensor_exist_mask=-1,
+                 sensor_height_min=1,
+                 sensor_height_max=4, 
+                 leak_height_min=0, 
+                 leak_height_max=4, 
+                 sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                  met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
 
@@ -18,8 +22,10 @@ class DataSampler(object):
         self.max_trace_sensors = max_trace_sensors
         self.min_leak_loc = min_leak_loc
         self.max_leak_loc = max_leak_loc
-        self.sensor_height = sensor_height
-        self.leak_height = leak_height
+        self.sensor_height_min = sensor_height_min
+        self.sensor_height_max = sensor_height_max
+        self.leak_height_min = leak_height_min
+        self.leak_height_max = leak_height_max
         self.sensor_exist_mask = sensor_exist_mask
         self.coord_vars = coord_vars
         self.met_vars = met_vars
@@ -40,9 +46,11 @@ class DataSampler(object):
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
+        self.kDim = len(self.data.kDim) # needed for vert sampling
         self.x = self.data['xPos'][0, 0, :].values
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
+        self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue']
         # add zero arrays for new derived variables
         for var in self.coord_vars:
@@ -74,13 +82,51 @@ class DataSampler(object):
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 true_leak_i, true_leak_j = 15, 15
 
+                # Sensor in ijk (xyz) space
+                # X, Y samples the entire domain, and already in index space
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
                 j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
-                k_sensor = np.repeat(self.sensor_height, n_sensors)
+                
+                # Converting to index space
+                senor_height_max_index = int(np.rint(self.sensor_height_max/self.z_res))
+                senor_height_min_index = int(np.rint(self.sensor_height_min/self.z_res))
+
+                ## Sensor vertical logic 
+                if senor_height_max_index > self.kDim:
+                    raise ValueError("Max sensor height is greater than domain, please pick a smaller number")
+                elif self.sensor_height_min > senor_height_max_index:
+                    raise ValueError("Min sensor height is greater than the maximum (in index space), please try again")
+                elif senor_height_min_index == senor_height_max_index:
+                    k_sensor = np.repeat(senor_height_max_index, 
+                                         n_sensors)
+                else:
+                    k_sensor = np.random.randint(low=senor_height_min_index, 
+                                                 high=senor_height_max_index, 
+                                                 size=n_sensors)
+                # end of sensor vertical sampling logic
+
+                # Leaks in ijk (xyz) space
                 i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
                 j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
-                k_leak = np.repeat(self.leak_height, n_leaks)
 
+                # Converting to index space
+                leak_height_max_index = int(np.rint(self.leak_height_max/self.z_res))
+                leak_height_min_index = int(np.rint(self.leak_height_min/self.z_res))
+
+                ## start of leak vertical logic 
+                if leak_height_max_index > self.kDim:
+                    raise ValueError("Max leak height is greater than domain, please pick a smaller number")
+                elif self.leak_height_min > leak_height_max_index:
+                    raise ValueError("Min leak height is greater than the maximum (in index space), please try again")
+                elif leak_height_min_index == leak_height_max_index:
+                    k_leak = np.repeat(leak_height_max_index, 
+                                       n_leaks)
+                else:
+                    k_leak = np.random.randint(low=leak_height_min_index, 
+                                               high=leak_height_max_index, 
+                                               size=n_leaks)
+                # end of vertical sample logic for leaks
+                
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
 
@@ -121,10 +167,11 @@ class DataSampler(object):
                                                         z_target=self.z[k_leak[l]],
                                                         time_series=False)
                     leak_array[:, l, :] = derived_vars
+
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
+                                k_sensor, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.leak_height, j_leak, i_leak, t:t+1]
+                                k_leak, j_leak, i_leak, t:t+1]
 
                 sensor_sample[0, :self.n_new_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
@@ -343,6 +390,3 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
     val_output.to_netcdf(out_path)
 
     return
-
-
-

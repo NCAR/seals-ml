@@ -152,7 +152,8 @@ def test_dip():
 
 def test_DataSampler():
 
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, sensor_height=3,
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
+                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4, 
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
 
