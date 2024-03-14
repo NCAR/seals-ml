@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
-  - numpy<1.24
+  - numpy
   - scipy
   - matplotlib
   - xarray
@@ -22,9 +22,5 @@ dependencies:
   - dask
   - pip:
     - bridgescaler
-#    - tf-nightly
-#    - tensorflow[and-cuda]
-#    - keras_nlp
-#    - keras==3.0
     - hagelslag
     - .
