@@ -168,9 +168,9 @@ class DataSampler(object):
                                                         time_series=False)
                     leak_array[:, l, :] = derived_vars
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.sensor_height, j_sensor, i_sensor, t:t + time_window_size]
+                                self.sensor_height_min, self.sensor_height_max, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.leak_height, j_leak, i_leak, t:t+1]
+                                self.leak_height_min, self.leak_height_max, j_leak, i_leak, t:t+1]
 
                 sensor_sample[0, :self.n_new_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
@@ -389,6 +389,3 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
     val_output.to_netcdf(out_path)
 
     return
-
-
-
