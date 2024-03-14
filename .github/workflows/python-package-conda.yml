@@ -20,7 +20,7 @@ jobs:
     - shell: bash -l {0}
       run: |
         pip install tensorflow>2.16
-        pip install keras==3.1
+        pip install keras
         conda info
         conda list
         conda config --show-sources
