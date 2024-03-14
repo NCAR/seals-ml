@@ -19,7 +19,8 @@ jobs:
         activate-environment: test
     - shell: bash -l {0}
       run: |
-        pip install tensorflow>2.16
+        pip install tensorflow
+        pip install keras-nlp 
         pip install keras
         conda info
         conda list
