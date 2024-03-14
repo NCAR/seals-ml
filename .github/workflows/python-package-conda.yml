@@ -19,9 +19,8 @@ jobs:
         activate-environment: test
     - shell: bash -l {0}
       run: |
-        pip install tensorflow
-        pip install keras_nlp
-        pip install keras==3.0
+        pip install tensorflow>2.16
+        pip install keras==3.1
         conda info
         conda list
         conda config --show-sources
