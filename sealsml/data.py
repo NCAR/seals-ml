@@ -31,7 +31,7 @@ class DataSampler(object):
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
-        self.n_new_vars = 7
+        self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
 
@@ -167,10 +167,11 @@ class DataSampler(object):
                                                         z_target=self.z[k_leak[l]],
                                                         time_series=False)
                     leak_array[:, l, :] = derived_vars
+
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.sensor_height_min, self.sensor_height_max, j_sensor, i_sensor, t:t + time_window_size]
+                                k_sensor, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                self.leak_height_min, self.leak_height_max, j_leak, i_leak, t:t+1]
+                                k_leak, j_leak, i_leak, t:t+1]
 
                 sensor_sample[0, :self.n_new_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
