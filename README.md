@@ -3,7 +3,7 @@ The goal of this repository is to experiment with different machine learning arc
 
 ## Dependencies
   - python=3.10
-  - numpy<1.24
+  - numpy
   - scipy
   - matplotlib
   - xarray
