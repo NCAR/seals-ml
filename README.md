@@ -31,13 +31,6 @@ The easiest way to install this package is using conda. After cloning the reposi
 
 `conda env create -f environment.yml`
 
-Due to the usage of some newer features in keras_core (Keras 3.0) which has not released a stable version yet, there are a couple of small 
-things that need to be done to resolve some conflicts. Once Keras 3.0 is released this will no longer be necessary.
-
-    conda activate seals
-    pip install keras-nlp
-    pip uninstall -y tensorflow-text tensorflow keras
-    pip install tensorflow-text-nightly tf-nightly
 
 ## Usage
 
