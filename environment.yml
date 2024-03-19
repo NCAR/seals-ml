@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10
-  - numpy<1.24
+  - numpy
   - scipy
   - matplotlib
   - xarray
@@ -18,7 +18,7 @@ dependencies:
   - tqdm
   - numba
   - cython
-  - metpy
+  - metpy=1.6.1
   - dask
   - pip:
     - bridgescaler

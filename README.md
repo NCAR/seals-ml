@@ -3,7 +3,7 @@ The goal of this repository is to experiment with different machine learning arc
 
 ## Dependencies
   - python=3.10
-  - numpy<1.24
+  - numpy
   - scipy
   - matplotlib
   - xarray
@@ -31,13 +31,6 @@ The easiest way to install this package is using conda. After cloning the reposi
 
 `conda env create -f environment.yml`
 
-Due to the usage of some newer features in keras_core (Keras 3.0) which has not released a stable version yet, there are a couple of small 
-things that need to be done to resolve some conflicts. Once Keras 3.0 is released this will no longer be necessary.
-
-    conda activate seals
-    pip install keras-nlp
-    pip uninstall -y tensorflow-text tensorflow keras
-    pip install tensorflow-text-nightly tf-nightly
 
 ## Usage
 
@@ -58,10 +51,12 @@ Training data can be sampled from the raw LES data by running the `./scripts/sub
       max_trace_sensors (int): Maximum number of Methane trace sensors to sample per training sample
       min_leak_loc (int): Minimum number of potential leak locations to sample per training sample
       max_leak_loc (int): Maximum number of potential leak locations to sample per training sample
-      sensor_height (int): The height (index based) at which the sensors are located (currently same for all) 
-      leak_height (int): The height (index based) at which the leak locations are located (currently same for all)
+      sensor_height_min (int): The minimum height (meters) at which the sensors are sampled from
+      sensor_height_max (int): The maximum height (meters) at which the sensors are sampled from
+      leak_height_min (int): The minimum height (meters) at which the potential leaks are sampled from
+      leak_height_max (int): The maximum height (meters) at which the potential leaks are sampled from 
       sensor_type_mask (int): The value to use for the "variable mask" (which sensors are included at specifc locations)
-      sensor_exist_mask (int): The value of the "sensor pad mask" (how many sensors ther are per sample)
+      sensor_exist_mask (int): The value of the "sensor pad mask" (how many sensors there are per sample)
       coord_vars (list): The list of variable names for positional coordinates
       met_vars (list): Names of the meteorological variables 
       emission_vars (list): Variable names of the leak contaminates 
@@ -70,16 +65,44 @@ This will create a separate xarray dataset for each file that can be used for mo
 
     <xarray.Dataset>
     Dimensions:        (variable: 8, sample: 3600, sensor: 15, time: 20, mask: 2,
-                        pot_leak: 10, target_time: 1)
+                        pot_leak: 10, target_time: 1, sensor_loc: 3)
     Coordinates:
       * variable       (variable) object 'ref_distance' 'ref_azi_sin' ... 'q_CH4'
+      * sensor_loc     (sensor_loc) 'xPos' 'yPos' 'zPos'
     Dimensions without coordinates: sample, sensor, time, mask, pot_leak,
                                     target_time
     Data variables:
         encoder_input  (sample, sensor, time, variable, mask) float64 ...
         decoder_input  (sample, pot_leak, target_time, variable, mask) float64 ...
         target         (sample, pot_leak, target_time) float64 ...
-  
+        target_ch4     (sample, pot_leak, target_time) float32 ...
+        sensor_meta    (sample, sensor, sensor_loc)    float32 ...
+        leak_meta      (sample, pot_leak, sensor_loc)  float32 ...
+        met_sensor_loc (sample, sensor_loc)            float32 ...
+        leak_rate      (sample)                        float32 ...
+
+The `variable` coordinate lists the order of the actual variable names for the `variable` dimension. 
+* `ref_distance`: Euclidean distance from the **met sensor** to the sensor / pot_leak location.
+* `ref_azi_sin`: Sin of the angle from the **met sensor** relative to the mean wind direction and the sensor / leak loc.
+* `ref_azi_cos`: Cosine of the angle from the **met sensor** relative to the mean wind direction and the sensor / leak loc.
+* `ref_elv`: Vertical angle from the met sensor and the sensor / leak location.
+* `u`: U-wind component at the met sensor.
+* `v`: V-wind component at the met sensor.
+* `w`: W-wind component at the met sensor.
+* `q_CH4`: Methane concentration at a given sensor.
+
+The dimension size of `sensor` and `pot_leak` are the **maximum** number set within the config even though many samples have less than 
+the maximum amount. The `mask` dimension identifies which samples have which sensors / potential leaks are contained 
+within a given sample.
+
+`Data Variables`:
+* `encoder_input`: Time series of meteorlogical and methane inputs as well as coordinate information.
+* `decoder_input`: Coordinate information of the potential leak locations. 
+* `target`: Binary vector indicating the true leak location from all potential leak locations.
+* `target_ch4`: True leak rate at the true vector position.
+* `leak_meta`: Raw coordinate information (in meters, directly from LES) for potential leak locations.
+* `met_sensor_loc`: Raw coordinate information (in meters, directly from LES) for met sensor.
+* `leak_rate`: True leak rate.
 
 ### Model Training
 
