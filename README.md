@@ -29,8 +29,7 @@ The goal of this repository is to experiment with different machine learning arc
 
 The easiest way to install this package is using conda. After cloning the repository you can install with
 
-`conda env create -f environment.yml`
-
+`mamba env create -f environment_gpu.yml`
 
 ## Usage
 
@@ -51,10 +50,10 @@ Training data can be sampled from the raw LES data by running the `./scripts/sub
       max_trace_sensors (int): Maximum number of Methane trace sensors to sample per training sample
       min_leak_loc (int): Minimum number of potential leak locations to sample per training sample
       max_leak_loc (int): Maximum number of potential leak locations to sample per training sample
-      sensor_height_min (int): The minimum height (meters) at which the sensors are sampled from
-      sensor_height_max (int): The maximum height (meters) at which the sensors are sampled from
-      leak_height_min (int): The minimum height (meters) at which the potential leaks are sampled from
-      leak_height_max (int): The maximum height (meters) at which the potential leaks are sampled from 
+      sensor_height_min (float): The minimum height (meters) at which the sensors are sampled from
+      sensor_height_max (float): The maximum height (meters) at which the sensors are sampled from
+      leak_height_min (float): The minimum height (meters) at which the potential leaks are sampled from
+      leak_height_max (float): The maximum height (meters) at which the potential leaks are sampled from 
       sensor_type_mask (int): The value to use for the "variable mask" (which sensors are included at specifc locations)
       sensor_exist_mask (int): The value of the "sensor pad mask" (how many sensors there are per sample)
       coord_vars (list): The list of variable names for positional coordinates
