@@ -36,9 +36,9 @@ if __name__ == "__main__":
     os.makedirs(config["out_path"], exist_ok=True)
     with open(join(config["out_path"], 'config.yml'), 'w') as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
-    files = sorted(glob.glob(join(config["data_path"], "*")))
+    files = sorted(glob.glob(join(config["data_path"], "**", "*.*"), recursive=True))
+    print(files)
     args = itertools.product([config], files)
-
     if config["parallel"]:
         n_procs = int(config["n_processors"])
         with Pool(n_procs) as pool:
