@@ -6,11 +6,11 @@ from os.path import join
 from multiprocessing import Pool
 from sealsml.data import DataSampler
 import glob
+import datetime
 
 
 def main(config, file):
 
-    print(file)
     sampler = DataSampler(**config["sampler_args"])
     sampler.load_data(file)
     data = sampler.sample(time_window_size=config["time_window_size"],
@@ -31,9 +31,12 @@ if __name__ == "__main__":
 
     username = os.environ.get('USER')
     config["out_path"] = config["out_path"].replace("username", username)
+    date_str = datetime.datetime.now().strftime("data_gen_%Y%m%d")
+    config['out_path'] = os.path.join(config["out_path"], date_str)
     os.makedirs(config["out_path"], exist_ok=True)
+    with open(join(config["out_path"], 'config.yml'), 'w') as outfile:
+        yaml.dump(config, outfile, default_flow_style=False)
     files = sorted(glob.glob(join(config["data_path"], "*")))
-    print(files)
     args = itertools.product([config], files)
 
     if config["parallel"]:
