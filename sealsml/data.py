@@ -252,9 +252,6 @@ class DataSampler(object):
                                dims=["sample", "pot_leak", "target_time"],
                                name="target").astype('int')
 
-        target_ch4 = xr.DataArray(decoder_ds.sel(variable='q_CH4').isel(mask=0),
-                                  name="target_ch4")
-
         sensor_locs = xr.DataArray(self.pad_along_axis(sensor_meta, target_length=self.max_trace_sensors,
                                                        pad_value=0, axis=1),
                                    dims=['sample', 'sensor', 'sensor_loc'],
@@ -276,7 +273,7 @@ class DataSampler(object):
                                  dims=['sample'],
                                  name='leak_rate')
 
-        ds = xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
+        ds = xr.merge([encoder_ds, decoder_ds, targets, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
         return ds
 
 
