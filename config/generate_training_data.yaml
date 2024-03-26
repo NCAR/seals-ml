@@ -4,7 +4,7 @@ time_window_size: 100
 samples_per_window: 250
 window_stride: 50
 parallel: True
-n_processors: 18 # if parallel is True, else 1
+n_processors: 112 # if parallel is True, else 1
 sampler_args:
   min_trace_sensors: 5
   max_trace_sensors: 10
