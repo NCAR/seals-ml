@@ -153,7 +153,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
     # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
     targets = data['target'].values
@@ -215,13 +215,13 @@ def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0
 
     return input_array, target_array
 
-def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, n_sensors=3):
+def create_binary_preds_relative(data, y_pred):
     # This function creates the padded binary array (0,1 for leak) used for evaluation
     # output is a np.array in the shape of max potential leaks by number of samples
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values
     met_locs = data['met_sensor_loc'].values
-    xyz_pred = y_pred[:, :n_sensors]
+    xyz_pred = y_pred[:, :3]
     location_array = np.zeros(shape=y_true.shape[:-1])
     
     # The loop has to exist due to different number of leaks per sample

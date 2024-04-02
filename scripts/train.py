@@ -59,26 +59,25 @@ for model_name in config["models"]:
     start = time.time()
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
-        model.compile(**config[model_name]["compile"])
         y, y_val = leak_location, leak_location_val
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
-        model.compile(**config[model_name]["compile"])
         y, y_val = leak_rate, leak_rate_val
     elif model_name == "gaussian_process":
         model = GPModel(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
     elif model_name == "backtracker":
+        t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
+        v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, y = preprocess(xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False),
-                          n_sensors=3)
-        x_val, y_val = preprocess(xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False),
-                                  n_sensors=3)
+        x, y = preprocess(t, n_sensors=3)
+        x_val, y_val = preprocess(v, n_sensors=3)
         scaler = DeepQuantileTransformer()
         scaled_encoder = scaler.fit_transform(x)
         scaled_encoder_val = scaler.transform(x_val)
     else:
         raise ValueError(f"Incompatible model type {model_name}")
+    model.compile(**config[model_name]["compile"])
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                          y=y,
                          validation_data=((scaled_encoder_val,
@@ -94,12 +93,16 @@ for model_name in config["models"]:
                                  batch_size=config["predict_batch_size"]).squeeze()
 
     if model_name == "backtracker":
-        backtracker_targets = create_binary_preds_relative(validation, output)
-        pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'))
+        backtracker_targets = create_binary_preds_relative(v, output)
+        pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
+                                                                    index=False)
         pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
-            os.path.join(out_path, 'seals_train_preds.csv'))
-        pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'))
-        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'))
+                     os.path.join(out_path, 'seals_train_preds.csv'),
+                     index=False)
+        pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
+                                                                        index=False)
+        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
+                                                                         index=False)
 
     scaler_saved = False
     if config["save_model"]:
@@ -110,13 +113,17 @@ for model_name in config["models"]:
             scaler_saved = True
 
     if config["save_output"]:
-
-        save_output(out_path=os.path.join(out_path, f"{model_name}_output_{date_str}.nc"),
-                    train_targets=y,
-                    val_targets=y_val,
-                    train_predictions=output_train,
-                    val_predictions=output,
-                    model_name=model_name)
+        if model_name != "backtracker":
+            save_output(out_path=os.path.join(out_path, f"{model_name}_output_{date_str}.nc"),
+                        train_targets=y,
+                        val_targets=y_val,
+                        train_predictions=output_train,
+                        val_predictions=output,
+                        model_name=model_name)
         loss_hist = pd.DataFrame(fit_hist.history)
         loss_hist.to_csv(os.path.join(out_path, f"{model_name}_model_hist_{date_str}.csv"))
-
+    print('completed.')
+# save seperate scaler for back_tracker?
+# save output for backtracker as NETCDF as same format as others (added x, y, z)
+# Add number of sensors as config option for back tracker
+#
