@@ -85,15 +85,15 @@ class DataSampler(object):
                 
                 # x location for leak loc
                 _x_leak_loc = self.leak_loc[0][0] # this would need to be modified for mutiple leaks
-                true_leak_i = np.argwhere(self.x == _x_leak_loc)[0][0]
+                true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
                 
                 # y location for leak loc
                 _y_leak_loc = self.leak_loc[0][1]
-                true_leak_j = np.argwhere(self.y == _y_leak_loc)[0][0]
+                true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
 
                 # z location for leak loc
                 _z_leak_loc = self.leak_loc[0][2]
-                true_leak_k = np.argwhere(self.z == _z_leak_loc)[0][0]
+                true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
               
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
