@@ -52,6 +52,8 @@ class DataSampler(object):
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue']
+        self.leak_loc = self.data['srcAuxScLocation']
+        
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
