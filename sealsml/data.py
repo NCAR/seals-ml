@@ -52,6 +52,8 @@ class DataSampler(object):
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue']
+        self.leak_loc = self.data['srcAuxScLocation'].values
+        
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
@@ -80,8 +82,19 @@ class DataSampler(object):
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
-                true_leak_i, true_leak_j = 15, 15
+                
+                # x location for leak loc
+                _x_leak_loc = self.leak_loc[0][0] # this would need to be modified for mutiple leaks
+                true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
+                
+                # y location for leak loc
+                _y_leak_loc = self.leak_loc[0][1]
+                true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
 
+                # z location for leak loc
+                _z_leak_loc = self.leak_loc[0][2]
+                true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
+              
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
@@ -129,6 +142,7 @@ class DataSampler(object):
                 
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
+                k_leak[true_leak_pos] = true_leak_k
 
                 sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
                              k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
