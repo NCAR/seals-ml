@@ -7,17 +7,29 @@ from multiprocessing import Pool
 from sealsml.data import DataSampler
 import glob
 import datetime
-
+import xarray as xr
 
 def main(config, file):
 
     sampler = DataSampler(**config["sampler_args"])
-    sampler.load_data(file)
-    data = sampler.sample(time_window_size=config["time_window_size"],
-                          samples_per_window=config["samples_per_window"],
-                          window_stride=config["window_stride"])
+    # Since we want to convert 1 file to 9 to make training the same
+    # pull the data loader here? and have the input to the data sampler be xarray dataset
+    
+    ds = xr.open_dataset(file)
+    num_sources = ds['srcDim'].values
+    for i in range(len(num_sources)):
 
-    data.to_netcdf(join(config["out_path"], f"training_data_{file.split('/')[-1]}.nc"))
+        sampler.load_data(file)
+        
+        # this would not have to change below
+        data = sampler.sample(time_window_size=config["time_window_size"],
+                            samples_per_window=config["samples_per_window"],
+                            window_stride=config["window_stride"])
+
+        srcDim = f"srcDim{i}"  # Construct srcDim with loop variable i
+        file_name = f"training_data_{file.split('/')[-1].split('.')[0]}_{srcDim}.nc"  # Modify the file name string
+
+        data.to_netcdf(os.path.join(config["out_path"], file_name))  # Save the DataFrame to netCDF file with the modified file name
     del sampler
 
 
