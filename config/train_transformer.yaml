@@ -84,6 +84,12 @@ backtracker:
     dropout_alpha: 0.2
     epochs: 20
     verbose: 1
+  preprocess:
+    n_sensors: 3
+    x_width: 40
+    y_width: 40 
+    factor_x: 0.4 
+    factor_y: 0.4
   fit:
     kwargs: None
   compile:
