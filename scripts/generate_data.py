@@ -11,15 +11,15 @@ import xarray as xr
 
 def main(config, file):
 
+    # sampler args
     sampler = DataSampler(**config["sampler_args"])
-    # Since we want to convert 1 file to 9 to make training the same
-    # pull the data loader here? and have the input to the data sampler be xarray dataset
-    
-    ds = xr.open_dataset(file)
-    num_sources = ds['srcDim'].values
+
+    # loading in the data with xarray and save out number of sources
+    ds, num_sources = sampler.load_data(file)
+
     for i in range(len(num_sources)):
 
-        sampler.load_data(file)
+        sampler.data_extract(ds.isel(srcDim=i))
         
         # this would not have to change below
         data = sampler.sample(time_window_size=config["time_window_size"],

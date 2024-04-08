@@ -34,15 +34,24 @@ class DataSampler(object):
         self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
-
+    
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
-
-        """ load xarray datasets from a list of file names. """
+        '''Dataset loader that exports an xarray ds and '''
         if swap_time_dim == True:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
         else:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
+        # need the number of sources
+        num_sources = ds['srcDim'].values
+        return ds, num_sources
+
+    def data_extract(self, ds):
         
+        if not isinstance(ds, (xr.Dataset, xr.DataArray)):
+            print("Error: The provided input is not an xarray Dataset or DataArray.")
+            return
+        
+        self.data = ds
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
