@@ -8,18 +8,28 @@ from sealsml.data import DataSampler
 import glob
 import datetime
 
-
 def main(config, file):
 
+    # sampler args
     sampler = DataSampler(**config["sampler_args"])
-    sampler.load_data(file)
-    data = sampler.sample(time_window_size=config["time_window_size"],
-                          samples_per_window=config["samples_per_window"],
-                          window_stride=config["window_stride"])
 
-    data.to_netcdf(join(config["out_path"], f"training_data_{file.split('/')[-1]}.nc"))
+    # loading in the data with xarray and save out number of sources
+    ds, num_sources = sampler.load_data(file)
+
+    for i in range(len(num_sources)):
+
+        sampler.data_extract(ds.isel(srcDim=i))
+        
+        # this would not have to change below
+        data = sampler.sample(time_window_size=config["time_window_size"],
+                            samples_per_window=config["samples_per_window"],
+                            window_stride=config["window_stride"])
+
+        srcDim = f"srcDim{i}"  # Construct srcDim with loop variable i
+        file_name = f"training_data_{file.split('/')[-1].split('.')[0]}_{srcDim}.nc"  # Modify the file name string
+
+        data.to_netcdf(os.path.join(config["out_path"], file_name))  # Save the DataFrame to netCDF file with the modified file name
     del sampler
-
 
 if __name__ == "__main__":
 
@@ -46,6 +56,3 @@ if __name__ == "__main__":
     else:
         for f in files:
             main(config, f)
-
-
-

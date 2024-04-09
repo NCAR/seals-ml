@@ -159,8 +159,11 @@ def test_DataSampler():
 
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/CBL2m_Ug2p5_src1-8kg_a.1')
     test_data = os.path.expanduser(test_data_path)
-    sampler.load_data([test_data])
+    ds, num_sources = sampler.load_data([test_data])
 
+    for i in range(len(num_sources)):
+        sampler.data_extract(ds.isel(srcDim=i))
+        
     time_window_size = 20
     samples_per_window = 2
     window_stride = 10

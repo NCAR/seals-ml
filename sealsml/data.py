@@ -34,15 +34,24 @@ class DataSampler(object):
         self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
-
+    
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
-
-        """ load xarray datasets from a list of file names. """
+        '''Dataset loader that exports an xarray ds and '''
         if swap_time_dim == True:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
         else:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
+        # need the number of sources
+        num_sources = ds['srcDim'].values
+        return ds, num_sources
+
+    def data_extract(self, ds):
         
+        if not isinstance(ds, (xr.Dataset, xr.DataArray)):
+            print("Error: The provided input is not an xarray Dataset or DataArray.")
+            return
+        
+        self.data = ds
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
@@ -51,7 +60,7 @@ class DataSampler(object):
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
-        self.leak_rate = self.data['srcAuxScMassSpecValue']
+        self.leak_rate = self.data['srcAuxScMassSpecValue'].values
         self.leak_loc = self.data['srcAuxScLocation'].values
         
         # add zero arrays for new derived variables
@@ -84,15 +93,15 @@ class DataSampler(object):
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
                 # x location for leak loc
-                _x_leak_loc = self.leak_loc[0][0] # this would need to be modified for mutiple leaks
+                _x_leak_loc = self.leak_loc[0] # this would need to be modified for mutiple leaks
                 true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
                 
                 # y location for leak loc
-                _y_leak_loc = self.leak_loc[0][1]
+                _y_leak_loc = self.leak_loc[1]
                 true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
 
                 # z location for leak loc
-                _z_leak_loc = self.leak_loc[0][2]
+                _z_leak_loc = self.leak_loc[2]
                 true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
               
                 # Sensor in ijk (xyz) space
