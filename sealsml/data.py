@@ -93,15 +93,15 @@ class DataSampler(object):
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
                 # x location for leak loc
-                _x_leak_loc = self.leak_loc[0][0] # this would need to be modified for mutiple leaks
+                _x_leak_loc = self.leak_loc[0] # this would need to be modified for mutiple leaks
                 true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
                 
                 # y location for leak loc
-                _y_leak_loc = self.leak_loc[0][1]
+                _y_leak_loc = self.leak_loc[1]
                 true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
 
                 # z location for leak loc
-                _z_leak_loc = self.leak_loc[0][2]
+                _z_leak_loc = self.leak_loc[2]
                 true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
               
                 # Sensor in ijk (xyz) space
