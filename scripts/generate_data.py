@@ -7,7 +7,6 @@ from multiprocessing import Pool
 from sealsml.data import DataSampler
 import glob
 import datetime
-import xarray as xr
 
 def main(config, file):
 
@@ -31,7 +30,6 @@ def main(config, file):
 
         data.to_netcdf(os.path.join(config["out_path"], file_name))  # Save the DataFrame to netCDF file with the modified file name
     del sampler
-
 
 if __name__ == "__main__":
 
@@ -58,6 +56,3 @@ if __name__ == "__main__":
     else:
         for f in files:
             main(config, f)
-
-
-
