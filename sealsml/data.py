@@ -60,7 +60,7 @@ class DataSampler(object):
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
-        self.leak_rate = self.data['srcAuxScMassSpecValue']
+        self.leak_rate = self.data['srcAuxScMassSpecValue'].values
         self.leak_loc = self.data['srcAuxScLocation'].values
         
         # add zero arrays for new derived variables
