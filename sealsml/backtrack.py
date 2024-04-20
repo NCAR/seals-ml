@@ -93,7 +93,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
         pathmax (float): Maximum backtrack path length. (distance in meters?)
 
     Returns:
-        Scaled U and V wind componets. These are post-processed later. 
+        Scaled U and V wind components. These are post-processed later. 
 
         tuple: A tuple containing the following:
             avg_u (float): Average x-component wind vector component over the backtrack time interval.
@@ -162,7 +162,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
-    input_array = np.zeros(shape=(n_samples, 4 * n_sensors + 2))
+    input_array = np.zeros(shape=(n_samples, 8 * n_sensors))
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
@@ -195,6 +195,8 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
         coords = []
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
+        u_backtrack=[]
+        v_backtrack=[]
         for s in range(n_sensors):
 
             sensor_time_series = ch4_time_series[i, s].values
@@ -203,15 +205,25 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
-                                                 sensor_x=x_met[i],
-                                                 sensor_y=y_met[i],
+                                                 sensor_x=x_sensor[i,s],
+                                                 sensor_y=y_sensor[i,s],
                                                  pathmax=pathmax_value)
-            coords.append(x_sensor[i, s])
-            coords.append(y_sensor[i, s])
+            u_backtrack.append(backtrack_u)
+            v_backtrack.append(backtrack_v)
+            coords.append(x_sensor[i,s])
+            coords.append(y_sensor[i,s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
-            ch4.append(max_CH4)
+            
+            for r in range(n_sensors):  
 
-        input_array[i] = np.array([backtrack_u] + [backtrack_v] + coords + ch4)
+                print('in preprocess, r, n_sensors=',r,n_sensors)
+
+                if r != s:
+                    ch4.append(ch4_time_series[i,r].values[time])
+                else:
+                    ch4.append(max_CH4)
+
+        input_array[i] = np.array([u_backtrack] + [v_backtrack] + coords + ch4)
 
     return input_array, target_array
 
