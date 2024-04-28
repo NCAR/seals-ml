@@ -153,7 +153,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+def preprocess(data, n_sensors=4, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
     # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
     targets = data['target'].values
@@ -162,7 +162,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
-    input_array = np.zeros(shape=(n_samples, 8 * n_sensors))
+    input_array = np.zeros(shape=(n_samples, 8 * n_sensors - 8))
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
@@ -171,10 +171,12 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     v = encoder.sel(sensor=0,
                     variable=('v'),
                     mask=0)
+
     relative_sensor_locs = encoder.sel(sensor=slice(1, n_sensors + 1),
                                        time=0,
                                        variable=['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv'],
                                        mask=0)
+
     x_sensor, y_sensor = polar_to_cartesian(relative_sensor_locs.sel(variable='ref_distance'),
                               relative_sensor_locs.sel(variable='ref_azi_sin'),
                               relative_sensor_locs.sel(variable='ref_azi_cos'))
@@ -190,6 +192,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     ch4_time_series = encoder.sel(sensor=slice(1, n_sensors + 1),
                                   variable='q_CH4',
                                   mask=0)
+
     for i in range(n_samples):
         ch4 = []
         coords = []
@@ -197,11 +200,11 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
         vi = v.isel(sample=i).values.ravel()
         u_backtrack=[]
         v_backtrack=[]
-        for s in range(n_sensors):
 
+        for s in range(0,n_sensors-1):
             sensor_time_series = ch4_time_series[i, s].values
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
-            backtrack_u, backtrack_v = backtrack(ijk_start=time,
+            backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
@@ -214,16 +217,14 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
             coords.append(y_sensor[i,s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
             
-            for r in range(n_sensors):  
-
-                print('in preprocess, r, n_sensors=',r,n_sensors)
+            for r in range(0,n_sensors-1):  
 
                 if r != s:
-                    ch4.append(ch4_time_series[i,r].values[time])
+                    ch4.append(ch4_time_series[i,r].values[idx])
                 else:
                     ch4.append(max_CH4)
 
-        input_array[i] = np.array([u_backtrack] + [v_backtrack] + coords + ch4)
+        input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
 
     return input_array, target_array
 
