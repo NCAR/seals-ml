@@ -212,15 +212,16 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
                                                  sensor_x=x_sensor[i, s],
                                                  sensor_y=y_sensor[i, s],
                                                  pathmax=pathmax_value)
-            #u_backtrack.append(backtrack_u)
-            #v_backtrack.append(backtrack_v)
+            # We do not use these yet :)
+            u_backtrack.append(backtrack_u)
+            v_backtrack.append(backtrack_v)
             
             coords.append(x_sensor[i, s])
             coords.append(y_sensor[i, s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
             ch4.append(max_CH4)
 
-        input_array[i] = np.array(backtrack_u + backtrack_v + coords + ch4)
+        input_array[i] = np.array([backtrack_u] + [backtrack_v] + coords + ch4)
 
     return input_array, target_array
 
