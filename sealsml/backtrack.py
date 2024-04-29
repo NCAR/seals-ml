@@ -218,7 +218,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
 
     return input_array, target_array
 
-def create_binary_preds_relative(data, y_pred):
+def create_binary_preds_relative(data, y_pred: np.ndarray) -> np.ndarray:
     # This function creates the padded binary array (0,1 for leak) used for evaluation
     # output is a np.array in the shape of max potential leaks by number of samples
     n_samples = y_pred.shape[0]
@@ -236,4 +236,5 @@ def create_binary_preds_relative(data, y_pred):
         arg_min = np.argmin(distance)
         location_array[s, arg_min] = 1
 
+    # Returns a 2D numpy array 
     return location_array
