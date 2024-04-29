@@ -196,6 +196,9 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     for i in range(n_samples):
         ch4 = []
         coords = []
+        u_backtrack = []
+        v_backtrack = []
+
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
         for s in range(n_sensors):
@@ -206,15 +209,18 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
-                                                 sensor_x=x_met[i],
-                                                 sensor_y=y_met[i],
+                                                 sensor_x=x_sensor[i, s],
+                                                 sensor_y=y_sensor[i, s],
                                                  pathmax=pathmax_value)
+            u_backtrack.append(backtrack_u)
+            v_backtrack.append(backtrack_v)
+            
             coords.append(x_sensor[i, s])
             coords.append(y_sensor[i, s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
             ch4.append(max_CH4)
 
-        input_array[i] = np.array([backtrack_u] + [backtrack_v] + coords + ch4)
+        input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
 
     return input_array, target_array
 
