@@ -205,7 +205,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
 
             sensor_time_series = ch4_time_series[i, s].values
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
-            backtrack_u, backtrack_v = backtrack(ijk_start=time,
+            backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
