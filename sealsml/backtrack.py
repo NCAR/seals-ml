@@ -162,6 +162,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
+    # n_sensors used here like the original workflow, 4 variables would be [X, Y, Z, CH4]
     input_array = np.zeros(shape=(n_samples, 4 * n_sensors + 2))
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
@@ -171,6 +172,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     v = encoder.sel(sensor=0,
                     variable=('v'),
                     mask=0)
+    # This slices it from 1 to n_sensors + 1, the met is the 0th sensor 
     relative_sensor_locs = encoder.sel(sensor=slice(1, n_sensors + 1),
                                        time=0,
                                        variable=['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv'],
@@ -186,7 +188,8 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     x_met, y_met = polar_to_cartesian(met_locs.sel(variable='ref_distance'),
                                       met_locs.sel(variable='ref_azi_sin'),
                                       met_locs.sel(variable='ref_azi_cos'))
-
+    
+    # This slices it from 1 to n_sensors + 1, the met is the 0th sensor 
     ch4_time_series = encoder.sel(sensor=slice(1, n_sensors + 1),
                                   variable='q_CH4',
                                   mask=0)
