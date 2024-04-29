@@ -1,0 +1,7 @@
+ n_sensors being set to 3 in train.py? or where was it?
+
+backtrack.py not being updated, previous version being used, but from where?
+
+n_sensors =4 or =3 seems inconsistency in preprocess. Go through code with Thomas?
+
+

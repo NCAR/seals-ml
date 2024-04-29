@@ -247,3 +247,4 @@ def create_binary_preds_relative(data, y_pred):
         location_array[s, arg_min] = 1
 
     return location_array
+

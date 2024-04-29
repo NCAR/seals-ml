@@ -1,4 +1,5 @@
-data_path: "/glade/u/home/bryant/work/SEALS_training_data/data_gen_20240401/"
+#data_path: "/glade/u/home/bryant/work/SEALS_training_data/data_gen_20240422/"
+data_path: "/glade/derecho/scratch/bryant/work/SEALS_training_data/data_gen_20240426/"
 out_path: "/glade/u/home/bryant/work/SEALS_output/train/"
 random_seed: 812
 save_model: True

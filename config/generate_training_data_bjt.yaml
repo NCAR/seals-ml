@@ -1,0 +1,22 @@
+#data_path: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/SET_10_12_23/"
+data_path: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/SET_12_21_23/"
+out_path: "/glade/derecho/scratch/bryant/work/SEALS_training_data/"
+time_window_size: 359
+samples_per_window: 1 
+window_stride: 50
+parallel: False
+n_processors: 1 # if parallel is True, else 1
+sampler_args:
+  min_trace_sensors: 4
+  max_trace_sensors: 4
+  min_leak_loc: 1
+  max_leak_loc: 1
+  sensor_height_min: 1
+  sensor_height_max: 2
+  leak_height_min: 1 
+  leak_height_max: 2 
+  sensor_type_mask: -999
+  sensor_exist_mask: -1
+  coord_vars: ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
+  met_vars: ['u', 'v', 'w']
+  emission_vars: ['q_CH4']

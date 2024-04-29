@@ -10,5 +10,4 @@
 #PBS -M cbecker@ucar.edu
 module load conda
 conda activate seals
-cd /glade/work/cbecker/seals-ml/
 python -u ./scripts/generate_data.py  -c ./config/generate_training_data.yaml
