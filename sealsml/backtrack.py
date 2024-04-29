@@ -196,19 +196,26 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     for i in range(n_samples):
         ch4 = []
         coords = []
+        u_backtrack = []
+        v_backtrack = []
+
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
         for s in range(n_sensors):
 
             sensor_time_series = ch4_time_series[i, s].values
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
-            backtrack_u, backtrack_v = backtrack(ijk_start=time,
+            backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
-                                                 sensor_x=x_met[i],
-                                                 sensor_y=y_met[i],
+                                                 sensor_x=x_sensor[i, s],
+                                                 sensor_y=y_sensor[i, s],
                                                  pathmax=pathmax_value)
+            # We do not use these yet :)
+            u_backtrack.append(backtrack_u)
+            v_backtrack.append(backtrack_v)
+            
             coords.append(x_sensor[i, s])
             coords.append(y_sensor[i, s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
