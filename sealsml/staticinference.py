@@ -7,8 +7,8 @@ from typing import List
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def load_inference(dataset: xr.Dataset, timestep: int) -> NDArray:
-    '''
+def load_inference(dataset, sitemap, timestep: int) -> NDArray:
+    """
     Loads an xarray dataset from 'real' data, processes it into wind relative coordinates,
     and chunks it into the correct timestep length for the ML model.
 
@@ -18,9 +18,10 @@ def load_inference(dataset: xr.Dataset, timestep: int) -> NDArray:
 
     Returns:
         NDArray: An array of processed data ready for ML inference.
-    '''
+    """
     ds = xr.open_dataset(dataset)
-    
+    sitemap = xr.open_dataset(sitemap)
+
     XYZ_met = ds['metPos'].values
 
     u_met = ds.metVels.sel(metSensors=0).values.T[:, 0]
@@ -30,6 +31,7 @@ def load_inference(dataset: xr.Dataset, timestep: int) -> NDArray:
     XYZ_ch4 = ds['CH4Pos'].values
 
     encoder_arrays: List[NDArray] = []  # List to store encoder arrays for each iteration
+    target_list: List[NDArray] = []  # List to store target arrays for each iteration
 
     for i in ds.CH4Sensors.values:
       # get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
@@ -43,7 +45,7 @@ def load_inference(dataset: xr.Dataset, timestep: int) -> NDArray:
                         XYZ_ch4[i][1], #y_target
                         XYZ_ch4[i][2], #z_target
                         time_series=True  
-                        )
+                           )
 
       ch4_data = ds['q_CH4'].values[i]
       encoder_array = np.vstack((output, w_met, ch4_data))
@@ -65,5 +67,30 @@ def load_inference(dataset: xr.Dataset, timestep: int) -> NDArray:
       print(f"Number of elements dropped: {total_length - trimmed_length}")
 
     # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
-    reshaped_array = trimmed_array.reshape(8, 4, timestep, num_complete_series)
-    return reshaped_array
+    reshaped_array = trimmed_array.reshape(8, 4, timestep, num_complete_series).transpose(3, 1, 0, 2)
+    
+    #### Let's make some targets
+    mask = sitemap['structureMask'].where(sitemap['structureMask'] == 1, drop=False).notnull()
+    
+    leak_x = sitemap.xPos.values.ravel()[mask.values.ravel()]
+    leak_y = sitemap.yPos.values.ravel()[mask.values.ravel()]
+    leak_z = sitemap.zPos.values.ravel()[mask.values.ravel()]
+    
+    print('Number of possible leaks:', len(leak_z))
+    for a in range(len(leak_z )):
+      targets = get_relative_azimuth(
+                        u_met, # u
+                        v_met, # v
+                        XYZ_met[0][0], #x_ref 
+                        XYZ_met[0][1], #y_ref
+                        XYZ_met[0][2], #z_ref
+                        leak_x[a], #x_target
+                        leak_y[a], #y_target
+                        leak_z[a], #z_target
+                        time_series=False  
+                           )
+      target_list.append(targets)
+    
+    # Target array is currently number of targets, variables, time)
+    target_arrays = np.array(target_list, dtype=float)
+    return reshaped_array, target_arrays
