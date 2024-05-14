@@ -152,7 +152,7 @@ def test_dip():
 
 def test_DataSampler():
 
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
+    sampler = DataSampler(min_trace_sensors=3, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
                           sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4, 
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
@@ -164,8 +164,8 @@ def test_DataSampler():
     for i in range(len(num_sources)):
         sampler.data_extract(ds.isel(srcDim=i))
         
-    time_window_size = 20
-    samples_per_window = 2
+    time_window_size = 359
+    samples_per_window = 1
     window_stride = 10
 
     data = sampler.sample(time_window_size, samples_per_window, window_stride)

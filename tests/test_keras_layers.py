@@ -16,7 +16,7 @@ def test_convsensorencoder():
     assert conv_config["min_filters"] == min_filters
     model = Sequential(layers=[ConvSensorEncoder(min_filters=min_filters, input_shape=x_shape[1:]),
                                Flatten(), Dense(1)])
-    model.compile(loss="mse", optimizer="adam")
+    model.compile(loss="mse", optimizer="sgd")
     model.fit(x_test, y, epochs=10)
     y_pred = model.predict(x_test)
     assert y_pred.shape == (x_shape[0], 1)

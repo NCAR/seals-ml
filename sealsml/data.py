@@ -9,7 +9,7 @@ from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandard
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
-    def __init__(self, min_trace_sensors=4, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
+    def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
                  sensor_height_min=1,
                  sensor_height_max=4, 
                  leak_height_min=0, 

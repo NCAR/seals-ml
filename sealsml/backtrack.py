@@ -162,7 +162,13 @@ def preprocess(data, n_sensors=4, x_width=40, y_width=40, factor_x=0.4, factor_y
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
+
+    # the statement below assumes that n_sensors includes a met sensor. This statement
+    # collapses all sensor information into one input line rather than n lines, where
+    # n = n_sensors-1 = number of CH4 sensors
+
     input_array = np.zeros(shape=(n_samples, 8 * n_sensors - 8))
+    
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
@@ -228,7 +234,7 @@ def preprocess(data, n_sensors=4, x_width=40, y_width=40, factor_x=0.4, factor_y
 
     return input_array, target_array
 
-def create_binary_preds_relative(data, y_pred):
+def create_binary_preds_relative(data, y_pred: np.ndarray) -> np.ndarray:
     # This function creates the padded binary array (0,1 for leak) used for evaluation
     # output is a np.array in the shape of max potential leaks by number of samples
     n_samples = y_pred.shape[0]

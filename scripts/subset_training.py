@@ -3,8 +3,8 @@ import os
 from os.path import exists, join
 import numpy as np
 import shutil
-in_path = "/glade/work/cbecker/SEALS_training_data_20231205/"
-out_path = "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
+in_path = "/glade/derecho/scratch/bryant/work/SEALS_training_data/data_gen_20240426"
+out_path = "/glade/u/home/bryant/work/SEALS_output/train/"
 subsample = 0.1
 
 training_files = np.array(sorted(glob(in_path + "*.nc")))

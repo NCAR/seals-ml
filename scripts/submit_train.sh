@@ -5,11 +5,11 @@
 #PBS -o seals_train_bjt.out
 #PBS -e seals_train_bjt.out
 #PBS -q main
-#PBS -l select=1:ngpus=4:mem=400GB -l gpu_type=a100
+#PBS -l select=1:ncpus=1:mem=4GB -l gpu_type=a100
 #PBS -m a
 #PBS -M btravis@psi.edu
 module load conda
 conda activate seals
 echo $LD_LIBRARY_PATH
 cd /glade/u/home/bryant/work/temp-seals/
-python -u ./scripts/train.py  -c ./config/train_transformer_bjt.yaml
+python -u ./scripts/train.py  -c ./config/train_transformer.yaml

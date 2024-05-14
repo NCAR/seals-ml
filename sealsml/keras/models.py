@@ -304,9 +304,9 @@ class BackTrackerDNN(keras.models.Model):
         evidential_coef: Evidential regularization coefficient.
         metrics: Optional list of metrics to monitor during training.
     """
-    def __init__(self, hidden_layers=2, hidden_neurons=64, activation="relu", optimizer="adam", loss_weights=None,
-                 use_noise=False, noise_sd=0.01, lr=0.00001, use_dropout=False, dropout_alpha=0.1, batch_size=128,
-                 epochs=2, kernel_reg=None, l1_weight=0.01, l2_weight=0.01, n_output_tasks=1, verbose=1, **kwargs):
+    def __init__(self, hidden_layers=3, hidden_neurons=64, activation="relu", optimizer="SGD", loss_weights=None,
+                 use_noise=False, noise_sd=0.01, lr=0.00001, use_dropout=False, dropout_alpha=0.1, batch_size=1,
+                 epochs=10, kernel_reg=None, l1_weight=0.01, l2_weight=0.01, n_output_tasks=1, verbose=1, **kwargs):
 
         super().__init__(**kwargs)
         self.hidden_layers = hidden_layers
