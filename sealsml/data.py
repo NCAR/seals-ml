@@ -34,15 +34,24 @@ class DataSampler(object):
         self.n_new_vars = 6
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
-
+    
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
-
-        """ load xarray datasets from a list of file names. """
+        '''Dataset loader that exports an xarray ds and '''
         if swap_time_dim == True:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
         else:
-            self.data = xr.open_mfdataset(file_names, parallel=use_dask).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
+        # need the number of sources
+        num_sources = ds['srcDim'].values
+        return ds, num_sources
+
+    def data_extract(self, ds):
         
+        if not isinstance(ds, (xr.Dataset, xr.DataArray)):
+            print("Error: The provided input is not an xarray Dataset or DataArray.")
+            return
+        
+        self.data = ds
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
@@ -51,7 +60,9 @@ class DataSampler(object):
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
-        self.leak_rate = self.data['srcAuxScMassSpecValue']
+        self.leak_rate = self.data['srcAuxScMassSpecValue'].values
+        self.leak_loc = self.data['srcAuxScLocation'].values
+        
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
@@ -80,8 +91,19 @@ class DataSampler(object):
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
-                true_leak_i, true_leak_j = 15, 15
+                
+                # x location for leak loc
+                _x_leak_loc = self.leak_loc[0] # this would need to be modified for mutiple leaks
+                true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
+                
+                # y location for leak loc
+                _y_leak_loc = self.leak_loc[1]
+                true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
 
+                # z location for leak loc
+                _z_leak_loc = self.leak_loc[2]
+                true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
+              
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
@@ -129,6 +151,7 @@ class DataSampler(object):
                 
                 i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
                 j_leak[true_leak_pos] = true_leak_j
+                k_leak[true_leak_pos] = true_leak_k
 
                 sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
                              k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
@@ -252,9 +275,6 @@ class DataSampler(object):
                                dims=["sample", "pot_leak", "target_time"],
                                name="target").astype('int')
 
-        target_ch4 = xr.DataArray(decoder_ds.sel(variable='q_CH4').isel(mask=0),
-                                  name="target_ch4")
-
         sensor_locs = xr.DataArray(self.pad_along_axis(sensor_meta, target_length=self.max_trace_sensors,
                                                        pad_value=0, axis=1),
                                    dims=['sample', 'sensor', 'sensor_loc'],
@@ -276,7 +296,7 @@ class DataSampler(object):
                                  dims=['sample'],
                                  name='leak_rate')
 
-        ds = xr.merge([encoder_ds, decoder_ds, targets, target_ch4, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
+        ds = xr.merge([encoder_ds, decoder_ds, targets, sensor_locs, leak_locs, met_sensor_loc, leak_rate])
         return ds
 
 

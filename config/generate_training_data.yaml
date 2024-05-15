@@ -1,13 +1,10 @@
-data_path: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/SET_10_12_23/DC/"
-#data_path: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/SET_12_21_23/WD/"
-out_path: "/glade/work/cbecker/SEALS_training_data/"
-#data_path: "/Users/cbecker/PycharmProjects/seals-ml/data/SET_10_12_23/DC/"
-#out_path: "/Users/username/PycharmProjects/seals-ml/SEALS_training_data_20231205_windrel_meta/"
+data_path: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/SET_10_12_23/"
+out_path: "/glade/work/username/SEALS_training_data/"
 time_window_size: 100
 samples_per_window: 250
 window_stride: 50
 parallel: True
-n_processors: 18 # if parallel is True, else 1
+n_processors: 112 # if parallel is True, else 1
 sampler_args:
   min_trace_sensors: 5
   max_trace_sensors: 10

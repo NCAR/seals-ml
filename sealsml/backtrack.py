@@ -153,7 +153,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
     # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
     targets = data['target'].values
@@ -162,6 +162,7 @@ def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
+    # n_sensors used here like the original workflow, 4 variables would be [X, Y, Z, CH4]
     input_array = np.zeros(shape=(n_samples, 4 * n_sensors + 2))
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
@@ -171,6 +172,7 @@ def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0
     v = encoder.sel(sensor=0,
                     variable=('v'),
                     mask=0)
+    # This slices it from 1 to n_sensors + 1, the met is the 0th sensor 
     relative_sensor_locs = encoder.sel(sensor=slice(1, n_sensors + 1),
                                        time=0,
                                        variable=['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv'],
@@ -186,26 +188,34 @@ def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0
     x_met, y_met = polar_to_cartesian(met_locs.sel(variable='ref_distance'),
                                       met_locs.sel(variable='ref_azi_sin'),
                                       met_locs.sel(variable='ref_azi_cos'))
-
+    
+    # This slices it from 1 to n_sensors + 1, the met is the 0th sensor 
     ch4_time_series = encoder.sel(sensor=slice(1, n_sensors + 1),
                                   variable='q_CH4',
                                   mask=0)
     for i in range(n_samples):
         ch4 = []
         coords = []
+        u_backtrack = []
+        v_backtrack = []
+
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
         for s in range(n_sensors):
 
             sensor_time_series = ch4_time_series[i, s].values
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
-            backtrack_u, backtrack_v = backtrack(ijk_start=time,
+            backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
-                                                 sensor_x=x_met[i],
-                                                 sensor_y=y_met[i],
+                                                 sensor_x=x_sensor[i, s],
+                                                 sensor_y=y_sensor[i, s],
                                                  pathmax=pathmax_value)
+            # We do not use these yet :)
+            u_backtrack.append(backtrack_u)
+            v_backtrack.append(backtrack_v)
+            
             coords.append(x_sensor[i, s])
             coords.append(y_sensor[i, s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
@@ -215,13 +225,13 @@ def preprocess(data: np.ndarray, n_sensors=3, x_width=40, y_width=40, factor_x=0
 
     return input_array, target_array
 
-def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, n_sensors=3):
+def create_binary_preds_relative(data, y_pred: np.ndarray) -> np.ndarray:
     # This function creates the padded binary array (0,1 for leak) used for evaluation
     # output is a np.array in the shape of max potential leaks by number of samples
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values
     met_locs = data['met_sensor_loc'].values
-    xyz_pred = y_pred[:, :n_sensors]
+    xyz_pred = y_pred[:, :3]
     location_array = np.zeros(shape=y_true.shape[:-1])
     
     # The loop has to exist due to different number of leaks per sample
@@ -233,4 +243,5 @@ def create_binary_preds_relative(data: np.ndarray, y_pred: np.ndarray, n_sensors
         arg_min = np.argmin(distance)
         location_array[s, arg_min] = 1
 
+    # Returns a 2D numpy array 
     return location_array

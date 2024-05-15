@@ -95,3 +95,54 @@ def plot_probability_map(model, scaler, les_path, validation_file, sample_number
     plt.colorbar(probs, ax=axes[1])
 
 
+def calculate_distance_matrix(array: np.ndarray, export_matrix: bool = False) -> tuple:
+    """
+    Calculate the distance matrix for an array of 3D points.
+
+    Parameters:
+        array (np.ndarray): An array of shape (N, 3) containing x, y, z coordinates of points.
+        export_matrix (bool, optional): If True, the distance matrix will be returned along with
+            the minimum, median, and maximum distances. If False (default), only the minimum,
+            median, and maximum distances will be returned.
+
+    Returns:
+        tuple or np.ndarray: If export_matrix is False, a tuple containing the minimum, median,
+            and maximum distances. If export_matrix is True, a tuple containing the distance
+            matrix along with the minimum, median, and maximum distances.
+
+    Raises:
+        ValueError: If the input array is not 2D, or the resulting distance matrix is not square,
+        or if the number of points in the input array does not match the size of the distance matrix.
+    """
+    # Check if the input array is 2D
+    if array.ndim != 2:
+        raise ValueError("Input array must be 2D")
+
+    # Reshape array to have new axes for broadcasting
+    array_reshaped1 = array[:, np.newaxis, :]
+    array_reshaped2 = array[np.newaxis, :, :]
+
+    # Calculate the differences between corresponding points
+    differences = array_reshaped1 - array_reshaped2
+
+    # Calculate the distances along the last axis (axis=2)
+    distance_matrix = np.linalg.norm(differences, axis=2)
+
+    # Check if the distance matrix is square
+    if distance_matrix.shape[0] != distance_matrix.shape[1]:
+        raise ValueError("Output distance array must be square")
+
+    # Check if the number of points in the input array matches the size of the distance matrix
+    if array.shape[0] != distance_matrix.shape[0]:
+        raise ValueError("Number of points in input array must match size of distance matrix")
+
+    # Calculate min, median, and max distances excluding zeros
+    non_zero_values = distance_matrix[distance_matrix != 0]
+    matrix_min = np.min(non_zero_values)
+    matrix_median = np.median(non_zero_values)
+    matrix_max = np.max(non_zero_values)
+
+    if export_matrix:
+        return distance_matrix, matrix_min, matrix_median, matrix_max
+    else:
+        return matrix_min, matrix_median, matrix_max

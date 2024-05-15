@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #PBS -N seals
 #PBS -A nral0033
-#PBS -l walltime=04:30:00
+#PBS -l walltime=00:30:00
 #PBS -o seals_train_der.out
 #PBS -e seals_train_der.out
 #PBS -q main
@@ -9,7 +9,7 @@
 #PBS -m a
 #PBS -M cbecker@ucar.edu
 module load conda
-conda activate sealsml
+conda activate seals
 echo $LD_LIBRARY_PATH
 cd /glade/work/cbecker/seals-ml/
 python -u ./scripts/train.py  -c ./config/train_transformer.yaml

@@ -29,8 +29,7 @@ The goal of this repository is to experiment with different machine learning arc
 
 The easiest way to install this package is using conda. After cloning the repository you can install with
 
-`conda env create -f environment.yml`
-
+`mamba env create -f environment_gpu.yml`
 
 ## Usage
 
@@ -51,10 +50,10 @@ Training data can be sampled from the raw LES data by running the `./scripts/sub
       max_trace_sensors (int): Maximum number of Methane trace sensors to sample per training sample
       min_leak_loc (int): Minimum number of potential leak locations to sample per training sample
       max_leak_loc (int): Maximum number of potential leak locations to sample per training sample
-      sensor_height_min (int): The minimum height (meters) at which the sensors are sampled from
-      sensor_height_max (int): The maximum height (meters) at which the sensors are sampled from
-      leak_height_min (int): The minimum height (meters) at which the potential leaks are sampled from
-      leak_height_max (int): The maximum height (meters) at which the potential leaks are sampled from 
+      sensor_height_min (float): The minimum height (meters) at which the sensors are sampled from
+      sensor_height_max (float): The maximum height (meters) at which the sensors are sampled from
+      leak_height_min (float): The minimum height (meters) at which the potential leaks are sampled from
+      leak_height_max (float): The maximum height (meters) at which the potential leaks are sampled from 
       sensor_type_mask (int): The value to use for the "variable mask" (which sensors are included at specifc locations)
       sensor_exist_mask (int): The value of the "sensor pad mask" (how many sensors there are per sample)
       coord_vars (list): The list of variable names for positional coordinates
@@ -112,13 +111,16 @@ Explanation of `./config/train_transformer.yaml`
 
     data_path (str): Path to the generated sample data (created above)
     out_path (str): Path to save output
-    save (bool): Choice to save output (model, scaler, eval)
+    random_seed (int): Random seed used to replicate data splitting and model initialization
+    save_model (bool): Choice to save output (model, scaler)
+    save_output (bool): Choice to save model predictions
     validation_ratio (float): Ratio of validation data compared to training data (between 0 and 1)
     sensor_type_mask (int): Value that was used to mask sensor type (from above config) 
     sensor_exist_mask (int): Value that was used to mask sensor padding (from above config) 
     scaler_type (str): Type of scaler to use (supports "quantile", "standard", "minmax")
-    
-    model: Model hyperparameters 
+    models (list): List of models to train (supports "transformer_leak_loc", "transformer_leak_rate", "backtracker")
+
+    <model type>: Model hyperparameters 
       encoder_layers (int): Number of encoder blocks
       decoder_layers (int): Number of decoder blocks
       hidden_size (int): Number of hidden neurons per layer 
@@ -137,15 +139,15 @@ Explanation of `./config/train_transformer.yaml`
       pooling (str): Convolutional pooling strategy
       pool_size (int): Width to apply pooling strategy
       padding (str): Convoluitonal padding strategy 
-    model_fit:
-      epochs (int): Number of epochs to run model
-      verbose (int): Verbosity level for training (0, 1, 2)
-      batch_size (int): Training batch size
-    model_compile:
-      loss (str): Loss function (supported by keras)
-      optimizer (str): Optimizer algorithm (supports "adam", "sgd")
-      metrics (list): List of training metrics to tracks (supported by keras) 
+
+      fit:
+        epochs (int): Number of epochs to run model
+        verbose (int): Verbosity level for training (0, 1, 2)
+        batch_size (int): Training batch size
+      compile:
+        loss (str): Loss function (supported by keras)
+        optimizer (str): Optimizer algorithm (supports "adam", "sgd")
+        metrics (list): List of training metrics to tracks (supported by keras)
+
     predict_batch_size (int): Batchsize to use for inference 
 
-If `save: True`, it will save out a bridgescaler object and an h5 model object. Eventually it will save out 
-various performance metrics and probabilities as well, which is still a work in progress.
