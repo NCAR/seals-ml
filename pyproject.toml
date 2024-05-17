@@ -10,7 +10,7 @@ license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.8"
 dependencies = [
-   "numpy<1.24",
+   "numpy<2.0",
    "scipy",
    "matplotlib",
    "xarray",
@@ -24,6 +24,8 @@ dependencies = [
    "metpy",
    "dask",
    "bridgescaler",
+   "keras>3.0",
+   "tensorflow>=2.16"
  ]
 [tool.setuptools]
 packages = ["sealsml", "sealsml.keras"]
