@@ -221,6 +221,9 @@ def test_static():
     encoder, target = load_inference(test_data, sitemap, timestep=100)
 
     # Assert encoder shape
-    assert encoder.shape[0] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
-    assert encoder.shape[2] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+    assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
+    assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+
+    # Assert first dimension of both target and encoder are the same
+    assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
   
