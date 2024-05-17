@@ -8,7 +8,7 @@ from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
-
+from sealsml.staticinference import load_inference
 
 def test_polar_to_cart1():
     # Test with single values
@@ -201,3 +201,22 @@ def test_distance_matrix_export():
     assert result[1] == pytest.approx(expected_min, abs=1e-2)
     assert result[2] == pytest.approx(expected_median, abs=1e-2)
     assert result[3] == pytest.approx(expected_max, abs=1e-2)
+
+
+
+def test_static():
+    """
+
+    """
+
+    # Test Case #2
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
+    test_data = os.path.expanduser(test_data_path)
+    assert os.path.exists(test_data), f"File not found: {test_data}"
+
+    sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
+    sitemap = os.path.expanduser(sitemap_path)
+    assert os.path.exists(test_data), f"File not found: {sitemap}"
+    
+    encoder, target = load_inference(test_data, sitemap, timestep=100)
+  
