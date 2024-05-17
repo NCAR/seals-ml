@@ -219,4 +219,8 @@ def test_static():
     assert os.path.exists(test_data), f"File not found: {sitemap}"
     
     encoder, target = load_inference(test_data, sitemap, timestep=100)
+
+    # Assert encoder shape
+    assert encoder.shape[0] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
+    assert encoder.shape[2] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
   
