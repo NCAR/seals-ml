@@ -232,6 +232,9 @@ def preprocess(data, n_sensors=4, x_width=40, y_width=40, factor_x=0.4, factor_y
 
         input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
 
+        print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
+
+
     return input_array, target_array
 
 def create_binary_preds_relative(data, y_pred: np.ndarray) -> np.ndarray:

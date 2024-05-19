@@ -89,6 +89,7 @@ for model_name in config["models"]:
     print('x,y,xval,yval.shapes=',x.shape,y.shape,x_val.shape,y_val.shape)
     print('validation=',validation)
     print('x_val=','\n',x_val,'\n','y_val=','\n',y_val)
+    print('scaled encoder val=','\n',scaled_encoder_val)
 
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                          y=y,
@@ -102,29 +103,32 @@ for model_name in config["models"]:
 
     n_vals=len(validation)
     n_trains=len(training)
-    output=np.zeros(shape=(n_vals,4))
-    output_train=np.zeros(shape=(n_trains,4))
+    output=np.zeros(shape=[n_vals,4])
+    output_train=np.zeros(shape=[n_trains,4])
     print('output.shape,output_train.shape=',output.shape,output_train.shape)
     print('scaled_encoder_val.shape,scaled_decoder_val.shape=',scaled_encoder_val.shape,scaled_decoder_val.shape)
     print('scaled_encoder.shape,scaled_decoder.shape=',scaled_encoder.shape,scaled_decoder.shape)
-    print('encoder_mask.shape,decoder_mask.shape=',encoder_mask.shape,decoder_mask.shape)
+
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
                            batch_size=config["predict_batch_size"])
 
-    print('output size,output=',output.size,'\n',output)
+    print('output size and shape,output=',output.size,output.shape,'\n',output)
 
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                  batch_size=config["predict_batch_size"])
 
-    print('output_train size,output_train=',output_train.size,'\n',output_train)
+    xx=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask)
+    print('xx=scaled.encoder,sca;ed.decoder,encoder.mask,decoder.mask=','\n',xx) 
+    print('output_train size and shape,output_train=',output_train.size,output_train.shape,'\n',output_train)
+    print('output_train[2][0:4]=',output_train[2][0:4])
 
     if model_name == "backtracker":
         pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
                                                                     index=False)
-        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
-                     os.path.join(out_path, 'seals_train_preds.csv'),index=False)
         pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
                                                                         index=False)
+        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+                     os.path.join(out_path, 'seals_train_preds.csv'),index=False)
         pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
                                                                          index=False)
         backtracker_targets = create_binary_preds_relative(v, output)

@@ -67,7 +67,7 @@ transformer_leak_rate:
     metrics: [ "mse" ]
 backtracker:
   kwargs:
-    hidden_layers: 3
+    hidden_layers: 4
     hidden_neurons: 64
     activation: 'relu'
     optimizer: 'SGD'
