@@ -14,14 +14,11 @@ jobs:
       with:
         mamba-version: "*"
         channel-priority: true
-        environment-file: environment.yml
+        environment-file: environment_2024-05-15.yml
         auto-activate-base: false
         activate-environment: test
     - shell: bash -l {0}
       run: |
-        pip install keras-nlp
-        pip uninstall -y tensorflow-text tensorflow keras
-        pip install tensorflow-text-nightly tf-nightly
         conda info
         conda list
         conda config --show-sources

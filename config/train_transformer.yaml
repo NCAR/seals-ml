@@ -1,6 +1,8 @@
 #data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
-data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
-out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
+#data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
+#out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
+data_path: "/glade/work/cbecker/SEALS_training_data/data_gen_20240215/"
+out_path: "/glade/work/username/SEALS_output/train/"
 #data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
 #out_path: "/glade/scratch/username/SEALS_output/"
 #out_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/train/"
@@ -11,32 +13,95 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-model:
-  encoder_layers: 2
-  decoder_layers: 2
-  hidden_size: 128
-  n_heads: 8
-  num_quantized_embeddings: 500
-  hidden_activation: "relu"
-  output_activation: "sigmoid"
-  dropout_rate: 0.2
-  use_quantizer: 0
-  quantized_beta: 0.25
-  n_outputs: 1
-  min_filters: 4
-  kernel_size: 3
-  filter_growth_rate: 2
-  n_conv_layers: 3
-  pooling: "average"
-  pool_size: 2
-  padding: "valid"
-model_fit:
-  epochs: 70
-  verbose: 1
-  batch_size: 1024
-model_compile:
-  loss: "binary_crossentropy"
-  optimizer: "adam"
-  metrics: ["binary_accuracy"]
+#models: ['backtracker']
+models: ['transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
+transformer_leak_loc:
+  kwargs:
+    encoder_layers: 2
+    decoder_layers: 2
+    hidden_size: 128
+    n_heads: 8
+    num_quantized_embeddings: 500
+    hidden_activation: "relu"
+    output_activation: "sigmoid"
+    dropout_rate: 0.2
+    use_quantizer: 0
+    quantized_beta: 0.25
+    n_outputs: 1
+    min_filters: 4
+    kernel_size: 3
+    filter_growth_rate: 2
+    n_conv_layers: 3
+    pooling: "average"
+    pool_size: 2
+    padding: "valid"
+  fit:
+    epochs: 70
+    verbose: 1
+    batch_size: 1024
+  compile:
+    loss: "binary_crossentropy"
+    optimizer: "adam"
+    metrics: ["binary_accuracy"]
+transformer_leak_rate:
+  kwargs:
+    encoder_layers: 2
+    hidden_size: 128
+    n_heads: 2
+    num_quantized_embeddings: 500
+    hidden_activation: "relu"
+    output_activation: "linear"
+    dropout_rate: 0.4
+    use_quantizer: True
+    quantized_beta: 0.25
+    n_outputs: 1
+    min_filters: 4
+    kernel_size: 3
+    filter_growth_rate: 2
+    n_conv_layers: 3
+    pooling: "max"
+    pool_size: 10
+    padding: "valid"
+  fit:
+    epochs: 20
+    verbose: 1
+    batch_size: 512
+  compile:
+    loss: "mse"
+#    optimizer: "adam"
+    metrics: [ "mse" ]
+backtracker:
+  kwargs:
+    hidden_layers: 1
+    hidden_neurons: 128
+    activation: 'relu'
+    n_output_tasks: 4
+    optimizer: 'adam'
+    lr: 0.001
+    l2_weight: 0.00001
+    batch_size: 128
+    use_dropout: False
+    dropout_alpha: 0.2
+    epochs: 20
+    verbose: 1
+  preprocess:
+    n_sensors: 3
+    x_width: 40
+    y_width: 40 
+    factor_x: 0.4 
+    factor_y: 0.4
+  fit:
+    kwargs: None
+  compile:
+    loss: "mse"
+gaussian_process:
+  kwargs:
+    num_met_sensors: 1
+    normalize_y: True
+    n_restarts_optimizer: 4
+    length_scale_bounds: "fixed"
+  fit:
+    epochs: None
 predict_batch_size: 10000
+
 

@@ -170,3 +170,88 @@ class GeoCalculator(object):
     elevation_angle = np.degrees(dip_radians)
 
     return elevation_angle
+
+def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
+    """
+    Calculates the relative azimuth between a reference point and a target point based on wind vectors.
+
+    Parameters:
+    - u (array-like): Wind vector component in the x-direction.
+    - v (array-like): Wind vector component in the y-direction.
+    - x_ref (float): X-coordinate of the reference point.
+    - y_ref (float): Y-coordinate of the reference point.
+    - z_ref (float): Z-coordinate of the reference point.
+    - x_target (array-like): X-coordinate(s) of the target point(s).
+    - y_target (array-like): Y-coordinate(s) of the target point(s).
+    - z_target (array-like): Z-coordinate(s) of the target point(s).
+    - time_series (bool, optional): If True, returns a time series of results. Defaults to True.
+
+    Returns:
+    - array-like: If time_series is True, returns a 2D array containing positional variables and rotated wind vectors.
+                  If time_series is False, returns a 1D array containing positional variables and rotated wind vectors for the first time step.
+    """
+    # Calculate the mean wind direction angle
+    theta_wd = np.arctan2(v.mean(), u.mean())
+    
+    # Calculate the relative coordinates of the target point with respect to the reference point
+    x_relative = x_target - x_ref
+    y_relative = y_target - y_ref
+    
+    # Rotate the relative coordinates to align with the wind direction
+    x_rotated = x_relative * np.cos(theta_wd) - y_relative * np.sin(theta_wd)
+    y_rotated = x_relative * np.sin(theta_wd) + y_relative * np.cos(theta_wd)
+    
+    # Calculate the radial distance from the reference point to the rotated target point
+    radius_rotated = np.sqrt(x_rotated ** 2 + y_rotated ** 2)
+    
+    # Calculate the Euclidean distance between the reference and target points in three-dimensional space
+    distance = np.linalg.norm(np.column_stack([x_target, y_target, z_target]) -
+                              np.column_stack([x_ref, y_ref, z_ref]).flatten(), axis=1)
+    
+    # Calculate the azimuth angle from the reference point to the rotated target point
+    theta = np.arctan2(y_rotated, x_rotated)
+    
+    # Calculate the elevation angle between the reference and target points
+    elevation_theta = np.arctan2(z_target - z_ref, distance)
+    
+    # Rotate the wind vectors to align with the rotated coordinate system
+    u_rot = u * np.cos(theta_wd) - v * np.sin(theta_wd)
+    v_rot = u * np.sin(theta_wd) + v * np.cos(theta_wd)
+    
+    # Construct an array containing positional variables and rotated wind vectors
+    pos_vars = np.column_stack([radius_rotated, np.sin(theta), np.cos(theta), elevation_theta])
+    
+    # If time_series is True, repeat positional variables and rotated wind vectors, stack them, and transpose the result
+    if time_series:
+        return np.column_stack([np.repeat(pos_vars, u.size, axis=0), u_rot, v_rot]).T
+    
+    # If time_series is False, stack positional variables, take the first elements of rotated wind vectors, and transpose the result
+    else:
+        return np.column_stack([pos_vars, u_rot[0], v_rot[0]]).T
+
+def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
+    """
+    Convert polar coordinates to Cartesian coordinates.
+
+    Parameters:
+    - distance (float or np.array): Radial distance or array of radial distances
+    - ref_azi_sin (float or np.array): Sine of the reference azimuth angle
+    - ref_azi_cos (float or np.array): Cosine of the reference azimuth angle
+
+    Returns:
+    - np.array: Cartesian coordinates, each row containing [x, y]
+    """
+    # Convert inputs to arrays if they are not already
+    distance = np.asarray(distance)
+    ref_azi_sin = np.asarray(ref_azi_sin)
+    ref_azi_cos = np.asarray(ref_azi_cos)
+    
+    # Check if the sizes of distance and ref_azi_sin/ref_azi_cos are the same
+    if distance.size != ref_azi_sin.size or distance.size != ref_azi_cos.size:
+        raise ValueError("The sizes of distance, ref_azi_sin, and ref_azi_cos must be the same.")
+    
+    # Calculate Cartesian coordinates
+    x = distance * ref_azi_cos
+    y = distance * ref_azi_sin
+    
+    return x, y
