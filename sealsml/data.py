@@ -10,6 +10,11 @@ class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
     def __init__(self, min_trace_sensors=3, max_trace_sensors=15, min_leak_loc=1, max_leak_loc=10,
+                 sensor_height_min=1,
+                 sensor_height_max=4, 
+                 leak_height_min=0, 
+                 leak_height_max=4, 
+                 sensor_type_mask=1, sensor_exist_mask=-1,
                  sensor_height=1, leak_height=0, sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=None,
                  met_vars=None, emission_vars=None):
