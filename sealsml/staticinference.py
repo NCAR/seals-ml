@@ -9,16 +9,18 @@ from sealsml.geometry import get_relative_azimuth
 
 def load_inference(dataset, sitemap, timestep: int) -> NDArray:
     """
-    Loads an xarray dataset from 'real' data, processes it into wind relative coordinates,
-    and chunks it into the correct timestep length for the ML model.
+    Loads an netCDF from 'real' data, processes it into wind relative coordinates,
+    and chunks it into the correct timestep length for the ML model. Also loads the sitemap to use as potential leaks.
 
     Parameters:
-        dataset (xr.Dataset): The dataset to be processed.
+        dataset: The dataset to be processed.
+        sitemap: Sitemap in netCDF
         timestep (int): The length of each timestep to chunk the data for ML inference.
 
     Returns:
-        NDArray: An array of processed data ready for ML inference.
+        Encoder and Decoder for testing only (not training)
     """
+    # loading the netCDF files here, this can be modified in the future if you want to load numpy arrays directly
     ds = xr.open_dataset(dataset)
     sitemap = xr.open_dataset(sitemap)
 
@@ -95,4 +97,5 @@ def load_inference(dataset, sitemap, timestep: int) -> NDArray:
     # Target array is currently number of targets, variables, time)
     print('Number of samples:', num_complete_series )    
     target_arrays = np.array(target_list, dtype=float).reshape(num_complete_series, len(leak_z), 6, 1)
+    # returns encoder and decoder as multi-dim numpy arrays
     return reshaped_array, target_arrays
