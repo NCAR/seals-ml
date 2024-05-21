@@ -1,0 +1,27 @@
+name: seals_20240515
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy>=1.26
+  - scipy>=1.13.0
+  - matplotlib>=3.8.0
+  - xarray>=2024.01.0
+  - netcdf4>=1.6
+  - pandas>=2.2.0
+  - scikit-learn>=1.4.0
+  - pyyaml>=6.0
+  - pytest>=8.0
+  - pip>=23.0
+  - jupyterlab>=4.0
+  - tqdm>=4.66
+  - numba>=0.59.0
+  - metpy>=1.6
+  - dask>=2024.5.0
+  - pip:
+    - bridgescaler>=0.7.0
+    - keras>=3.3.3
+    - tensorflow>=2.16
+    - keras_nlp
+    - hagelslag
+    - .

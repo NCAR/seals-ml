@@ -6,6 +6,7 @@ from os import makedirs
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 
+
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
@@ -15,9 +16,14 @@ class DataSampler(object):
                  leak_height_min=0, 
                  leak_height_max=4, 
                  sensor_type_mask=1, sensor_exist_mask=-1,
-                 coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
-                 met_vars=['u', 'v', 'w'], emission_vars=['q_CH4']):
-
+                 coord_vars=None,
+                 met_vars=None, emission_vars=None):
+        if coord_vars is None:
+            coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
+        if met_vars is None:
+            met_vars = ['u', 'v', 'w']
+        if emission_vars is None:
+            emission_vars = ['q_CH4']
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.min_leak_loc = min_leak_loc
@@ -31,7 +37,9 @@ class DataSampler(object):
         self.met_vars = met_vars
         self.emission_vars = emission_vars
         self.variables = coord_vars + met_vars + emission_vars
-        self.n_new_vars = 6
+        # Total number of coord + wind variables after mean-wind-relative grid rotation.
+        # Only u and v are changed, so w is ignored.
+        self.n_rotated_vars = len(coord_vars) + len(met_vars[:2])
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
     
@@ -155,7 +163,7 @@ class DataSampler(object):
 
                 sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
                              k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
-                sensor_array = np.zeros(shape=(6, n_sensors, time_window_size))
+                sensor_array = np.zeros(shape=(self.n_rotated_vars, n_sensors, time_window_size))
                 for n in range(n_sensors):
 
                     sensor_idx = np.array([self.x[i_sensor[n]],
@@ -173,7 +181,7 @@ class DataSampler(object):
                                                         time_series=True)
                     sensor_array[:, n, :] = derived_vars
 
-                leak_array = np.zeros(shape=(6, n_leaks, 1))
+                leak_array = np.zeros(shape=(self.n_rotated_vars, n_leaks, 1))
                 for l in range(n_leaks):
 
                     leak_idx = np.array([self.x[i_leak[l]],
@@ -194,11 +202,11 @@ class DataSampler(object):
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k_sensor, j_sensor, i_sensor, t:t + time_window_size]
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k_leak, j_leak, i_leak, t:t+1]
+                                k_leak, j_leak, i_leak, t:t + 1]
 
-                sensor_sample[0, :self.n_new_vars, :] = sensor_array
+                sensor_sample[0, :self.n_rotated_vars, :] = sensor_array
                 sensor_sample = self.create_mask(sensor_sample, kind="sensor")
-                leak_sample[0, :self.n_new_vars, :] = leak_array
+                leak_sample[0, :self.n_rotated_vars, :] = leak_array
 
                 leak_sample = self.create_mask(leak_sample, kind="leak")
                 padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
