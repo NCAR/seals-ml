@@ -63,11 +63,11 @@ def load_inference(config_file: str):
                         time_series=True  
                            )
 
-  ch4_data = ds['q_CH4'].values[i]
-  encoder_array = np.vstack((output, w_met, ch4_data))
-  encoder_array = np.expand_dims(encoder_array, axis=-1)
-  encoder_arrays.append(encoder_array)
-  returned_array = np.concatenate(encoder_arrays, axis=-1).transpose(0, 2, 1)
+    ch4_data = ds['q_CH4'].values[i]
+    encoder_array = np.vstack((output, w_met, ch4_data))
+    encoder_array = np.expand_dims(encoder_array, axis=-1)
+    encoder_arrays.append(encoder_array)
+    returned_array = np.concatenate(encoder_arrays, axis=-1).transpose(0, 2, 1)
 
   # Determine the number of complete timeseries that can be extracted
   total_length = returned_array.shape[2]
