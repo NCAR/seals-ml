@@ -106,7 +106,7 @@ def load_inference(config_file: str):
             leak_z[a], #z_target
             time_series=False  
                            )
-  target_list.append(targets)
+    target_list.append(targets)
     
   # Target array is currently number of targets, variables, time)
   print('Number of samples:', num_complete_series )    
