@@ -221,8 +221,8 @@ def test_static():
     
     # Define the configuration data
     config_data = {
-        'dataset': '../test_data/inference_example_v1.nc',
-        'sitemap': '../test_data/sitemap_A.nc',
+        'dataset': test_data,
+        'sitemap': sitemap,
         'timestep': 100,
         'export_folder': '.'
         }
