@@ -9,30 +9,19 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def load_inference(config_file: str):
+def load_inference(dataset, sitemap, timestep: int):
   """
   Loads an netCDF from 'real' data, processes it into wind relative coordinates,
   and chunks it into the correct timestep length for the ML model. Also loads the sitemap to use as potential leaks.
 
-  Parameters in yaml:
+  Parameters as netCDF:
     dataset: The dataset to be processed.
     sitemap: Sitemap in netCDF
     timestep (int): The length of each timestep to chunk the data for ML inference.
-    export folder:
 
   Returns:
-    Encoder and Decoder for testing only (not training)
+    Encoder and Decoder in a xarray dataset
   """
-  with open(config_file, 'r') as file:
-    config = yaml.safe_load(file)
-
-  dataset = config['dataset']
-  sitemap = config['sitemap']
-  timestep = config['timestep']
-  export_folder = config['export_folder']
-
-  # Ensure the export folder exists
-  os.makedirs(export_folder, exist_ok=True)
    
   ds = xr.open_dataset(dataset)
   sitemap = xr.open_dataset(sitemap)

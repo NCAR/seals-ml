@@ -218,26 +218,13 @@ def test_static():
     sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
-    
-    # Define the configuration data
-    config_data = {
-        'dataset': test_data,
-        'sitemap': sitemap,
-        'timestep': 100,
-        'export_folder': '.'
-        }
 
-    # Specify the path to the YAML file
-    config_file_path = 'config.yaml'
-
-    # Write the configuration data to the YAML file
-    with open(config_file_path, 'w') as file:
-        yaml.dump(config_data, file, default_flow_style=False)
-
-    ds = load_inference('config.yaml')
+    ds = load_inference(test_data, sitemap, timestep=100)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
-    
-    os.remove('config.yaml')      
+    assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
+    assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
+
+
     # Assert encoder shape
     #assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
     #assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
