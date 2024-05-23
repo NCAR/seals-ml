@@ -124,8 +124,4 @@ def load_inference(config_file: str):
             'sensors': np.arange(len(ds.CH4Sensors.values)),
         })
     
-  # Save to NetCDF
-  output_file = os.path.join(export_folder, 'processed_data.nc')
-  ds_static_output.to_netcdf(output_file)
-
-  print(f"Data saved to: {output_file}")
+  return ds_static_output

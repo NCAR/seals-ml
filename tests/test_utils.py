@@ -234,9 +234,10 @@ def test_static():
     with open(config_file_path, 'w') as file:
         yaml.dump(config_data, file, default_flow_style=False)
 
-    load_inference('config.yaml')
-    os.remove('config.yaml')
-    os.remove('processed_data.nc')         
+    ds = load_inference('config.yaml')
+    assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
+    
+    os.remove('config.yaml')      
     # Assert encoder shape
     #assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
     #assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
