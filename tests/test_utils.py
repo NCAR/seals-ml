@@ -7,6 +7,8 @@ import xarray as xr
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler
 from sealsml.baseline import GPModel
+from sealsml.evaluate import calculate_distance_matrix
+from sealsml.staticinference import load_inference
 
 def test_polar_to_cart1():
     # Test with single values
@@ -152,7 +154,7 @@ def test_dip():
 
 def test_DataSampler():
 
-    sampler = DataSampler(min_trace_sensors=3, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
                           sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4, 
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
@@ -164,8 +166,8 @@ def test_DataSampler():
     for i in range(len(num_sources)):
         sampler.data_extract(ds.isel(srcDim=i))
         
-    time_window_size = 359
-    samples_per_window = 1
+    time_window_size = 20
+    samples_per_window = 2
     window_stride = 10
 
     data = sampler.sample(time_window_size, samples_per_window, window_stride)
@@ -184,3 +186,44 @@ def test_DataSampler():
     # assert mask is equal
     assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
 
+def test_distance_matrix_export():
+    array = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
+    result = calculate_distance_matrix(array, export_matrix=True)
+    expected_min = np.sqrt(3)
+    expected_median = np.sqrt(3)
+    expected_max = np.sqrt(12)
+    expected_matrix = np.array([[0.        , 1.73205081, 3.46410162],
+                                 [1.73205081, 0.        , 1.73205081],
+                                 [3.46410162, 1.73205081, 0.        ]])
+    
+    # Using pytest.approx with 2 decimal places of tolerance
+    assert result[0] == pytest.approx(expected_matrix, abs=1e-2)
+    assert result[1] == pytest.approx(expected_min, abs=1e-2)
+    assert result[2] == pytest.approx(expected_median, abs=1e-2)
+    assert result[3] == pytest.approx(expected_max, abs=1e-2)
+
+
+
+def test_static():
+    """
+
+    """
+
+    # Test Case #2
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
+    test_data = os.path.expanduser(test_data_path)
+    assert os.path.exists(test_data), f"File not found: {test_data}"
+
+    sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
+    sitemap = os.path.expanduser(sitemap_path)
+    assert os.path.exists(test_data), f"File not found: {sitemap}"
+    
+    encoder, target = load_inference(test_data, sitemap, timestep=100)
+
+    # Assert encoder shape
+    assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
+    assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+
+    # Assert first dimension of both target and encoder are the same
+    assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
+  
