@@ -5,9 +5,10 @@
 #PBS -o seals_data_gen.out
 #PBS -e seals_data_gen.out
 #PBS -q main
-#PBS -l select=1:ncpus=1:mem=4GB
+#PBS -l select=1:ncpus=120:mem=128GB
 #PBS -m a
-#PBS -M btravis@psi.edu
+#PBS -M cbecker@ucar.edu
 module load conda
 conda activate seals
+cd /glade/work/cbecker/seals-ml/
 python -u ./scripts/generate_data.py  -c ./config/generate_training_data.yaml
