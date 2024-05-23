@@ -304,9 +304,9 @@ class BackTrackerDNN(keras.models.Model):
         evidential_coef: Evidential regularization coefficient.
         metrics: Optional list of metrics to monitor during training.
     """
-    def __init__(self, hidden_layers=2, hidden_neurons=64, activation="relu", optimizer="adam", loss_weights=None,
-                 use_noise=False, noise_sd=0.01, lr=0.00001, use_dropout=False, dropout_alpha=0.1, batch_size=128,
-                 epochs=2, kernel_reg=None, l1_weight=0.01, l2_weight=0.01, n_output_tasks=1, verbose=1, **kwargs):
+    def __init__(self, hidden_layers=3, hidden_neurons=64, activation="relu", optimizer="SGD", loss_weights=None,
+                 use_noise=False, noise_sd=0.01, lr=0.00001, use_dropout=False, dropout_alpha=0.1, batch_size=1,
+                 epochs=10, kernel_reg=None, l1_weight=0.01, l2_weight=0.01, n_output_tasks=4, verbose=1, **kwargs):
 
         super().__init__(**kwargs)
         self.hidden_layers = hidden_layers
@@ -345,7 +345,7 @@ class BackTrackerDNN(keras.models.Model):
         else:
             self.kernel_reg = None
         self.model_layers = []
-        for h in range(self.hidden_layers):
+        for h in range(self.hidden_layers-1):
             self.model_layers.append(Dense(self.hidden_neurons,
                                            activation=self.activation,
                                            kernel_regularizer=self.kernel_reg,
@@ -355,7 +355,16 @@ class BackTrackerDNN(keras.models.Model):
             if self.use_noise:
                 self.model_layers.append(GaussianNoise(self.noise_sd, name=f"noise_{h:02d}"))
 
-        self.model_layers.append(Dense(self.n_output_tasks, name="dense_output"))
+        if self.hidden_neurons >= 64:
+            n_half=32
+        else:
+            n_half=self.hidden_neurons
+        self.model_layers.append(Dense(n_half,
+                                       activation=self.activation, 
+                                       kernel_regularizer=self.kernel_reg,
+                                       name=f"dense_{h:02d}"))
+
+        self.model_layers.append(Dense(self.n_output_tasks, activation="sigmoid",name="dense_output"))
 
     def call(self, inputs):
 
