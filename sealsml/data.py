@@ -118,20 +118,20 @@ class DataSampler(object):
                 j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
                 
                 # Converting to index space
-                senor_height_max_index = int(np.rint(self.sensor_height_max/self.z_res))
-                senor_height_min_index = int(np.rint(self.sensor_height_min/self.z_res))
+                sensor_height_max_index = int(np.rint(self.sensor_height_max/self.z_res))
+                sensor_height_min_index = int(np.rint(self.sensor_height_min/self.z_res))
 
                 ## Sensor vertical logic 
-                if senor_height_max_index > self.kDim:
+                if sensor_height_max_index > self.kDim:
                     raise ValueError("Max sensor height is greater than domain, please pick a smaller number")
-                elif self.sensor_height_min > senor_height_max_index:
+                elif sensor_height_min_index > sensor_height_max_index:
                     raise ValueError("Min sensor height is greater than the maximum (in index space), please try again")
-                elif senor_height_min_index == senor_height_max_index:
-                    k_sensor = np.repeat(senor_height_max_index, 
+                elif sensor_height_min_index == sensor_height_max_index:
+                    k_sensor = np.repeat(sensor_height_max_index, 
                                          n_sensors)
                 else:
-                    k_sensor = np.random.randint(low=senor_height_min_index, 
-                                                 high=senor_height_max_index, 
+                    k_sensor = np.random.randint(low=sensor_height_min_index, 
+                                                 high=sensor_height_max_index, 
                                                  size=n_sensors)
                 # end of sensor vertical sampling logic
 
