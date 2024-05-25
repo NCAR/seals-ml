@@ -89,14 +89,14 @@ class DataSampler(object):
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
         step_size = np.arange(1, self.time_steps - time_window_size, window_stride)
-        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors, 3))
+        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors+1, 3)) #plus 1 for the implied met-sensor
         leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
 
         for i, t in enumerate(step_size):
             print(t)
             for s in range(samples_per_window):
 
-                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)
+                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+1 #plus 1 for the implied met-sensor
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
