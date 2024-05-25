@@ -16,7 +16,7 @@ def main(config, file):
     # loading in the data with xarray and save out number of sources
     ds, num_sources = sampler.load_data(file)
 
-    for i in range(len(num_sources)):
+    for i in range(num_sources):
 
         sampler.data_extract(ds.isel(srcDim=i))
         
@@ -26,8 +26,11 @@ def main(config, file):
                             window_stride=config["window_stride"])
 
         srcDim = f"srcDim{i}"  # Construct srcDim with loop variable i
-        file_name = f"training_data_{file.split('/')[-1].split('.')[0]}_{srcDim}.nc"  # Modify the file name string
-
+        # Modify the file name string
+        if num_sources == 1 and (file.split('/')[-1].split('.')[1]).isnumeric(): 
+            file_name = f"training_data_{file.split('/')[-1].split('.')[0]}{file.split('/')[-1].split('.')[1]}_{srcDim}.nc" 
+        else:
+            file_name = f"training_data_{file.split('/')[-1].split('.')[0]}_{srcDim}.nc"
         data.to_netcdf(os.path.join(config["out_path"], file_name))  # Save the DataFrame to netCDF file with the modified file name
     del sampler
 

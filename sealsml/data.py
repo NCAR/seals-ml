@@ -50,7 +50,7 @@ class DataSampler(object):
         else:
             ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
         # need the number of sources
-        num_sources = ds['srcDim'].values
+        num_sources = ds.sizes['srcDim']
         return ds, num_sources
 
     def data_extract(self, ds):
