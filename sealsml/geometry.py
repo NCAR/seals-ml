@@ -223,7 +223,7 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     
     # If time_series is True, repeat positional variables and rotated wind vectors, stack them, and transpose the result
     if time_series:
-        return np.column_stack([np.repeat(pos_vars, u.size, axis=0), u_rot, v_rot]).T
+        return np.column_stack([np.repeat(pos_vars, u.size, axis=0), u_rot, v_rot]).T, theta_wd
     
     # If time_series is False, stack positional variables, take the first elements of rotated wind vectors, and transpose the result
     else:
