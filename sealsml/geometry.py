@@ -198,8 +198,8 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     y_relative = y_target - y_ref
     
     # Rotate the relative coordinates to align with the wind direction
-    x_rotated = x_relative * np.cos(theta_wd) - y_relative * np.sin(theta_wd)
-    y_rotated = x_relative * np.sin(theta_wd) + y_relative * np.cos(theta_wd)
+    x_rotated = x_relative * np.cos(-theta_wd) - y_relative * np.sin(-theta_wd)
+    y_rotated = x_relative * np.sin(-theta_wd) + y_relative * np.cos(-theta_wd)
     
     # Calculate the radial distance from the reference point to the rotated target point
     radius_rotated = np.sqrt(x_rotated ** 2 + y_rotated ** 2)
@@ -215,8 +215,8 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     elevation_theta = np.arctan2(z_target - z_ref, distance)
     
     # Rotate the wind vectors to align with the rotated coordinate system
-    u_rot = u * np.cos(theta_wd) - v * np.sin(theta_wd)
-    v_rot = u * np.sin(theta_wd) + v * np.cos(theta_wd)
+    u_rot = u * np.cos(-theta_wd) - v * np.sin(-theta_wd)
+    v_rot = u * np.sin(-theta_wd) + v * np.cos(-theta_wd)
     
     # Construct an array containing positional variables and rotated wind vectors
     pos_vars = np.column_stack([radius_rotated, np.sin(theta), np.cos(theta), elevation_theta])
