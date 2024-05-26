@@ -177,7 +177,7 @@ def test_DataSampler():
     step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
     total_samples = samples_per_window * len(step_size)
 
-    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables), 2)
+    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
     assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
 

@@ -209,7 +209,7 @@ class DataSampler(object):
                 leak_sample[0, :self.n_rotated_vars, :] = leak_array
 
                 leak_sample = self.create_mask(leak_sample, kind="leak")
-                padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors,
+                padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors + 1, #plus 1 for the implied met-sensor
                                                            pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
                                                          pad_value=self.sensor_exist_mask, axis=2)

@@ -40,7 +40,7 @@ def load_inference(dataset, sitemap, timestep: int):
   print('How many CH4 sensors?', len(ds.CH4Sensors.values))
   for i in ds.CH4Sensors.values:
   # get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
-    output = get_relative_azimuth(
+    output, mean_wd = get_relative_azimuth(
                         u_met, # u
                         v_met, # v
                         XYZ_met[0][0], #x_ref 
