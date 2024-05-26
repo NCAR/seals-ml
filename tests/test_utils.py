@@ -164,7 +164,7 @@ def test_DataSampler():
     test_data = os.path.expanduser(test_data_path)
     ds, num_sources = sampler.load_data([test_data])
 
-    for i in range(len(num_sources)):
+    for i in range(num_sources):
         sampler.data_extract(ds.isel(srcDim=i))
         
     time_window_size = 20
