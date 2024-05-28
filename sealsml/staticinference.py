@@ -9,7 +9,7 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def load_inference(dataset, sitemap, timestep: int):
+def load_inference(dataset, sitemap, timestep: int, export_mean_wd = False):
   """
   Loads an netCDF from 'real' data, processes it into wind relative coordinates,
   and chunks it into the correct timestep length for the ML model. Also loads the sitemap to use as potential leaks.
@@ -112,5 +112,8 @@ def load_inference(dataset, sitemap, timestep: int):
             'samples': np.arange(num_complete_series),
             'sensors': np.arange(len(ds.CH4Sensors.values)),
         })
-    
-  return ds_static_output
+  # Decide what to export 
+  if export_mean_wd:
+    return ds_static_output, mean_wd
+  else:
+    return ds_static_output
