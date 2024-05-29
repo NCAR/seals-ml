@@ -304,7 +304,7 @@ class BackTrackerDNN(keras.models.Model):
         evidential_coef: Evidential regularization coefficient.
         metrics: Optional list of metrics to monitor during training.
     """
-    def __init__(self, hidden_layers=3, hidden_neurons=64, activation="relu", optimizer="SGD", loss_weights=None,
+    def __init__(self, hidden_layers=3, hidden_neurons=64, activation="relu", output_activation="linear", optimizer="SGD", loss_weights=None,
                  use_noise=False, noise_sd=0.01, lr=0.00001, use_dropout=False, dropout_alpha=0.1, batch_size=1,
                  epochs=10, kernel_reg=None, l1_weight=0.01, l2_weight=0.01, n_output_tasks=4, verbose=1, **kwargs):
 
@@ -312,6 +312,7 @@ class BackTrackerDNN(keras.models.Model):
         self.hidden_layers = hidden_layers
         self.hidden_neurons = hidden_neurons
         self.activation = activation
+        self.output_activation = output_activation
         self.optimizer = optimizer
         self.optimizer_obj = None
         self.loss_weights = loss_weights
@@ -364,7 +365,7 @@ class BackTrackerDNN(keras.models.Model):
                                        kernel_regularizer=self.kernel_reg,
                                        name=f"dense_{h:02d}"))
 
-        self.model_layers.append(Dense(self.n_output_tasks, activation="sigmoid",name="dense_output"))
+        self.model_layers.append(Dense(self.n_output_tasks, activation=self.output_activation, name="dense_output"))
 
     def call(self, inputs):
 
