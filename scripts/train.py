@@ -6,7 +6,7 @@ from sealsml.data import Preprocessor, save_output
 from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
-from sealsml.backtrack import preprocess
+from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
 import keras
 import numpy as np
@@ -70,8 +70,8 @@ for model_name in config["models"]:
         t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
         v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, y = preprocess(t, **config[model_name]["preprocess"])
-        x_val, y_val = preprocess(v, **config[model_name]["preprocess"])
+        x, y = backtrack_preprocess(t, **config[model_name]["preprocess"])
+        x_val, y_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
         scaler = DeepQuantileTransformer()
         scaled_encoder = scaler.fit_transform(x)
         scaled_encoder_val = scaler.transform(x_val)

@@ -153,7 +153,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 
     return avg_u, avg_v
 
-def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
     # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
     targets = data['target'].values
@@ -162,8 +162,17 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
-    # n_sensors used here like the original workflow, 4 variables would be [X, Y, Z, CH4]
-    input_array = np.zeros(shape=(n_samples, 4 * n_sensors + 2))
+
+    print('leak_locs=',leak_locs)
+    print('met_locs=',met_locs)
+
+    # This statement collapses all CH4 sensor information into one input line rather than n lines, 
+    # where n_sensors = number of CH4 sensors
+    # The input layer (per sample) has length (n_sensors)*(5+(nsensors)) 
+    # so n_sensors * (u,v,x,y,z and n_sensors of CH4 values)
+    # The n_sensors replicates correspond to the "max" window around each sensor's max CH4 observation
+    input_array = np.zeros(shape=(n_samples, n_sensors * (5+n_sensors)))  
+    
     target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
@@ -189,7 +198,7 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
                                       met_locs.sel(variable='ref_azi_sin'),
                                       met_locs.sel(variable='ref_azi_cos'))
     
-    # This slices it from 1 to n_sensors + 1, the met is the 0th sensor 
+    # This slices from 1 to n_sensors + 1, the met is the 0th sensor 
     ch4_time_series = encoder.sel(sensor=slice(1, n_sensors + 1),
                                   variable='q_CH4',
                                   mask=0)
@@ -201,27 +210,36 @@ def preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y
 
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
-        for s in range(n_sensors):
 
+        for s in range(0,n_sensors):
             sensor_time_series = ch4_time_series[i, s].values
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
             backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
                                                  dt=1,
-                                                 sensor_x=x_sensor[i, s],
-                                                 sensor_y=y_sensor[i, s],
+                                                 sensor_x=x_sensor[i,s],
+                                                 sensor_y=y_sensor[i,s],
                                                  pathmax=pathmax_value)
-            # We do not use these yet :)
             u_backtrack.append(backtrack_u)
             v_backtrack.append(backtrack_v)
-            
-            coords.append(x_sensor[i, s])
-            coords.append(y_sensor[i, s])
+            coords.append(x_sensor[i,s])
+            coords.append(y_sensor[i,s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
-            ch4.append(max_CH4)
 
-        input_array[i] = np.array([backtrack_u] + [backtrack_v] + coords + ch4)
+#           this appends the ch4 values at all the other sensors r at the time of the max CH4 value at sensor s
+
+            for r in range(0,n_sensors):  
+
+                if r != s:
+                    ch4.append(ch4_time_series[i,r].values[idx])
+                else:
+                    ch4.append(max_CH4)
+
+        input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
+
+        print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
+
 
     return input_array, target_array
 
