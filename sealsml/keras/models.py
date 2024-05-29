@@ -356,8 +356,9 @@ class BackTrackerDNN(keras.models.Model):
             if self.use_noise:
                 self.model_layers.append(GaussianNoise(self.noise_sd, name=f"noise_{h:02d}"))
 
+        # For last hidden layer, reduce number of neurons of previous layer by half
         if self.hidden_neurons >= 64:
-            n_half=32
+            n_half=np.int32(self.hidden_neurons/2)
         else:
             n_half=self.hidden_neurons
         self.model_layers.append(Dense(n_half,

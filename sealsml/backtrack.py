@@ -226,7 +226,9 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
             coords.append(x_sensor[i,s])
             coords.append(y_sensor[i,s])
             coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
-            
+
+#           this appends the ch4 values at all the other sensors r at the time of the max CH4 value at sensor s
+
             for r in range(0,n_sensors):  
 
                 if r != s:
