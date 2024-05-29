@@ -9,7 +9,7 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def load_inference(dataset, sitemap, timestep: int):
+def load_inference(dataset, sitemap, timestep: int, export_mean_wd = False):
   """
   Loads an netCDF from 'real' data, processes it into wind relative coordinates,
   and chunks it into the correct timestep length for the ML model. Also loads the sitemap to use as potential leaks.
@@ -40,7 +40,7 @@ def load_inference(dataset, sitemap, timestep: int):
   print('How many CH4 sensors?', len(ds.CH4Sensors.values))
   for i in ds.CH4Sensors.values:
   # get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
-    output = get_relative_azimuth(
+    output, mean_wd = get_relative_azimuth(
                         u_met, # u
                         v_met, # v
                         XYZ_met[0][0], #x_ref 
@@ -84,7 +84,7 @@ def load_inference(dataset, sitemap, timestep: int):
   print('Number of possible leaks:', len(leak_z))
   for b in range(num_complete_series):
     for a in range(len(leak_z )):
-      targets = get_relative_azimuth(
+      targets,mean_wd = get_relative_azimuth(
             u_met[b*timestep:(b+1)*timestep], # u
             v_met[b*timestep:(b+1)*timestep], # v
             XYZ_met[0][0], #x_ref 
@@ -112,5 +112,8 @@ def load_inference(dataset, sitemap, timestep: int):
             'samples': np.arange(num_complete_series),
             'sensors': np.arange(len(ds.CH4Sensors.values)),
         })
-    
-  return ds_static_output
+  # Decide what to export 
+  if export_mean_wd:
+    return ds_static_output, mean_wd
+  else:
+    return ds_static_output

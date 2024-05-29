@@ -92,15 +92,17 @@ The `variable` coordinate lists the order of the actual variable names for the `
 
 The dimension size of `sensor` and `pot_leak` are the **maximum** number set within the config even though many samples have less than 
 the maximum amount. The `mask` dimension identifies which samples have which sensors / potential leaks are contained 
-within a given sample.
+within a given sample. In the case of the sensor dimension, there is currently an implied single meteorological sensor occupying the first 
+element position of the dimension such that `sensor` = 1 + max_trace_sensors. 
 
 `Data Variables`:
 * `encoder_input`: Time series of meteorlogical and methane inputs as well as coordinate information.
 * `decoder_input`: Coordinate information of the potential leak locations. 
 * `target`: Binary vector indicating the true leak location from all potential leak locations.
 * `target_ch4`: True leak rate at the true vector position.
-* `leak_meta`: Raw coordinate information (in meters, directly from LES) for potential leak locations.
-* `met_sensor_loc`: Raw coordinate information (in meters, directly from LES) for met sensor.
+* `sensor_meta`: Raw coordinate information (in meters) for each sensor (1-met + max_trace_sensors).
+* `leak_meta`: Raw coordinate information (in meters) for potential leak locations.
+* `met_sensor_loc`: Raw coordinate information (in meters) for met sensor.
 * `leak_rate`: True leak rate.
 
 ### Model Training
