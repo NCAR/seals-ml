@@ -26,6 +26,7 @@ class DataSampler(object):
             emission_vars = ['q_CH4']
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
+        self.max_met_sensors = 1 #Currently self.max_met_sensors strictly permitted to be 1
         self.min_leak_loc = min_leak_loc
         self.max_leak_loc = max_leak_loc
         self.sensor_height_min = sensor_height_min
@@ -89,14 +90,18 @@ class DataSampler(object):
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
         step_size = np.arange(1, self.time_steps - time_window_size, window_stride)
-        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_trace_sensors+1, 3)) #plus 1 for the implied met-sensor
+        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), 
+                                      self.max_trace_sensors+self.max_met_sensors, 3)) 
+                                      #Currently self.max_met_sensors strictly enforced to be 1
         leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
         mean_wd = np.zeros(samples_per_window * len(step_size)) 
         for i, t in enumerate(step_size):
             print(t)
             for s in range(samples_per_window):
 
-                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+1 #plus 1 for the implied met-sensor
+                #Total number of sensors (currently 1 met-sensor + random sample of trace sensors in specified range) 
+                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+self.max_met_sensors   
+
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
@@ -170,15 +175,15 @@ class DataSampler(object):
                                            self.y[j_sensor[n]],
                                            self.z[k_sensor[n]]])
                     sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
-                    derived_vars,tmp_wd = get_relative_azimuth(v=sensor_phi[:, 1],
-                                                                     u=sensor_phi[:, 2],
-                                                                     x_ref=self.x[i_sensor[0]],
-                                                                     y_ref=self.y[j_sensor[0]],
-                                                                     z_ref=self.z[k_sensor[0]],
-                                                                     x_target=self.x[i_sensor[n]],
-                                                                     y_target=self.y[j_sensor[n]],
-                                                                     z_target=self.z[k_sensor[n]],
-                                                                     time_series=True)
+                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 2],
+                                                               v=sensor_phi[:, 1],
+                                                               x_ref=self.x[i_sensor[0]],
+                                                               y_ref=self.y[j_sensor[0]],
+                                                               z_ref=self.z[k_sensor[0]],
+                                                               x_target=self.x[i_sensor[n]],
+                                                               y_target=self.y[j_sensor[n]],
+                                                               z_target=self.z[k_sensor[n]],
+                                                               time_series=True)
                     sensor_array[:, n, :] = derived_vars
                 mean_wd[(i * samples_per_window) + s] = tmp_wd
                 leak_array = np.zeros(shape=(self.n_rotated_vars, n_leaks, 1))
@@ -188,15 +193,15 @@ class DataSampler(object):
                                          self.y[j_leak[l]],
                                          self.z[k_leak[l]]])
                     leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
-                    derived_vars = get_relative_azimuth(v=sensor_phi[:, 1],
-                                                        u=sensor_phi[:, 2],
-                                                        x_ref=self.x[i_sensor[0]],
-                                                        y_ref=self.y[j_sensor[0]],
-                                                        z_ref=self.z[k_sensor[0]],
-                                                        x_target=self.x[i_leak[l]],
-                                                        y_target=self.y[j_leak[l]],
-                                                        z_target=self.z[k_leak[l]],
-                                                        time_series=False)
+                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 2],
+                                                               v=sensor_phi[:, 1],
+                                                               x_ref=self.x[i_sensor[0]],
+                                                               y_ref=self.y[j_sensor[0]],
+                                                               z_ref=self.z[k_sensor[0]],
+                                                               x_target=self.x[i_leak[l]],
+                                                               y_target=self.y[j_leak[l]],
+                                                               z_target=self.z[k_leak[l]],
+                                                               time_series=False)
                     leak_array[:, l, :] = derived_vars
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
@@ -209,8 +214,7 @@ class DataSampler(object):
                 leak_sample[0, :self.n_rotated_vars, :] = leak_array
 
                 leak_sample = self.create_mask(leak_sample, kind="leak")
-                padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors + 1, #plus 1 for the implied met-sensor
-                                                           pad_value=self.sensor_exist_mask, axis=2)
+                padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors + self.max_met_sensors,                                                            pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
                                                          pad_value=self.sensor_exist_mask, axis=2)
 

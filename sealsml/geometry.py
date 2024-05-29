@@ -187,11 +187,15 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     - time_series (bool, optional): If True, returns a time series of results. Defaults to True.
 
     Returns:
-    - array-like: If time_series is True, returns a 2D array containing positional variables and rotated wind vectors.
-                  If time_series is False, returns a 1D array containing positional variables and rotated wind vectors for the first time step.
+    - array-like: If time_series is True, returns a 2D array containing positional variables and rotated wind vectors and a 
+                  scalar value of the mean(in time) wind direction.
+                  If time_series is False, returns a 1D array containing positional variables and rotated wind vectors 
+                  for the first time step and the wind direction.
     """
     # Calculate the mean wind direction angle
-    theta_wd = np.arctan2(v.mean(), u.mean())
+    ubar = u.mean()
+    vbar = v.mean()
+    theta_wd = np.arctan2(vbar, ubar)
     
     # Calculate the relative coordinates of the target point with respect to the reference point
     x_relative = x_target - x_ref
@@ -225,9 +229,10 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     if time_series:
         return np.column_stack([np.repeat(pos_vars, u.size, axis=0), u_rot, v_rot]).T, theta_wd
     
-    # If time_series is False, stack positional variables, take the first elements of rotated wind vectors, and transpose the result
+    # If time_series is False, stack positional variables, provide the rotated mean wind components, and transpose the result
     else:
-        return np.column_stack([pos_vars, u_rot[0], v_rot[0]]).T
+        return np.column_stack([pos_vars, ubar * np.cos(-theta_wd) - vbar * np.sin(-theta_wd), 
+                                          ubar * np.sin(-theta_wd) - vbar * np.cos(-theta_wd)]).T, theta_wd
 
 def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     """
