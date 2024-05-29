@@ -1,3 +1,4 @@
+import numpy as np
 import keras.layers as layers
 from keras_nlp.layers import TransformerDecoder, TransformerEncoder
 from .layers import VectorQuantizer, ConvSensorEncoder
