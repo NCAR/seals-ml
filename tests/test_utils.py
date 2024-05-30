@@ -8,7 +8,7 @@ import yaml
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
-# from sealsml.evaluate import calculate_distance_matrix
+from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import load_inference
 from bridgescaler import save_scaler
 
