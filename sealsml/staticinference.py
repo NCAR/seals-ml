@@ -127,20 +127,20 @@ def load_inference(dataset, sitemap, timestep: int, stride:int, export_mean_wd =
 
   # Target array is currently number of targets, variables, time)
   print('Target list shape' , np.array(target_list, dtype=float).shape)
-  decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1)
+  decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
   
-  # This decoder_output does not have the ref time, lets add that back in
-  new_arr = np.repeat(decoder_output, ts_indicies.shape[0], axis=-1)
-  ref_time_arr = np.array(ref_time_list, dtype=float)
+  ## This decoder_output does not have the ref time, lets add that back in
+  #new_arr = np.repeat(decoder_output, ts_indicies.shape[0], axis=-1)
+  #ref_time_arr = np.array(ref_time_list, dtype=float)
   
-  data_broadcasted = ref_time_arr[:, np.newaxis, np.newaxis, np.newaxis]
-  decoder_with_ref_time = new_arr + data_broadcasted
+  #data_broadcasted = ref_time_arr[:, np.newaxis, np.newaxis, np.newaxis]
+  #decoder_with_ref_time = new_arr + data_broadcasted
 
   # Create xarray Dataset
   ds_static_output = xr.Dataset(
         {
             'encoder': (('samples', 'sensors', 'enc_vars', 'timestep'), encoder_output),
-            'decoder': (('samples', 'leaks',   'dec_vars', 'ref_time'), decoder_with_ref_time)
+            'decoder': (('samples', 'leaks',   'dec_vars', 'ref_time'), decoder_output)
         },
         coords={
             'samples': np.arange(ts_indicies.shape[0]),
