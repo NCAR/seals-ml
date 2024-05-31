@@ -194,7 +194,7 @@ class DataSampler(object):
                     sensor_sample[0, -2, n, :] = sensor_phi[:, 2].T # met: w
                     sensor_sample[0, -1, n, :] = self.data[self.emission_vars[0]][t:t + time_window_size:,k_sensor[n], j_sensor[n], i_sensor[n]].values.T # sensor-n: emission_vars
                 mean_wd[(i * samples_per_window) + s] = tmp_wd
-                leak_sample = np.zeros(shape=(1,len(self.variables), n_sensors, 1))
+                leak_sample = np.zeros(shape=(1,len(self.variables), n_leaks, 1))
                 for l in range(n_leaks):
                     leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
