@@ -5,7 +5,7 @@ from os.path import join, exists
 from os import makedirs
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
-
+import tracemalloc
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -47,9 +47,9 @@ class DataSampler(object):
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
         '''Dataset loader that exports an xarray ds and '''
         if swap_time_dim == True:
-            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'})
         else:
-            ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask)
         # need the number of sources
         num_sources = ds.sizes['srcDim']
         return ds, num_sources
@@ -60,7 +60,7 @@ class DataSampler(object):
             print("Error: The provided input is not an xarray Dataset or DataArray.")
             return
         
-        self.data = ds
+        self.data = ds.load() #ds
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
@@ -74,9 +74,15 @@ class DataSampler(object):
         
         # add zero arrays for new derived variables
         for var in self.coord_vars:
+          if True:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
                                                                         len(self.data.jDim),
                                                                         len(self.data.iDim))))
+          else:
+            self.data[var] = (["timeDim","kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.timeDim),
+                                                                                  len(self.data.kDim),
+                                                                                  len(self.data.jDim),
+                                                                                  len(self.data.iDim))))
 
     def sample(self, time_window_size, samples_per_window, window_stride=5):
 
@@ -166,16 +172,18 @@ class DataSampler(object):
                 j_leak[true_leak_pos] = true_leak_j
                 k_leak[true_leak_pos] = true_leak_k
 
-                sensor_phi = self.data[['w', 'v', 'u']].to_array().values[:, :,
-                             k_sensor[0], j_sensor[0], i_sensor[0]][:, t:t + time_window_size].T
-                sensor_array = np.zeros(shape=(self.n_rotated_vars, n_sensors, time_window_size))
+                sensor_phi = self.data[self.met_vars].isel({'timeDim':slice(t,t + time_window_size),
+                                                            'kDim':k_sensor[0],
+                                                            'jDim':j_sensor[0],
+                                                            'iDim':i_sensor[0]}).to_array().values.T
+                sensor_sample = np.zeros(shape=(1,len(self.variables), n_sensors, time_window_size))
                 for n in range(n_sensors):
 
                     sensor_idx = np.array([self.x[i_sensor[n]],
                                            self.y[j_sensor[n]],
                                            self.z[k_sensor[n]]])
                     sensor_meta[(i * samples_per_window) + s, n, :3] = sensor_idx
-                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 2],
+                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 0],
                                                                v=sensor_phi[:, 1],
                                                                x_ref=self.x[i_sensor[0]],
                                                                y_ref=self.y[j_sensor[0]],
@@ -184,16 +192,18 @@ class DataSampler(object):
                                                                y_target=self.y[j_sensor[n]],
                                                                z_target=self.z[k_sensor[n]],
                                                                time_series=True)
-                    sensor_array[:, n, :] = derived_vars
+                    sensor_sample[0, 0:derived_vars.shape[0], n, :] = derived_vars     # sensor-n: coord_vars + met: u_rot,v_rot
+                    sensor_sample[0, -2, n, :] = sensor_phi[:, 2].T # met: w
+                    sensor_sample[0, -1, n, :] = self.data[self.emission_vars[0]][t:t + time_window_size:,k_sensor[n], j_sensor[n], i_sensor[n]].values.T # sensor-n: emission_vars
                 mean_wd[(i * samples_per_window) + s] = tmp_wd
-                leak_array = np.zeros(shape=(self.n_rotated_vars, n_leaks, 1))
+                leak_sample = np.zeros(shape=(1,len(self.variables), n_sensors, 1))
                 for l in range(n_leaks):
 
                     leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
                                          self.z[k_leak[l]]])
                     leak_meta[(i * samples_per_window) + s, l, :3] = leak_idx
-                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 2],
+                    derived_vars,tmp_wd = get_relative_azimuth(u=sensor_phi[:, 0],
                                                                v=sensor_phi[:, 1],
                                                                x_ref=self.x[i_sensor[0]],
                                                                y_ref=self.y[j_sensor[0]],
@@ -202,20 +212,14 @@ class DataSampler(object):
                                                                y_target=self.y[j_leak[l]],
                                                                z_target=self.z[k_leak[l]],
                                                                time_series=False)
-                    leak_array[:, l, :] = derived_vars
+                    leak_sample[0, 0:derived_vars.shape[0], l, :] = derived_vars
+                    leak_sample[0, -2:, l, :] = np.zeros((2,1))  #Just zero out the w & q_CH4 variables in the leak_sample
 
-                sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k_sensor, j_sensor, i_sensor, t:t + time_window_size]
-                leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
-                                k_leak, j_leak, i_leak, t:t + 1]
+                sensor_sample_masked = self.create_mask(sensor_sample, kind="sensor")
 
-                sensor_sample[0, :self.n_rotated_vars, :] = sensor_array
-                sensor_sample = self.create_mask(sensor_sample, kind="sensor")
-                leak_sample[0, :self.n_rotated_vars, :] = leak_array
-
-                leak_sample = self.create_mask(leak_sample, kind="leak")
-                padded_sensor_sample = self.pad_along_axis(sensor_sample, target_length=self.max_trace_sensors + self.max_met_sensors,                                                            pad_value=self.sensor_exist_mask, axis=2)
-                padded_leak_sample = self.pad_along_axis(leak_sample, target_length=self.max_leak_loc,
+                leak_sample_masked = self.create_mask(leak_sample, kind="leak")
+                padded_sensor_sample = self.pad_along_axis(sensor_sample_masked, target_length=self.max_trace_sensors + self.max_met_sensors,                                                            pad_value=self.sensor_exist_mask, axis=2)
+                padded_leak_sample = self.pad_along_axis(leak_sample_masked, target_length=self.max_leak_loc,
                                                          pad_value=self.sensor_exist_mask, axis=2)
 
                 sensor_arrays.append(padded_sensor_sample)
@@ -241,7 +245,7 @@ class DataSampler(object):
 
     def create_mask(self, array, kind):
 
-        array = np.transpose(array, axes=[0, 3, 2, 1])  # reshape for proper broadcasting
+        array = np.transpose(array, axes=[0, 3, 2, 1])  # reshape for proper broadcasting assuming array was [samp,var,sensor,time]
         mask_2d = np.zeros(shape=(array.shape[-2], array.shape[-1]))
 
         if kind == "sensor":
