@@ -72,7 +72,7 @@ def load_inference(dataset, sitemap, timestep: int, export_mean_wd = False):
     print(f"Number of elements dropped: {total_length - trimmed_length}")
 
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
-  encoder_output = trimmed_array.reshape(8, len(ds.CH4Sensors.values), timestep, num_complete_series).transpose(3, 1, 0, 2)
+  encoder_output = trimmed_array.reshape(8, len(ds.CH4Sensors.values), timestep, num_complete_series).transpose(3, 1, 2, 0)
     
   #### Let's make some targets
   mask = sitemap['structureMask'].where(sitemap['structureMask'] == 1, drop=False).notnull()
@@ -93,20 +93,20 @@ def load_inference(dataset, sitemap, timestep: int, export_mean_wd = False):
             leak_x[a], #x_target
             leak_y[a], #y_target
             leak_z[a], #z_target
-            time_series=False  
-                           )
-      target_list.append(targets)
+            time_series=False)
+
+      target_list.append(targets[:4])
     
   # Target array is currently number of targets, variables, time)
-  print('Number of samples:', num_complete_series )    
-  decoder_output = np.array(target_list, dtype=float).reshape(num_complete_series, len(leak_z), 6, 1)
+  print('Number of samples:', num_complete_series )
+  decoder_output = np.array(target_list, dtype=float).reshape(num_complete_series, len(leak_z), 4, 1).transpose(0, 1, 3, 2)
   # returns encoder and decoder as multi-dim numpy arrays
 
   # Create xarray Dataset
   ds_static_output = xr.Dataset(
         {
-            'encoder': (('samples', 'sensors', '8variable', 'timestep'), encoder_output),
-            'decoder': (('samples', 'leaks',   '6variable', 'ref_time'), decoder_output)
+            'encoder': (('samples', 'sensors', 'enc_vars', 'timestep'), encoder_output),
+            'decoder': (('samples', 'leaks',   'dec_vars', 'ref_time'), decoder_output)
         },
         coords={
             'samples': np.arange(num_complete_series),

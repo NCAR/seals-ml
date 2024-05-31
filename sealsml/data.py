@@ -4,7 +4,7 @@ import numpy as np
 from os.path import join, exists
 from os import makedirs
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
-from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler, load_scaler
 
 
 class DataSampler(object):
@@ -43,13 +43,13 @@ class DataSampler(object):
         self.n_rotated_vars = len(coord_vars) + len(met_vars[:2])
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
-    
+
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
         '''Dataset loader that exports an xarray ds and '''
         if swap_time_dim == True:
-            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'}).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'})#.load()
         else:
-            ds = xr.open_mfdataset(file_names, parallel=use_dask).load()
+            ds = xr.open_mfdataset(file_names, parallel=use_dask)#.load()
         # need the number of sources
         num_sources = ds.sizes['srcDim']
         return ds, num_sources
@@ -60,7 +60,7 @@ class DataSampler(object):
             print("Error: The provided input is not an xarray Dataset or DataArray.")
             return
         
-        self.data = ds
+        self.data = ds.load()
         self.time_steps = len(self.data['timeDim'].values)
         self.iDim = len(self.data.iDim)
         self.jDim = len(self.data.jDim)
@@ -71,7 +71,7 @@ class DataSampler(object):
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue'].values
         self.leak_loc = self.data['srcAuxScLocation'].values
-        
+
         # add zero arrays for new derived variables
         for var in self.coord_vars:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
@@ -100,8 +100,7 @@ class DataSampler(object):
             for s in range(samples_per_window):
 
                 #Total number of sensors (currently 1 met-sensor + random sample of trace sensors in specified range) 
-                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+self.max_met_sensors   
-
+                n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+self.max_met_sensors
                 n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
                 true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
@@ -188,7 +187,6 @@ class DataSampler(object):
                 mean_wd[(i * samples_per_window) + s] = tmp_wd
                 leak_array = np.zeros(shape=(self.n_rotated_vars, n_leaks, 1))
                 for l in range(n_leaks):
-
                     leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
                                          self.z[k_leak[l]]])
@@ -206,6 +204,7 @@ class DataSampler(object):
 
                 sensor_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k_sensor, j_sensor, i_sensor, t:t + time_window_size]
+
                 leak_sample = self.data[self.variables].to_array().expand_dims('sample').values[:, :,
                                 k_leak, j_leak, i_leak, t:t + 1]
 
@@ -340,6 +339,11 @@ class Preprocessor():
 
         return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
 
+    def load_scaler(self, scaler_path):
+
+        self.scaler = load_scaler(scaler_path)
+
+
     def save_filenames(self, train_files, validation_files, out_path):
         if not exists(out_path):
             makedirs(out_path)
@@ -348,11 +352,14 @@ class Preprocessor():
         validation_file_series = pd.Series(validation_files, name="validation_files")
         validation_file_series.to_csv(join(out_path, "validation_files.csv"))
 
-    def preprocess(self, data, fit_scaler=True):
+    def preprocess(self, data, fit_scaler=False):
+
+        if data.ndim == 4:
+            mask = xr.DataArray(np.zeros(shape=data.shape), dims=data.dims)
+            data = xr.concat([data, mask], dim="mask").transpose(*(data.dims + ('mask',))) # add empty mask if not present
 
         imputed_data, mask = self.impute_mask(data)
         padding_mask = mask[..., 0, 0]
-
         if fit_scaler:
             self.fit_scaler(imputed_data)
 
@@ -422,7 +429,7 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
     else:
         raise ValueError(f"Model name {model_name} not found.")
 
-    train_output.to_netcdf(out_path)
-    val_output.to_netcdf(out_path)
+    train_output.to_netcdf(out_path.split('.')[0] + "_train.nc")
+    val_output.to_netcdf(out_path.split('.')[0] + "_val.nc")
 
     return

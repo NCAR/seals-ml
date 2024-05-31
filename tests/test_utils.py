@@ -6,10 +6,11 @@ import yaml
 
 # Our functiuons 
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
-from sealsml.data import DataSampler
+from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import load_inference
+from bridgescaler import save_scaler
 
 def test_polar_to_cart1():
     # Test with single values
@@ -206,11 +207,7 @@ def test_distance_matrix_export():
 
 
 def test_static():
-    """
 
-    """
-
-    # Test Case #2
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
     test_data = os.path.expanduser(test_data_path)
     assert os.path.exists(test_data), f"File not found: {test_data}"
@@ -224,11 +221,19 @@ def test_static():
     assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
 
+    p = Preprocessor()
+    # p.load_scaler("/Users/cbecker/Desktop/scaler_2024-05-23_1736.json")
+    scaled_encoder, encoder_mask = p.preprocess(ds['encoder'], fit_scaler=True)
+    save_scaler(p.scaler, "./scaler.json")
+    p.load_scaler("./scaler.json")
+    scaled_decoder, decoder_mask = p.preprocess(ds['decoder'], fit_scaler=False)
+    assert scaled_encoder.shape == ds['encoder'].shape
+    assert scaled_decoder.shape == ds['decoder'].squeeze().shape
+    assert encoder_mask.shape == (ds['encoder'].shape[0], ds['encoder'].shape[1])
 
-    # Assert encoder shape
-    #assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
-    #assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
 
+    # assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+    #
     # Assert first dimension of both target and encoder are the same
-    #assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
+    # assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
   
