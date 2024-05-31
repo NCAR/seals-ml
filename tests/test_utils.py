@@ -9,7 +9,7 @@ from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
-from sealsml.staticinference import load_inference
+from sealsml.staticinference import load_inference, extract_ts_segments
 from bridgescaler import save_scaler
 
 def test_polar_to_cart1():
@@ -237,3 +237,27 @@ def test_static():
     # Assert first dimension of both target and encoder are the same
     # assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
   
+def test_extract_ts_segments():
+    # Test case 1: Regular case
+    time_series = np.arange(10)
+    segment_length = 3
+    stride = 2
+    expected_indices = np.array([[0, 3], [2, 5], [4, 7], [6, 9]])
+    expected_dropped_elements = np.array([9])
+    
+    start_end_indices, dropped_elements = extract_ts_segments(time_series, segment_length, stride)
+    
+    assert np.array_equal(start_end_indices, expected_indices), "Test case 1: Start-End Indices do not match"
+    assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 1: Dropped elements do not match"
+    
+    # Test case 2: No elements dropped
+    time_series = np.arange(9)
+    segment_length = 3
+    stride = 3
+    expected_indices = np.array([[0, 3], [3, 6], [6, 9]])
+    expected_dropped_elements = np.array([])
+    
+    start_end_indices, dropped_elements = extract_ts_segments(time_series, segment_length, stride)
+    
+    assert np.array_equal(start_end_indices, expected_indices), "Test case 2: Start-End Indices do not match"
+    assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 2: Dropped elements do not match"
