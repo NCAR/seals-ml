@@ -73,15 +73,9 @@ class DataSampler(object):
 
         # add zero arrays for new derived variables
         for var in self.coord_vars:
-          if True:
             self.data[var] = (["kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.kDim),
                                                                         len(self.data.jDim),
                                                                         len(self.data.iDim))))
-          else:
-            self.data[var] = (["timeDim","kDim", "jDim", "iDim"], np.zeros(shape=(len(self.data.timeDim),
-                                                                                  len(self.data.kDim),
-                                                                                  len(self.data.jDim),
-                                                                                  len(self.data.iDim))))
 
     def sample(self, time_window_size, samples_per_window, window_stride=5):
 
@@ -209,8 +203,8 @@ class DataSampler(object):
                                                                y_target=self.y[j_leak[l]],
                                                                z_target=self.z[k_leak[l]],
                                                                time_series=False)
-                    leak_sample[0, 0:derived_vars.shape[0], l, :] = derived_vars
-                    leak_sample[0, -2:, l, :] = np.zeros((2,1))  #Just zero out the w & q_CH4 variables in the leak_sample
+                    # Set the wind-relative coordinate variables for this pot_leak, leave the met_vars+emission_vars to be imputed during preprocessing
+                    leak_sample[0, 0:len(self.coord_vars), l, :] = derived_vars[0:len(self.coord_vars),:]
 
                 sensor_sample_masked = self.create_mask(sensor_sample, kind="sensor")
                 leak_sample_masked = self.create_mask(leak_sample, kind="leak")
