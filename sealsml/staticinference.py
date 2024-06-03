@@ -37,7 +37,7 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     return start_end_indices, dropped_elements
 
 
-def specific_site_data_generation(dataset, sitemap, time_window_size: int, window_stride:int, export_mean_wd = False):
+def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: int, window_stride:int, export_mean_wd = False):
   """
   This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
 
@@ -55,12 +55,11 @@ def specific_site_data_generation(dataset, sitemap, time_window_size: int, windo
     Encoder and Decoder in a xarray dataset
   """
    
-  ds = xr.open_dataset(dataset)
-  sitemap = xr.open_dataset(sitemap)
+  ds = xr.open_dataset(dataset_path).load()
+  sitemap = xr.open_dataset(sitemap_path).load()
 
   encoder_arrays: List[NDArray] = []  # List to store encoder arrays for each iteration
   target_list: List[NDArray] = []  # List to store target arrays for each iteration
-  ref_time_list: List[NDArray] = []  # List to store target arrays for each iteration
 
   # xyz location of the sensors does not change with time
   XYZ_met = ds['metPos'].values
@@ -84,7 +83,7 @@ def specific_site_data_generation(dataset, sitemap, time_window_size: int, windo
   for t in range(ts_indicies.shape[0]):
     start = ts_indicies[t][0]
     end = ts_indicies[t][1]
-    ref_time_list.append(ds.isel(time=end).time.values)
+  
     # new dataset 
     ds_chunked = ds.isel(time=slice(start, end))
 
@@ -135,13 +134,6 @@ def specific_site_data_generation(dataset, sitemap, time_window_size: int, windo
   print('Target list shape' , np.array(target_list, dtype=float).shape)
   decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
   
-  ## This decoder_output does not have the ref time, lets add that back in
-  #new_arr = np.repeat(decoder_output, ts_indicies.shape[0], axis=-1)
-  #ref_time_arr = np.array(ref_time_list, dtype=float)
-  
-  #data_broadcasted = ref_time_arr[:, np.newaxis, np.newaxis, np.newaxis]
-  #decoder_with_ref_time = new_arr + data_broadcasted
-
   # Create xarray Dataset
   ds_static_output = xr.Dataset(
         {
