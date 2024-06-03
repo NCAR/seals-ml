@@ -9,7 +9,7 @@ from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
-from sealsml.staticinference import load_inference, extract_ts_segments
+from sealsml.staticinference import specific_site_data_generation, extract_ts_segments
 from bridgescaler import save_scaler
 
 def test_polar_to_cart1():
@@ -216,7 +216,7 @@ def test_static():
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
 
-    ds = load_inference(test_data, sitemap, timestep=100, stride=50)
+    ds = specific_site_data_generation(test_data, sitemap, timestep=100, stride=50)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
     assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"

@@ -37,8 +37,12 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     return start_end_indices, dropped_elements
 
 
-def load_inference(dataset, sitemap, timestep: int, stride:int, export_mean_wd = False):
+def specific_site_data_generation(dataset, sitemap, timestep: int, stride:int, export_mean_wd = False):
   """
+  This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
+
+  Typical use case might be for interence on real data.
+  
   Loads an netCDF from 'real' data, processes it into wind relative coordinates,
   and chunks it into the correct timestep length for the ML model. Also loads the sitemap to use as potential leaks.
 
