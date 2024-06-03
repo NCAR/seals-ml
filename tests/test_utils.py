@@ -204,8 +204,6 @@ def test_distance_matrix_export():
     assert result[2] == pytest.approx(expected_median, abs=1e-2)
     assert result[3] == pytest.approx(expected_max, abs=1e-2)
 
-
-
 def test_static():
 
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
@@ -231,12 +229,6 @@ def test_static():
     assert scaled_decoder.shape == ds['decoder'].squeeze().shape
     assert encoder_mask.shape == (ds['encoder'].shape[0], ds['encoder'].shape[1])
 
-
-    # assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
-    #
-    # Assert first dimension of both target and encoder are the same
-    # assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
-  
 def test_extract_ts_segments():
     # Test case 1: Regular case
     time_series = np.arange(10)

@@ -37,7 +37,7 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     return start_end_indices, dropped_elements
 
 
-def specific_site_data_generation(dataset, sitemap, timestep: int, stride:int, export_mean_wd = False):
+def specific_site_data_generation(dataset, sitemap, time_window_size: int, window_stride:int, export_mean_wd = False):
   """
   This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
 
@@ -76,7 +76,9 @@ def specific_site_data_generation(dataset, sitemap, timestep: int, stride:int, e
   print('Number of possible leaks:', len(leak_z))
 
   # time series chunking
-  ts_indicies, dropped = extract_ts_segments(ds.time.values, time_window_size=timestep, window_stride=stride)
+  ts_indicies, dropped = extract_ts_segments(ds.time.values, 
+                                             time_window_size=time_window_size, 
+                                             window_stride=window_stride)
 
   # we are going to run a loop for each 
   for t in range(ts_indicies.shape[0]):
@@ -127,7 +129,7 @@ def specific_site_data_generation(dataset, sitemap, timestep: int, stride:int, e
       returned_array = np.concatenate(encoder_arrays, axis=-1).transpose(0, 2, 1)
 
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
-  encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), timestep, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
+  encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
 
   # Target array is currently number of targets, variables, time)
   print('Target list shape' , np.array(target_list, dtype=float).shape)
