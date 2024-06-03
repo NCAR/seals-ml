@@ -214,7 +214,7 @@ def test_static():
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
 
-    ds = specific_site_data_generation(test_data, sitemap, timestep=100, stride=50)
+    ds = specific_site_data_generation(test_data, sitemap, time_window_size=100, window_stride=50)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
     assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
