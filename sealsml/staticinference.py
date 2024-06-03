@@ -9,7 +9,7 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def extract_ts_segments(time_series, segment_length:int, stride:int):
+def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     """
     Extract segments from a time series array.
 
@@ -22,13 +22,13 @@ def extract_ts_segments(time_series, segment_length:int, stride:int):
     - start_end_indices (numpy.ndarray): An array containing the start and end indices of each segment.
     - dropped_elements (numpy.ndarray): Any elements that are dropped because they don't fit into a full segment.
     """
-    num_segments = (len(time_series) - segment_length) // stride + 1
+    num_segments = (len(time_series) - time_window_size) // window_stride + 1
     print('Number of time series segments:', num_segments)
     start_end_indices = np.zeros((num_segments, 2), dtype=int)
 
     for i in range(num_segments):
-        start_index = i * stride
-        end_index = start_index + segment_length
+        start_index = i * window_stride
+        end_index = start_index + time_window_size
         start_end_indices[i] = [start_index, end_index]
 
     last_end_index = start_end_indices[-1, 1]
@@ -72,7 +72,7 @@ def load_inference(dataset, sitemap, timestep: int, stride:int, export_mean_wd =
   print('Number of possible leaks:', len(leak_z))
 
   # time series chunking
-  ts_indicies, dropped = extract_ts_segments(ds.time.values, segment_length=timestep, stride=stride)
+  ts_indicies, dropped = extract_ts_segments(ds.time.values, time_window_size=timestep, window_stride=stride)
 
   # we are going to run a loop for each 
   for t in range(ts_indicies.shape[0]):
