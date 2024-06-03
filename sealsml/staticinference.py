@@ -137,8 +137,8 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   # Create xarray Dataset
   ds_static_output = xr.Dataset(
         {
-            'encoder': (('samples', 'sensors', 'enc_vars', 'timestep'), encoder_output),
-            'decoder': (('samples', 'leaks',   'dec_vars', 'ref_time'), decoder_output)
+            'encoder': (('samples', 'sensors', 'timestep', 'enc_vars'), encoder_output),
+            'decoder': (('samples', 'leaks', 'ref_time', 'dec_vars'), decoder_output)
         },
         coords={
             'samples': np.arange(ts_indicies.shape[0]),
