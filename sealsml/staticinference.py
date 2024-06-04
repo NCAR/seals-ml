@@ -36,7 +36,6 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     print('Number of dropped elements:', np.size(dropped_elements))
     return start_end_indices, dropped_elements
 
-
 def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: int, window_stride:int, export_mean_wd = False):
   """
   This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
@@ -104,7 +103,7 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
         leak_z[a], #z_target
         time_series=False
         )
-      target_list.append(targets[:4])
+      target_list.append(targets[:4]) # This is the other line that needs to be fixed
 
     # For encoder
     for i in ds.CH4Sensors.values:
@@ -135,15 +134,17 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
   
   # Create xarray Dataset
-  ds_static_output = xr.Dataset(
-        {
-            'encoder': (('samples', 'sensors', 'timestep', 'enc_vars'), encoder_output),
-            'decoder': (('samples', 'leaks', 'ref_time', 'dec_vars'), decoder_output)
-        },
-        coords={
-            'samples': np.arange(ts_indicies.shape[0]),
-            'sensors': np.arange(len(ds.CH4Sensors.values)),
-        })
+  encoder_ds = xr.DataArray(encoder_output,
+                            dims=['sample', 'sensor', 'time', 'variable'],
+                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
+                            name="encoder_input").astype('float32')
+
+  decoder_ds = xr.DataArray(decoder_output,
+                            dims=['sample', 'pot_leak', 'target_time', 'variable'],
+                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]}, # I can add u,v,w, q_CH4 back
+                            name="decoder_input").astype('float32')
+    
+  ds_static_output = xr.merge([encoder_ds, decoder_ds])
   # Decide what to export 
   if export_mean_wd:
     return ds_static_output, mean_wd
