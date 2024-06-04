@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from os.path import join, exists
 from os import makedirs
+from scipy.ndimage import minimum_filter
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler, load_scaler
 
@@ -16,13 +17,18 @@ class DataSampler(object):
                  leak_height_max=4, 
                  sensor_type_mask=1, sensor_exist_mask=-1,
                  coord_vars=None,
-                 met_vars=None, emission_vars=None):
+                 met_vars=None, emission_vars=None, 
+                 pot_leaks_scheme=None, pot_leaks_file=None):
         if coord_vars is None:
             coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
         if met_vars is None:
             met_vars = ['u', 'v', 'w']
         if emission_vars is None:
             emission_vars = ['q_CH4']
+        if pot_leaks_scheme == None:
+            pot_leaks_scheme = 'random_sampling'
+        if pot_leaks_file == None:
+            pot_leaks_file = ''
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.max_met_sensors = 1 #Currently self.max_met_sensors strictly permitted to be 1
@@ -42,6 +48,8 @@ class DataSampler(object):
         self.n_rotated_vars = len(coord_vars) + len(met_vars[:2])
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
+        self.pot_leaks_scheme = pot_leaks_scheme
+        self.pot_leaks_file = pot_leaks_file
 
     def load_data(self, file_names, use_dask=True, swap_time_dim=True):
         '''Dataset loader that exports an xarray ds and '''
@@ -51,6 +59,28 @@ class DataSampler(object):
             ds = xr.open_mfdataset(file_names, parallel=use_dask)
         # need the number of sources
         num_sources = ds.sizes['srcDim']
+        # may need the structureMask and/or shell_mask and self.max_leak_loc to be set accordingly
+        if 'structureMask' in ds.variables:
+            if self.pot_leaks_scheme == 'full_mask':
+                #set the max and min leak locs to be the number of structure mask cells + 1 (possibly disjoint) true leak  
+                self.max_leak_loc=np.argwhere(ds['structureMask'].values > 0).shape[0] + 1 
+                self.min_leak_loc=self.max_leak_loc
+            elif self.pot_leaks_scheme == 'shell_mask':
+                self.setShellMask(ds)
+                #set the max and min leak locs to be the number of shell_mask cells + 1 (possibly disjoint) true leak  
+                self.max_leak_loc=np.argwhere(self.shell_mask>0).shape[0] + 1 
+                self.min_leak_loc=self.max_leak_loc
+            elif self.pot_leaks_scheme == 'from_pot_leak_file':
+                self.ds_pot_leaks = xr.open_dataset(self.pot_leaks_file)   #lazy evaluation is likely fine here
+                self.max_leak_loc = self.ds_pot_leaks.sizes['equipDim'] + 1
+                self.min_leak_loc = self.max_leak_loc
+            else:
+                self.ds_pot_leaks = None
+                self.shell_mask = np.asarray([])
+        else:
+            print("No structureMask in the input dataset, structureMask is an expected DataArray field of the input dataset.")
+        
+        print(f"pot_leaks_scheme = {self.pot_leaks_scheme}, max_leak_loc = {self.max_leak_loc}, min_leak_loc = {self.min_leak_loc}")
         return ds, num_sources
 
     def data_extract(self, ds):
@@ -88,7 +118,7 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
-        step_size = np.arange(1, self.time_steps - time_window_size, window_stride)
+        step_size = np.arange(0, self.time_steps - time_window_size, window_stride)
         sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), 
                                       self.max_trace_sensors+self.max_met_sensors, 3)) 
                                       #Currently self.max_met_sensors strictly enforced to be 1
@@ -98,23 +128,10 @@ class DataSampler(object):
             print(t)
             for s in range(samples_per_window):
 
+                # Set the sensor locations and time-series data streams within this sample
                 #Total number of sensors (currently 1 met-sensor + random sample of trace sensors in specified range) 
                 n_sensors = np.random.randint(low=self.min_trace_sensors, high=self.max_trace_sensors + 1)+self.max_met_sensors
-                n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
-                true_leak_pos = np.random.choice(n_leaks, size=1)[0]
                 
-                # x location for leak loc
-                _x_leak_loc = self.leak_loc[0] # this would need to be modified for mutiple leaks
-                true_leak_i = np.abs(self.x - _x_leak_loc).argmin()
-                
-                # y location for leak loc
-                _y_leak_loc = self.leak_loc[1]
-                true_leak_j = np.abs(self.y - _y_leak_loc).argmin()
-
-                # z location for leak loc
-                _z_leak_loc = self.leak_loc[2]
-                true_leak_k = np.abs(self.z - _z_leak_loc).argmin()
-              
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
                 i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
@@ -137,32 +154,6 @@ class DataSampler(object):
                                                  high=sensor_height_max_index, 
                                                  size=n_sensors)
                 # end of sensor vertical sampling logic
-
-                # Leaks in ijk (xyz) space
-                i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
-                j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
-
-                # Converting to index space
-                leak_height_max_index = int(np.rint(self.leak_height_max/self.z_res))
-                leak_height_min_index = int(np.rint(self.leak_height_min/self.z_res))
-
-                ## start of leak vertical logic 
-                if leak_height_max_index > self.kDim:
-                    raise ValueError("Max leak height is greater than domain, please pick a smaller number")
-                elif self.leak_height_min > leak_height_max_index:
-                    raise ValueError("Min leak height is greater than the maximum (in index space), please try again")
-                elif leak_height_min_index == leak_height_max_index:
-                    k_leak = np.repeat(leak_height_max_index, 
-                                       n_leaks)
-                else:
-                    k_leak = np.random.randint(low=leak_height_min_index, 
-                                               high=leak_height_max_index, 
-                                               size=n_leaks)
-                # end of vertical sample logic for leaks
-                
-                i_leak[true_leak_pos] = true_leak_i  # set one of the potential leaks to the true position
-                j_leak[true_leak_pos] = true_leak_j
-                k_leak[true_leak_pos] = true_leak_k
 
                 sensor_phi = self.data[self.met_vars].isel({'timeDim':slice(t,t + time_window_size),
                                                             'kDim':k_sensor[0],
@@ -188,7 +179,32 @@ class DataSampler(object):
                     sensor_sample[0, -2, n, :] = sensor_phi[:, 2].T # met: w
                     sensor_sample[0, -1, n, :] = self.data[self.emission_vars[0]][t:t + time_window_size:,k_sensor[n], j_sensor[n], i_sensor[n]].values.T # sensor-n: emission_vars
                 mean_wd[(i * samples_per_window) + s] = tmp_wd
-                leak_sample = np.zeros(shape=(1,len(self.variables), n_leaks, 1))
+
+                sensor_sample_masked = self.create_mask(sensor_sample, kind="sensor")
+                padded_sensor_sample = self.pad_along_axis(sensor_sample_masked, target_length=self.max_trace_sensors + self.max_met_sensors,
+                                                           pad_value=self.sensor_exist_mask, axis=2)
+                sensor_arrays.append(padded_sensor_sample)
+              
+                # Set potential leak locations within this sample 
+                if self.pot_leaks_scheme == 'full_mask':
+                    #Single call to set the potential leak locations as the structure mask along with the true leak
+                    n_leaks, true_leak_pos, i_leak, j_leak, k_leak = self.setupStructureMaskLeakLocations(self.data['structureMask'].values)
+                elif self.pot_leaks_scheme == 'shell_mask':
+                    #Single call to set the potential leak locations as the shell mask along with the true leak
+                    n_leaks, true_leak_pos, i_leak, j_leak, k_leak = self.setupStructureMaskLeakLocations(self.shell_mask)
+                elif self.pot_leaks_scheme == 'from_pot_leak_file':
+                    #Single call to set the potential leak locations as specified from a NetCDF file along with the true leak
+                    n_leaks, true_leak_pos, i_leak, j_leak, k_leak = self.setupSpecifiedLeakLocations()
+                else:
+                    #self.pot_leaks_scheme == 'random_sampling':
+                    #Single call to randomly set the potential leak locations and a random-indexed true leak
+                    n_leaks, true_leak_pos, i_leak, j_leak, k_leak = self.setupRandomLeakLocations()
+
+                # Save the pot_leak index of the randomly-indexed true leak   
+                true_leak_idx.append(true_leak_pos)
+                    
+                #Map the potential leak locations into mean wind realtive coordinate frame
+                leak_sample = np.zeros(shape=(1,len(self.variables), n_leaks, 1))                         
                 for l in range(n_leaks):
                     leak_idx = np.array([self.x[i_leak[l]],
                                          self.y[j_leak[l]],
@@ -206,21 +222,148 @@ class DataSampler(object):
                     # Set the wind-relative coordinate variables for this pot_leak, leave the met_vars+emission_vars to be imputed during preprocessing
                     leak_sample[0, 0:len(self.coord_vars), l, :] = derived_vars[0:len(self.coord_vars),:]
 
-                sensor_sample_masked = self.create_mask(sensor_sample, kind="sensor")
                 leak_sample_masked = self.create_mask(leak_sample, kind="leak")
-                padded_sensor_sample = self.pad_along_axis(sensor_sample_masked, target_length=self.max_trace_sensors + self.max_met_sensors,                                                            pad_value=self.sensor_exist_mask, axis=2)
                 padded_leak_sample = self.pad_along_axis(leak_sample_masked, target_length=self.max_leak_loc,
                                                          pad_value=self.sensor_exist_mask, axis=2)
 
-                sensor_arrays.append(padded_sensor_sample)
                 leak_arrays.append(padded_leak_sample)
-                true_leak_idx.append(true_leak_pos)
 
-        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [samp, sensor, time, var]
+        #Finalize shapes of sensor (encoder) and leak (decoder) sampled data arrays        
+        sensor_samples = np.transpose(np.vstack(sensor_arrays), axes=[0, 2, 1, 3, 4]) # order [samp, sensor, time, var, mask]
         leak_samples = np.transpose(np.vstack(leak_arrays), axes=[0, 2, 1, 3, 4])
         targets = self.create_targets(leak_samples, true_leak_idx)
         
         return self.make_xr_ds(sensor_samples, leak_samples, targets, sensor_meta, leak_meta, mean_wd)
+
+    def setupRandomLeakLocations(self):
+        # Number of potential leak locations 
+        n_leaks = np.random.randint(low=self.min_leak_loc, high=self.max_leak_loc + 1)
+
+        # Leaks in ijk (xyz) space
+        i_leak = np.random.randint(low=0, high=self.iDim, size=n_leaks)
+        j_leak = np.random.randint(low=0, high=self.jDim, size=n_leaks)
+
+        # Converting to index space
+        leak_height_max_index = int(np.rint(self.leak_height_max/self.z_res))
+        leak_height_min_index = int(np.rint(self.leak_height_min/self.z_res))
+
+        ## start of leak vertical logic 
+        if leak_height_max_index > self.kDim:
+            raise ValueError("Max leak height is greater than domain, please pick a smaller number")
+        elif self.leak_height_min > leak_height_max_index:
+            raise ValueError("Min leak height is greater than the maximum (in index space), please try again")
+        elif leak_height_min_index == leak_height_max_index:
+            k_leak = np.repeat(leak_height_max_index,n_leaks)
+        else:
+            k_leak = np.random.randint(low=leak_height_min_index,
+                                       high=leak_height_max_index,
+                                       size=n_leaks)
+        # end of vertical sample logic for leaks
+
+        ### Set the true leak
+        # Randomize the index of the true leak within the set of randomly located potential leaks
+        true_leak_pos = np.random.choice(n_leaks, size=1)[0]
+        # Find the true leak indices
+        true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices() 
+        # set the random-indexed potential leak to the true leak position
+        i_leak[true_leak_pos] = true_leak_i  
+        j_leak[true_leak_pos] = true_leak_j
+        k_leak[true_leak_pos] = true_leak_k
+ 
+        return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
+
+    def setupSpecifiedLeakLocations(self, randomOrdering=True):
+        n_leaks = self.max_leak_loc-1
+        pl_indices = np.zeros((self.max_leak_loc-1,3),dtype=np.int32)
+
+        for idx in range(self.ds_pot_leaks.sizes['equipDim']):
+            pl_indices[idx,2], pl_indices[idx,1], pl_indices[idx,0] = self.findIndices(self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,0].values, 
+                                                                                       self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,1].values, 
+                                                                                       self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,2].values)
+        if randomOrdering:
+             # randomize the order of the potential leaks
+             np.random.shuffle(pl_indices) #only randomizes the first dimension (rows)
+        ### Set the true leak
+        # Find the true leak indices
+        #true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices()
+        true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
+        # Look for the true leak in the potential leaks
+        indx=np.squeeze(np.argwhere(np.all((pl_indices-[true_leak_k,true_leak_j,true_leak_i]==0), axis=-1)))
+        if indx.size > 0:  #the true leak location is already in the randomly ordered potential leaks
+             true_leak_pos = indx # set the return value for the index of the true leak 
+        else: #The true location isn't already in the potential leaks
+             # Randomize the index of the true leak within the set of randomly located potential leaks
+             true_leak_pos = np.random.choice(n_leaks, size=1)[0]
+             tmp_indices=pl_indices
+             pl_indices = np.append(tmp_indices,np.expand_dims(tmp_indices[true_leak_pos,:],axis=0),axis=0)
+             pl_indices[true_leak_pos,:] = [true_leak_k,true_leak_j,true_leak_i]
+             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the true leak
+        i_leak = pl_indices[:,2]
+        j_leak = pl_indices[:,1]
+        k_leak = pl_indices[:,0]
+
+        return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
+
+    def setupStructureMaskLeakLocations(self, structureMask, randomOrdering=True):
+        # Find all the indices where structure mask is nonzero 
+        structmask_indices=np.argwhere(structureMask>0)
+        # Assume every structure masked cell is a potential leak 
+        n_leaks = structmask_indices.shape[0]
+        if randomOrdering:
+             # randomize the order of the potential leaks
+             np.random.shuffle(structmask_indices) #only randomizes the first dimension (rows)
+        ### Set the true leak
+        # Find the true leak indices
+        if False:
+            true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices()
+        else:
+            true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
+        # Look for the true leak in the potential leaks
+        indx=np.squeeze(np.argwhere(np.all((structmask_indices-[true_leak_k,true_leak_j,true_leak_i]==0), axis=-1)))
+        if indx.size > 0:  #the true leak location is already in the randomly ordered potential leaks
+             true_leak_pos = indx # set the return value for the index of the true leak 
+        else: #The true location isn't already in the potential leaks
+             # Randomize the index of the true leak within the set of randomly located potential leaks
+             true_leak_pos = np.random.choice(n_leaks, size=1)[0]
+             tmp_indices=structmask_indices
+             structmask_indices = np.append(tmp_indices,np.expand_dims(tmp_indices[true_leak_pos,:],axis=0),axis=0)
+             structmask_indices[true_leak_pos,:] = [true_leak_k,true_leak_j,true_leak_i]
+             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the true leak
+        i_leak = structmask_indices[:,2]
+        j_leak = structmask_indices[:,1]
+        k_leak = structmask_indices[:,0]
+
+        return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
+
+    def setShellMask(self, ds):
+        full_mask = ds['structureMask'].values
+        # Identify (with a value of 1 ) any structure mask cells bounded on all sides 
+        # (bottom boundary is reflected) by other structure mask cells
+        interior_cells = minimum_filter(full_mask, size=(3,3,3))
+        # Subtract interior cells from the full mask to mask only cells with one or more open-air neighbors 
+        shell_mask = full_mask - interior_cells
+        self.shell_mask = shell_mask
+        return 
+
+    def findIndices(self, xloc, yloc, zloc):
+
+        i_indx = np.abs(self.x - xloc).argmin()
+        j_indx = np.abs(self.y - yloc).argmin()
+        k_indx = np.abs(self.z - zloc).argmin()
+
+        return i_indx, j_indx, k_indx
+
+    def findTrueLeakIndices(self):
+        # x location for true leak loc
+        true_i = np.abs(self.x - self.leak_loc[0]).argmin()
+
+        # y location for true leak loc
+        true_j = np.abs(self.y - self.leak_loc[1]).argmin()
+
+        # z location for true leak loc
+        true_k = np.abs(self.z - self.leak_loc[2]).argmin()
+
+        return true_i, true_j, true_k
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
