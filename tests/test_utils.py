@@ -216,18 +216,18 @@ def test_static():
 
     ds = specific_site_data_generation(test_data, sitemap, time_window_size=100, window_stride=50)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
-    assert isinstance(ds['encoder_output'], xr.DataArray), "The object is not an xarray.DataArray"
-    assert isinstance(ds['decoder_output'], xr.DataArray), "The object is not an xarray.DataArray"
+    assert isinstance(ds['encoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
+    assert isinstance(ds['decoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
 
     p = Preprocessor()
     # p.load_scaler("/Users/cbecker/Desktop/scaler_2024-05-23_1736.json")
-    scaled_encoder, encoder_mask = p.preprocess(ds['encoder'], fit_scaler=True)
+    scaled_encoder, encoder_mask = p.preprocess(ds['encoder_input'], fit_scaler=True)
     save_scaler(p.scaler, "./scaler.json")
     p.load_scaler("./scaler.json")
-    scaled_decoder, decoder_mask = p.preprocess(ds['decoder'], fit_scaler=False)
-    assert scaled_encoder.shape == ds['encoder_output'].shape
-    assert scaled_decoder.shape == ds['decoder_output'].squeeze().shape
-    assert encoder_mask.shape == (ds['encoder_output'].shape[0], ds['encoder_output'].shape[1])
+    scaled_decoder, decoder_mask = p.preprocess(ds['decoder_input'], fit_scaler=False)
+    assert scaled_encoder.shape == ds['encoder_input'].shape
+    assert scaled_decoder.shape == ds['decoder_input'].squeeze().shape
+    assert encoder_mask.shape == (ds['encoder_input'].shape[0], ds['encoder_input'].shape[1])
 
 def test_extract_ts_segments():
     # Test case 1: Regular case
