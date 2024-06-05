@@ -316,10 +316,7 @@ class DataSampler(object):
              np.random.shuffle(structmask_indices) #only randomizes the first dimension (rows)
         ### Set the true leak
         # Find the true leak indices
-        if False:
-            true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices()
-        else:
-            true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
+        true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
         # Look for the true leak in the potential leaks
         indx=np.squeeze(np.argwhere(np.all((structmask_indices-[true_leak_i,true_leak_j,true_leak_k]==0), axis=-1)))
         if indx.size > 0:  #the true leak location is already in the randomly ordered potential leaks
@@ -354,18 +351,6 @@ class DataSampler(object):
         k_indx = np.abs(self.z - zloc).argmin()
 
         return i_indx, j_indx, k_indx
-
-    def findTrueLeakIndices(self):
-        # x location for true leak loc
-        true_i = np.abs(self.x - self.leak_loc[0]).argmin()
-
-        # y location for true leak loc
-        true_j = np.abs(self.y - self.leak_loc[1]).argmin()
-
-        # z location for true leak loc
-        true_k = np.abs(self.z - self.leak_loc[2]).argmin()
-
-        return true_i, true_j, true_k
 
     def pad_along_axis(self, array, target_length, pad_value=0, axis=0):
         """ Pad numpy array along a single dimension. """
