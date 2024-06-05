@@ -63,16 +63,16 @@ class DataSampler(object):
         if 'structureMask' in ds.variables:
             if self.pot_leaks_scheme == 'full_mask':
                 #set the max and min leak locs to be the number of structure mask cells + 1 (possibly disjoint) true leak  
-                self.max_leak_loc=np.argwhere(ds['structureMask'].values > 0).shape[0] + 1 
+                self.max_leak_loc=np.argwhere(ds['structureMask'].values > 0).shape[0] + 1 #padded by 1 for a true leak
                 self.min_leak_loc=self.max_leak_loc
             elif self.pot_leaks_scheme == 'shell_mask':
                 self.setShellMask(ds)
                 #set the max and min leak locs to be the number of shell_mask cells + 1 (possibly disjoint) true leak  
-                self.max_leak_loc=np.argwhere(self.shell_mask>0).shape[0] + 1 
+                self.max_leak_loc=np.argwhere(self.shell_mask>0).shape[0] + 1 #padded by 1 for a true leak
                 self.min_leak_loc=self.max_leak_loc
             elif self.pot_leaks_scheme == 'from_pot_leak_file':
                 self.ds_pot_leaks = xr.open_dataset(self.pot_leaks_file)   #lazy evaluation is likely fine here
-                self.max_leak_loc = self.ds_pot_leaks.sizes['equipDim'] + 1
+                self.max_leak_loc = self.ds_pot_leaks.sizes['plDim'] + 1  #padded by 1 for a true leak
                 self.min_leak_loc = self.max_leak_loc
             else:
                 self.ds_pot_leaks = None
@@ -118,13 +118,15 @@ class DataSampler(object):
             sensor_array, potential_leak_array: Numpy Arrays of shape (sample, sensor, time, variable) """
 
         sensor_arrays, leak_arrays, true_leak_idx = [], [], []
-        step_size = np.arange(0, self.time_steps - time_window_size, window_stride)
-        sensor_meta = np.zeros(shape=(samples_per_window * len(step_size), 
+        #Create an iterable vector of start time indices corresponding to each targeted window of the full time series
+        time_window_starts = np.arange(0, self.time_steps - time_window_size, window_stride)
+        num_windows = len(time_window_starts)  #number of windows in the full time series
+        sensor_meta = np.zeros(shape=(samples_per_window * num_windows, 
                                       self.max_trace_sensors+self.max_met_sensors, 3)) 
                                       #Currently self.max_met_sensors strictly enforced to be 1
-        leak_meta = np.zeros(shape=(samples_per_window * len(step_size), self.max_leak_loc, 3))
-        mean_wd = np.zeros(samples_per_window * len(step_size)) 
-        for i, t in enumerate(step_size):
+        leak_meta = np.zeros(shape=(samples_per_window * num_windows, self.max_leak_loc, 3))
+        mean_wd = np.zeros(samples_per_window * num_windows) 
+        for i, t in enumerate(time_window_starts):
             print(t)
             for s in range(samples_per_window):
 
@@ -273,13 +275,13 @@ class DataSampler(object):
         return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
 
     def setupSpecifiedLeakLocations(self, randomOrdering=True):
-        n_leaks = self.max_leak_loc-1
-        pl_indices = np.zeros((self.max_leak_loc-1,3),dtype=np.int32)
+        n_leaks = self.ds_pot_leaks.sizes['plDim']
+        pl_indices = np.zeros((n_leaks,3),dtype=np.int32)
 
-        for idx in range(self.ds_pot_leaks.sizes['equipDim']):
-            pl_indices[idx,2], pl_indices[idx,1], pl_indices[idx,0] = self.findIndices(self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,0].values, 
-                                                                                       self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,1].values, 
-                                                                                       self.ds_pot_leaks['srcEquipmentLevelLocation'][idx,2].values)
+        for idx in range(n_leaks):
+            pl_indices[idx,0], pl_indices[idx,1], pl_indices[idx,2] = self.findIndices(self.ds_pot_leaks['srcPotLeakLocation'][idx,0].values, 
+                                                                                       self.ds_pot_leaks['srcPotLeakLocation'][idx,1].values, 
+                                                                                       self.ds_pot_leaks['srcPotLeakLocation'][idx,2].values)
         if randomOrdering:
              # randomize the order of the potential leaks
              np.random.shuffle(pl_indices) #only randomizes the first dimension (rows)
@@ -288,7 +290,7 @@ class DataSampler(object):
         #true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices()
         true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
         # Look for the true leak in the potential leaks
-        indx=np.squeeze(np.argwhere(np.all((pl_indices-[true_leak_k,true_leak_j,true_leak_i]==0), axis=-1)))
+        indx=np.squeeze(np.argwhere(np.all((pl_indices-[true_leak_i,true_leak_j,true_leak_k]==0), axis=-1)))
         if indx.size > 0:  #the true leak location is already in the randomly ordered potential leaks
              true_leak_pos = indx # set the return value for the index of the true leak 
         else: #The true location isn't already in the potential leaks
@@ -296,17 +298,17 @@ class DataSampler(object):
              true_leak_pos = np.random.choice(n_leaks, size=1)[0]
              tmp_indices=pl_indices
              pl_indices = np.append(tmp_indices,np.expand_dims(tmp_indices[true_leak_pos,:],axis=0),axis=0)
-             pl_indices[true_leak_pos,:] = [true_leak_k,true_leak_j,true_leak_i]
-             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the true leak
-        i_leak = pl_indices[:,2]
+             pl_indices[true_leak_pos,:] = [true_leak_i,true_leak_j,true_leak_k]
+             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the added true leak
+        i_leak = pl_indices[:,0]
         j_leak = pl_indices[:,1]
-        k_leak = pl_indices[:,0]
+        k_leak = pl_indices[:,2]
 
         return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
 
     def setupStructureMaskLeakLocations(self, structureMask, randomOrdering=True):
         # Find all the indices where structure mask is nonzero 
-        structmask_indices=np.argwhere(structureMask>0)
+        structmask_indices=np.argwhere(structureMask>0)[:,-1::-1] #reverse the structureMask k,j,i ordering to use i,j,k
         # Assume every structure masked cell is a potential leak 
         n_leaks = structmask_indices.shape[0]
         if randomOrdering:
@@ -319,7 +321,7 @@ class DataSampler(object):
         else:
             true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
         # Look for the true leak in the potential leaks
-        indx=np.squeeze(np.argwhere(np.all((structmask_indices-[true_leak_k,true_leak_j,true_leak_i]==0), axis=-1)))
+        indx=np.squeeze(np.argwhere(np.all((structmask_indices-[true_leak_i,true_leak_j,true_leak_k]==0), axis=-1)))
         if indx.size > 0:  #the true leak location is already in the randomly ordered potential leaks
              true_leak_pos = indx # set the return value for the index of the true leak 
         else: #The true location isn't already in the potential leaks
@@ -327,11 +329,11 @@ class DataSampler(object):
              true_leak_pos = np.random.choice(n_leaks, size=1)[0]
              tmp_indices=structmask_indices
              structmask_indices = np.append(tmp_indices,np.expand_dims(tmp_indices[true_leak_pos,:],axis=0),axis=0)
-             structmask_indices[true_leak_pos,:] = [true_leak_k,true_leak_j,true_leak_i]
-             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the true leak
-        i_leak = structmask_indices[:,2]
+             structmask_indices[true_leak_pos,:] = [true_leak_i,true_leak_j,true_leak_k]
+             n_leaks += 1 # Increment the number of pot_leaks by 1 to account for the added true leak
+        i_leak = structmask_indices[:,0]
         j_leak = structmask_indices[:,1]
-        k_leak = structmask_indices[:,0]
+        k_leak = structmask_indices[:,2]
 
         return n_leaks, true_leak_pos, i_leak, j_leak, k_leak
 
