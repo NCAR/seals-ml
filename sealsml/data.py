@@ -266,7 +266,7 @@ class DataSampler(object):
         # Randomize the index of the true leak within the set of randomly located potential leaks
         true_leak_pos = np.random.choice(n_leaks, size=1)[0]
         # Find the true leak indices
-        true_leak_i, true_leak_j, true_leak_k = self.findTrueLeakIndices() 
+        true_leak_i, true_leak_j, true_leak_k = self.findIndices(self.leak_loc[0], self.leak_loc[1], self.leak_loc[2])
         # set the random-indexed potential leak to the true leak position
         i_leak[true_leak_pos] = true_leak_i  
         j_leak[true_leak_pos] = true_leak_j
