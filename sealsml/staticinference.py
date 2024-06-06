@@ -129,15 +129,25 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
   encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
 
+  ## adding the mask ##
+  # Get the shape of the original array and append a 1 to it
+  zeros_shape = encoder_output.shape + (1,)
+
+  # Create the zero-filled array with the new shape
+  zeros_array = np.zeros(zeros_shape)
+
+  # Concatenate the zero-filled array to the original array along the last axis
+  result_array_encoder = np.concatenate((encoder_output[..., np.newaxis], zeros_array), axis=-1)
+
   # Target array is currently number of targets, variables, time)
   print('Target list shape' , np.array(target_list, dtype=float).shape)
   decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
   
   # Create xarray Dataset
-  encoder_ds = xr.DataArray(encoder_output,
-                            dims=['sample', 'sensor', 'time', 'variable'],
-                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
-                            name="encoder_input").astype('float32')
+  encoder_ds = xr.DataArray(result_array_encoder,
+                                  dims=['sample', 'sensor', 'time', 'variable', 'mask'],
+                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
+                                  name="encoder_input").astype('float32')
 
   decoder_ds = xr.DataArray(decoder_output,
                             dims=['sample', 'pot_leak', 'target_time', 'variable'],
