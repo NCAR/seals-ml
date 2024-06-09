@@ -93,15 +93,17 @@ for model_name in config["models"]:
                                  batch_size=config["predict_batch_size"]).squeeze()
 
     if model_name == "backtracker":
-        backtracker_targets = create_binary_preds_relative(v, output)
+        output_unscaled = scaler.inverse_transform(output)
+        output_train_unscaled = scaler.inverse_transform(output_train)
+        backtracker_targets = create_binary_preds_relative(v, output_unscaled)
         pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
                                                                     index=False)
-        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+        pd.DataFrame(output_train_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(
                      os.path.join(out_path, 'seals_train_preds.csv'),
                      index=False)
         pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
                                                                         index=False)
-        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
+        pd.DataFrame(output_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
                                                                          index=False)
 
     scaler_saved = False

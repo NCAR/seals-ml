@@ -523,6 +523,11 @@ class Preprocessor():
 
         return scaled_data
 
+    def inverse_transform(self, data):
+
+        unscaled_data = self.scaler.inverse_transform(data)
+
+        return unscaled_data
 
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):
 
