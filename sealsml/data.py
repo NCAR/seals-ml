@@ -5,7 +5,7 @@ from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
-from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler
+from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler, save_scaler
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -467,9 +467,15 @@ class Preprocessor():
 
         return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
 
-    def load_scaler(self, scaler_path):
+    def load_scalers(self, coord_scaler_path, sensor_scaler_path):
 
-        self.scaler = load_scaler(scaler_path)
+        self.coord_scaler = load_scaler(coord_scaler_path)
+        self.sensor_scaler = load_scaler(sensor_scaler_path)
+
+    def save_scalers(self, out_path):
+
+        save_scaler(self.coord_scaler, join(out_path, f"coord_scaler.json"))
+        save_scaler(self.sensor_scaler, join(out_path, f"sensor_scaler.json"))
 
 
     def save_filenames(self, train_files, validation_files, out_path):

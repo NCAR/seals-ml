@@ -3,7 +3,6 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
 from sealsml.backtrack import backtrack_preprocess
@@ -102,13 +101,13 @@ for model_name in config["models"]:
         pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
                                                                          index=False)
 
-    scaler_saved = False
+    scalers_saved = False
     if config["save_model"]:
         if model_name != "gaussian_process":
             model.save(os.path.join(out_path, f"{model_name}_{date_str}.keras"))
-        if not scaler_saved:
-            save_scaler(p.scaler, os.path.join(out_path, f"scaler_{date_str}.json"))
-            scaler_saved = True
+        if not scalers_saved:
+            p.save_scalers(out_path)
+            scalers_saved = True
 
     if config["save_output"]:
         if model_name != "backtracker":
