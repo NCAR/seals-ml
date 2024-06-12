@@ -9,6 +9,54 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
+def create_mask_inference(array, kind, met_loc_mask=-1, ch4_mask=-999):
+    """
+    Create a mask for inference.
+
+    Parameters:
+    array : np.ndarray
+        A 4-dimensional array with shape [samp, var, sensor, time].
+    kind : str
+        The kind of mask to create, either 'sensor' or 'leak'.
+    met_loc_mask : int, optional
+        The mask value for the 'met' sensor location (default is -1).
+    ch4_mask : int, optional
+        The mask value for other sensors (default is -999).
+
+    Returns:
+    np.ndarray
+        A 5-dimensional array with the mask applied.
+    """
+
+    # Ensure the input array is 4-dimensional
+    if array.ndim != 4:
+        raise ValueError("Input array must be 4-dimensional with shape [samp, var, sensor, time].")
+
+    # Ensure the kind is either 'sensor' or 'leak'
+    if kind not in ["sensor", "leak"]:
+        raise ValueError("Invalid kind. Must be 'sensor' or 'leak'.")
+
+    # Reshape the array to shape [samp, time, sensor, var]
+    array = np.transpose(array, axes=[0, 3, 2, 1])
+
+    # Create the 2D mask with shape [sensor, var]
+    mask_2d = np.zeros((array.shape[-2], array.shape[-1]))
+
+    if kind == "sensor":
+        mask_2d[0] = met_loc_mask  # Set the first sensor as 'met sensor'
+        mask_2d[1:] = ch4_mask     # All other sensors are set to ch4_mask
+    elif kind == "leak":
+        mask_2d[:] = ch4_mask      # All sensors are set to ch4_mask
+
+    # Broadcast the 2D mask to match the shape of the array
+    expanded_mask = np.broadcast_to(mask_2d, array.shape)
+
+    # Stack the original array and the mask along a new last dimension
+    array_w_mask = np.stack([array, expanded_mask], axis=-1)
+
+    # Return the array with the new mask, transposing it back to [samp, var, sensor, time, mask]
+    return np.transpose(array_w_mask, axes=[0, 3, 2, 1, 4])
+
 def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     """
     Extract segments from a time series array.
@@ -129,29 +177,26 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
   encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
 
-  ## adding the mask ##
-  # Get the shape of the original array and append a 1 to it
-  zeros_shape = encoder_output.shape + (1,)
-
-  # Create the zero-filled array with the new shape
-  zeros_array = np.zeros(zeros_shape)
-
-  # Concatenate the zero-filled array to the original array along the last axis
-  result_array_encoder = np.concatenate((encoder_output[..., np.newaxis], zeros_array), axis=-1)
-
   # Target array is currently number of targets, variables, time)
   print('Target list shape' , np.array(target_list, dtype=float).shape)
   decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
+
+  ## Do the masking 
+  encoder_output_masked = create_mask_inference(encoder_output, kind='sensor')
+  print('masked encoder shape', encoder_output_masked.shape)
+                        
+  decoder_output_masked = create_mask_inference(decoder_output, kind='leak')
+  print('masked decoder shape', decoder_output_masked.shape)
   
   # Create xarray Dataset
-  encoder_ds = xr.DataArray(result_array_encoder,
+  encoder_ds = xr.DataArray(encoder_output_masked,
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
                                   name="encoder_input").astype('float32')
 
-  decoder_ds = xr.DataArray(decoder_output,
-                            dims=['sample', 'pot_leak', 'target_time', 'variable'],
-                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]}, # I can add u,v,w, q_CH4 back
+  decoder_ds = xr.DataArray(decoder_output_masked,
+                            dims=['sample', 'pot_leak', 'target_time', 'variable4', 'mask'],
+                            coords={'variable4': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]},
                             name="decoder_input").astype('float32')
     
   ds_static_output = xr.merge([encoder_ds, decoder_ds])
