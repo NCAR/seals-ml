@@ -5,7 +5,7 @@ from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
-from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler, load_scaler
+from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -448,17 +448,20 @@ class Preprocessor():
         self.sensor_type_value = sensor_type_value
 
         if scaler_type.lower() == "standard":
-            self.scaler = DeepStandardScaler()
+            self.coord_scaler = DStandardScaler()
+            self.sensor_scaler = DStandardScaler()
         elif scaler_type.lower() == "minmax":
-            self.scaler = DeepMinMaxScaler()
+            self.coord_scaler = DMinMaxScaler()
+            self.sensor_scaler = DMinMaxScaler()
         elif scaler_type.lower() == "quantile":
-            self.scaler = DeepQuantileTransformer()
+            self.coord_scaler = DQuantileScaler()
+            self.sensor_scaler = DQuantileScaler()
 
     def load_data(self, files):
 
         ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False, engine='netcdf4')
-        encoder_data = ds['encoder_input']
-        decoder_data = ds['decoder_input']
+        encoder_data = ds['encoder_input'].load()
+        decoder_data = ds['decoder_input'].load()
         leak_location = ds['target'].values
         leak_rate = ds['leak_rate'].values
 
@@ -477,24 +480,27 @@ class Preprocessor():
         validation_file_series = pd.Series(validation_files, name="validation_files")
         validation_file_series.to_csv(join(out_path, "validation_files.csv"))
 
-    def preprocess(self, data, fit_scaler=False):
+    def preprocess(self, encoder_data, decoder_data, fit_scaler=False):
 
-        if data.ndim == 4:
-            mask = xr.DataArray(np.zeros(shape=data.shape), dims=data.dims)
-            data = xr.concat([data, mask], dim="mask").transpose(*(data.dims + ('mask',))) # add empty mask if not present
+        # if data.ndim == 4:
+        #     mask = xr.DataArray(np.zeros(shape=data.shape), dims=data.dims)
+        #     data = xr.concat([data, mask], dim="mask").transpose(*(data.dims + ('mask',))) # add empty mask if not present
 
-        imputed_data, mask = self.impute_mask(data)
-        padding_mask = mask[..., 0, 0]
+        imputed_encoder_data, encoder_mask = self.impute_mask(encoder_data)
+        encoder_padding_mask = encoder_mask[..., 0, 0]
+        imputed_decoder_data, decoder_mask = self.impute_mask(decoder_data)
+        decoder_padding_mask = decoder_mask[..., 0, 0]
         if fit_scaler:
-            self.fit_scaler(imputed_data)
+            self.fit_scaler(imputed_encoder_data,imputed_decoder_data)
 
-        scaled_data = self.transform(imputed_data)
-        scaled_data = self.inv_impute_mask(scaled_data, mask).squeeze()
+        scaled_encoder_data, scaled_decoder_data = self.transform(imputed_encoder_data, imputed_decoder_data)
+        scaled_encoder_data = self.inv_impute_mask(scaled_encoder_data, encoder_mask).squeeze()
+        scaled_decoder_data = self.inv_impute_mask(scaled_decoder_data, decoder_mask).squeeze()
 
-        return scaled_data, ~padding_mask
+
+        return scaled_encoder_data, scaled_decoder_data, ~encoder_padding_mask, ~decoder_padding_mask
 
     def impute_mask(self, data):
-
         arr = data[..., 0].values
         mask = data[..., -1].values
 
@@ -513,15 +519,25 @@ class Preprocessor():
 
         return data
 
-    def fit_scaler(self, data):
+    def fit_scaler(self, encoder_data, decoder_data):
 
-        self.scaler.fit(data)
+        # pull a single timestep from encoder to match decoder and concatenate along sensor / pot_leak_loc dim
+        all_coord_data = np.concatenate([encoder_data[:, :, 0:1, :4], decoder_data[..., :4]], axis=1)
 
-    def transform(self, data):
+        self.coord_scaler.fit(all_coord_data)
+        self.sensor_scaler.fit(encoder_data[..., -4:])
 
-        scaled_data = self.scaler.transform(data)
 
-        return scaled_data
+    def transform(self, encoder_data, decoder_data):
+
+        scaled_encoder_coords = self.coord_scaler.transform(encoder_data[..., :4])
+        scaled_encoder_sensors = self.sensor_scaler.transform((encoder_data[..., -4:]))
+        scaled_encoder_data = np.concatenate([scaled_encoder_coords,scaled_encoder_sensors], axis=-1)
+
+        scaled_decoder_coords = self.coord_scaler.transform(decoder_data[..., :4])
+        scaled_decoder_data = np.concatenate([scaled_decoder_coords, decoder_data[..., -4:]], axis=-1)
+
+        return scaled_encoder_data, scaled_decoder_data
 
 
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):

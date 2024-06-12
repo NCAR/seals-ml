@@ -8,7 +8,7 @@ import yaml
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
-from sealsml.evaluate import calculate_distance_matrix
+# from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import load_inference
 from bridgescaler import save_scaler
 
@@ -174,6 +174,9 @@ def test_DataSampler():
 
     data = sampler.sample(time_window_size, samples_per_window, window_stride)
     encoder_input, decoder_input, targets = data['encoder_input'], data['decoder_input'], data['target']
+
+    p = Preprocessor()
+    p.preprocess(encoder_input.load(), decoder_input.load(), fit_scaler=True)
 
     step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
     total_samples = samples_per_window * len(step_size)
