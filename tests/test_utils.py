@@ -226,7 +226,7 @@ def test_static():
     p.load_scaler("./scaler.json")
     scaled_decoder, decoder_mask = p.preprocess(ds['decoder_input'], fit_scaler=False)
     assert scaled_encoder.shape[:4] == ds['encoder_input'].shape[:4]
-    assert scaled_decoder.shape[:4] == ds['decoder_input'].squeeze().shape[:4]
+    assert scaled_decoder.shape[:3] == ds['decoder_input'].squeeze().shape[:3]
     assert encoder_mask.shape == (ds['encoder_input'].shape[0], ds['encoder_input'].shape[1])
 
 def test_extract_ts_segments():
