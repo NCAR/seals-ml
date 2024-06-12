@@ -51,7 +51,7 @@ print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
-scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
+scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val, decoder_data_val, fit_scaler=False)
 
 for model_name in config["models"]:
     start = time.time()
