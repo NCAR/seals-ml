@@ -82,7 +82,7 @@ transformer_leak_rate:
     optimizer_type: "adam"
     adam_beta_1: 0.9
     adam_beta_2: 0.999
-    epsilon: 1e-7
+    epsilon: 0.0000001
     sgd_momentum: 0
 backtracker:
   kwargs:
@@ -113,7 +113,7 @@ backtracker:
     optimizer_type: "adam"
     adam_beta_1: 0.9
     adam_beta_2: 0.999
-    epsilon: 1e-7
+    epsilon: 0.0000001
     sgd_momentum: 0
 gaussian_process:
   kwargs:
