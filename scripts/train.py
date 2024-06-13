@@ -18,6 +18,7 @@ from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler
 from sealsml.backtrack import create_binary_preds_relative
 from sealsml.evaluate import provide_metrics
 tf.debugging.disable_traceback_filtering()
+from keras.optimizers import SGD, Adam
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
@@ -74,7 +75,19 @@ for model_name in config["models"]:
         scaled_encoder_val = scaler.transform(x_val)
     else:
         raise ValueError(f"Incompatible model type {model_name}")
-    model.compile(**config[model_name]["compile"])
+
+    if config[model_name]["optimizer"]["optimizer_type"].lower() == "sgd":
+        optimizer = SGD(learning_rate=config[model_name]["optimizer"]["learning_rate"],
+                        momentum=config[model_name]["optimizer"]["momentum"])
+    elif config[model_name]["optimizer"]["optimizer_type"].lower() == "adam":
+        optimizer = Adam(learning_rate=config[model_name]["optimizer"]["learning_rate"],
+                         beta_1=config[model_name]["optimizer"]["adam_beta_1"],
+                         beta_2=config[model_name]["optimizer"]["adam_beta_2"],
+                         epsilon=config[model_name]["optimizer"]["epsilon"])
+    else:
+        TypeError("Only 'sgd' or 'adam' optimizers are currently supported.")
+
+    model.compile(optimizer=optimizer, **config[model_name]["compile"])
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                          y=y,
                          validation_data=((scaled_encoder_val,
