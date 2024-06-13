@@ -12,8 +12,7 @@ if not exists(test_data[0]):
     test_data = ["test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc"]
 p = Preprocessor(scaler_type="quantile", sensor_pad_value=-1, sensor_type_value=-999)
 encoder_data, decoder_data, y, y_leak_rate = p.load_data(test_data)
-x_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
-x_decoder, decoder_mask = p.preprocess(decoder_data, fit_scaler=False)
+x_encoder, x_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, fit_scaler=True)
 batch_size = x_encoder.shape[0]
 
 def test_quantized_transformer():
