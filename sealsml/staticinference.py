@@ -213,7 +213,7 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   print('masked decoder shape', decoder_output_masked.shape)
   
   # Create xarray Dataset
-  encoder_ds = xr.DataArray(encoder_output_masked,
+  encoder_ds = xr.DataArray(encoder_output_masked.transpose(0,2,3,1,4),
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
                                   name="encoder_input").astype('float32')
