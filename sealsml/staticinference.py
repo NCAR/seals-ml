@@ -148,6 +148,7 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   
     # Met Sensor Math
     met_array_zeros = np.zeros((time_window_size, 8))
+    met_array_zeros[:,2] = 1 #cos_azi = 1
     met_array_zeros[:,4] = u_met.ravel()
     met_array_zeros[:,5] = v_met.ravel()
     met_array_zeros[:,6] = w_met.ravel()
