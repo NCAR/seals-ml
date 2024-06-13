@@ -9,7 +9,7 @@ import os
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
 
-def create_mask_inference(array, kind, met_loc_mask=-1, ch4_mask=-999):
+def create_mask_inference(array, kind, sensor_mask_number=-999, emission_vars= ["q_CH4"], met_vars=["u", "v", "w"]):
     """
     Create a mask for inference.
 
@@ -28,6 +28,7 @@ def create_mask_inference(array, kind, met_loc_mask=-1, ch4_mask=-999):
         A 5-dimensional array with the mask applied.
     """
 
+ 
     # Ensure the input array is 4-dimensional
     if array.ndim != 4:
         raise ValueError("Input array must be 4-dimensional with shape [samp, var, sensor, time].")
@@ -36,9 +37,15 @@ def create_mask_inference(array, kind, met_loc_mask=-1, ch4_mask=-999):
     if kind not in ["sensor", "leak"]:
         raise ValueError("Invalid kind. Must be 'sensor' or 'leak'.")
 
-    # Reshape the array to shape [samp, time, sensor, var]
-    array = np.transpose(array, axes=[0, 3, 2, 1])
+    # Building the mask logic
+    var8 = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]
+    met_loc_mask = np.isin(var8, emission_vars) * sensor_mask_number
+    ch4_mask = np.isin(var8, met_vars) * sensor_mask_number
 
+
+    # Reshape the array to shape [samp, time, sensor, var]
+    array = np.transpose(array, axes=[0, 2, 1, 3])
+    print('Array shape for mask 2', array.shape)
     # Create the 2D mask with shape [sensor, var]
     mask_2d = np.zeros((array.shape[-2], array.shape[-1]))
 
@@ -46,7 +53,8 @@ def create_mask_inference(array, kind, met_loc_mask=-1, ch4_mask=-999):
         mask_2d[0] = met_loc_mask  # Set the first sensor as 'met sensor'
         mask_2d[1:] = ch4_mask     # All other sensors are set to ch4_mask
     elif kind == "leak":
-        mask_2d[:] = ch4_mask      # All sensors are set to ch4_mask
+        # mask_2d[:] = ch4_mask      # All sensors are set to ch4_mask
+        print('Its already leak masked!')
 
     # Broadcast the 2D mask to match the shape of the array
     expanded_mask = np.broadcast_to(mask_2d, array.shape)
