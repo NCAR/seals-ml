@@ -43,6 +43,13 @@ transformer_leak_loc:
     loss: "binary_crossentropy"
     optimizer: "adam"
     metrics: ["binary_accuracy"]
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 1e-7
+    sgd_momentum: 0
 transformer_leak_rate:
   kwargs:
     encoder_layers: 2
@@ -70,6 +77,13 @@ transformer_leak_rate:
     loss: "mse"
 #    optimizer: "adam"
     metrics: [ "mse" ]
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 1e-7
+    sgd_momentum: 0
 backtracker:
   kwargs:
     hidden_layers: 1
@@ -94,6 +108,13 @@ backtracker:
     kwargs: None
   compile:
     loss: "mse"
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 1e-7
+    sgd_momentum: 0
 gaussian_process:
   kwargs:
     num_met_sensors: 1
