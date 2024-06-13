@@ -228,11 +228,8 @@ def test_static():
     assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
 
     p = Preprocessor()
-    # p.load_scaler("/Users/cbecker/Desktop/scaler_2024-05-23_1736.json")
-    scaled_encoder, encoder_mask = p.preprocess(ds['encoder'], fit_scaler=True)
-    save_scaler(p.scaler, "./scaler.json")
-    p.load_scaler("./scaler.json")
-    scaled_decoder, decoder_mask = p.preprocess(ds['decoder'], fit_scaler=False)
+    scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(ds['encoder'], ds['decoder'], fit_scaler=True)
+
     assert scaled_encoder.shape == ds['encoder'].shape
     assert scaled_decoder.shape == ds['decoder'].squeeze().shape
     assert encoder_mask.shape == (ds['encoder'].shape[0], ds['encoder'].shape[1])
