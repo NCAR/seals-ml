@@ -101,21 +101,22 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   Returns:
     Encoder and Decoder in a xarray dataset
   """
-   
   ds = xr.open_dataset(dataset_path).load()
   sitemap = xr.open_dataset(sitemap_path).load()
 
   encoder_arrays: List[NDArray] = []  # List to store encoder arrays for each iteration
   target_list: List[NDArray] = []  # List to store target arrays for each iteration
+  met_list: List[NDArray] = []  # List to store target arrays for each iteration
 
-  # xyz location of the sensors does not change with time
+  # xyz location of the sensors 
+  
+  # does not change with time
   XYZ_met = ds['metPos'].values
   XYZ_ch4 = ds['CH4Pos'].values
   print('How many CH4 sensors?', len(ds.CH4Sensors.values))
 
   #### Let's make some targets
   mask = sitemap['structureMask'].where(sitemap['structureMask'] == 1, drop=False).notnull()
-    
   leak_x = sitemap.xPos.values.ravel()[mask.values.ravel()]
   leak_y = sitemap.yPos.values.ravel()[mask.values.ravel()]
   leak_z = sitemap.zPos.values.ravel()[mask.values.ravel()]
@@ -133,11 +134,21 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   
     # new dataset 
     ds_chunked = ds.isel(time=slice(start, end))
-
     u_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 0]
     v_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 1]
     w_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 2]
   
+    # Met Sensor Math
+    met_array_zeros = np.zeros((time_window_size, 8))
+    met_array_zeros[:,4] = u_met.ravel()
+    met_array_zeros[:,5] = v_met.ravel()
+    met_array_zeros[:,6] = w_met.ravel()
+
+    met_array = met_array_zeros
+    met_list.append(met_array)
+    met_list_array = np.array(met_list)
+    met_list_array_expanded = np.expand_dims(met_list_array, axis=1)
+    
     # For decoder
     for a in range(len(leak_z)):
       targets, mean_wd = get_relative_azimuth(
@@ -167,22 +178,27 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
         XYZ_ch4[i][2], #z_target
         time_series=True  
         )
-
+      # met_array
+      # print('output shape', output.shape)
       ch4_data = ds_chunked['q_CH4'].values[i]
       encoder_array = np.vstack((output, w_met, ch4_data))
       encoder_array = np.expand_dims(encoder_array, axis=-1)
       encoder_arrays.append(encoder_array)
       returned_array = np.concatenate(encoder_arrays, axis=-1).transpose(0, 2, 1)
-
+      # print('returned_array', returned_array.shape)
+  
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
   encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
+  encoder_concat = np.concatenate((met_list_array_expanded, encoder_output), axis=1)
+  
+  print('encoder output shape', encoder_output.shape)
 
   # Target array is currently number of targets, variables, time)
   print('Target list shape' , np.array(target_list, dtype=float).shape)
   decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
 
   ## Do the masking 
-  encoder_output_masked = create_mask_inference(encoder_output, kind='sensor')
+  encoder_output_masked = create_mask_inference(encoder_concat, kind='sensor')
   print('masked encoder shape', encoder_output_masked.shape)
                         
   decoder_output_masked = create_mask_inference(decoder_output, kind='leak')
