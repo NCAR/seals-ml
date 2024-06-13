@@ -218,7 +218,7 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
                                   coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
                                   name="encoder_input").astype('float32')
 
-  decoder_ds = xr.DataArray(decoder_output_masked,
+  decoder_ds = xr.DataArray(decoder_output_masked.transpose(0,2,3,1,4),
                             dims=['sample', 'pot_leak', 'target_time', 'variable4', 'mask'],
                             coords={'variable4': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]},
                             name="decoder_input").astype('float32')
