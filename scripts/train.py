@@ -3,7 +3,6 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
 from sealsml.backtrack import backtrack_preprocess
@@ -15,7 +14,7 @@ import time
 import xarray as xr
 import tensorflow as tf
 import pandas as pd
-from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
+from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler
 from sealsml.backtrack import create_binary_preds_relative
 from sealsml.evaluate import provide_metrics
 tf.debugging.disable_traceback_filtering()
@@ -46,14 +45,12 @@ start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
 start = time.time()
-scaled_encoder, encoder_mask = p.preprocess(encoder_data, fit_scaler=True)
+scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data, fit_scaler=True)
 print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
-scaled_decoder, decoder_mask = p.preprocess(decoder_data, fit_scaler=False)
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
-scaled_encoder_val, encoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
-scaled_decoder_val, decoder_mask_val = p.preprocess(decoder_data_val, fit_scaler=False)
+scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val, decoder_data_val, fit_scaler=False)
 
 for model_name in config["models"]:
     start = time.time()
@@ -72,7 +69,7 @@ for model_name in config["models"]:
         model = BackTrackerDNN(**config[model_name]["kwargs"])
         x, y = backtrack_preprocess(t, **config[model_name]["preprocess"])
         x_val, y_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
-        scaler = DeepQuantileTransformer()
+        scaler = DQuantileScaler()
         scaled_encoder = scaler.fit_transform(x)
         scaled_encoder_val = scaler.transform(x_val)
     else:
@@ -104,13 +101,13 @@ for model_name in config["models"]:
         pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
                                                                          index=False)
 
-    scaler_saved = False
+    scalers_saved = False
     if config["save_model"]:
         if model_name != "gaussian_process":
             model.save(os.path.join(out_path, f"{model_name}_{date_str}.keras"))
-        if not scaler_saved:
-            save_scaler(p.scaler, os.path.join(out_path, f"scaler_{date_str}.json"))
-            scaler_saved = True
+        if not scalers_saved:
+            p.save_scalers(out_path)
+            scalers_saved = True
 
     if config["save_output"]:
         if model_name != "backtracker":
