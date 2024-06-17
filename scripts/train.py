@@ -78,7 +78,7 @@ for model_name in config["models"]:
 
     if config[model_name]["optimizer"]["optimizer_type"].lower() == "sgd":
         optimizer = SGD(learning_rate=config[model_name]["optimizer"]["learning_rate"],
-                        momentum=config[model_name]["optimizer"]["momentum"])
+                        momentum=config[model_name]["optimizer"]["sgd_momentum"])
     elif config[model_name]["optimizer"]["optimizer_type"].lower() == "adam":
         optimizer = Adam(learning_rate=config[model_name]["optimizer"]["learning_rate"],
                          beta_1=config[model_name]["optimizer"]["adam_beta_1"],
