@@ -156,24 +156,43 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
 def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
     # This function creates both the input data, and target data for the ANN/MLP
     encoder = data['encoder_input'].load()
-    targets = data['target'].values
-    target_mask = np.argwhere(targets == 1)
+    decoder = data['decoder_input'].load()
+    target = data['target'].values
+    target_mask = np.argwhere(target == 1)
     leak_locs = data['leak_meta'].values[target_mask[:, 0], target_mask[:, 1]]
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
-
-    print('leak_locs=',leak_locs)
-    print('met_locs=',met_locs)
+    target_polar=np.zeros(shape=(n_samples,4))
+    target_array=np.zeros(shape=(n_samples,4))
+#    print('leak_locs=',leak_locs)
+#    print('met_locs=',met_locs)
+    indices_tuple=np.nonzero(target[:,:,0])
+    # assumes met sensor is origin in all 3 directions
+    for s in range(indices_tuple[0].shape[0]):
+        target_polar[s,:4]=decoder[s,indices_tuple[1][s],0,:4,0]
+    x_leak, y_leak = polar_to_cartesian(target_polar[:,0],
+                                        target_polar[:,1],
+                                        target_polar[:,2])
+    z_leak=target_polar[:,0]*np.sin(target_polar[:,3])
 
     # This statement collapses all CH4 sensor information into one input line rather than n lines, 
     # where n_sensors = number of CH4 sensors
     # The input layer (per sample) has length (n_sensors)*(5+(nsensors)) 
     # so n_sensors * (u,v,x,y,z and n_sensors of CH4 values)
     # The n_sensors replicates correspond to the "max" window around each sensor's max CH4 observation
-    input_array = np.zeros(shape=(n_samples, n_sensors * (5+n_sensors)))  
+    n_snsrs=n_sensors-1
+    input_array = np.zeros(shape=(n_samples, (n_snsrs+5) * n_snsrs))
     
-    target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
+#    target_array = np.concatenate([leak_locs,met_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
+    target_array[:,0]= x_leak
+    target_array[:,1]= y_leak
+    target_array[:,2]= z_leak
+    target_array[:,3]=data['leak_rate'].values
+
+    print(target_array.shape)
+    print('target_array=\n',target_array)
+
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
                     variable=('u'),
@@ -213,11 +232,12 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
         for s in range(0,n_sensors):
             sensor_time_series = ch4_time_series[i, s].values
+            dtc=sensor_time_series[1]-sensor_time_series[0]
             max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
             backtrack_u, backtrack_v = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
-                                                 dt=1,
+                                                 dt=dtc,
                                                  sensor_x=x_sensor[i,s],
                                                  sensor_y=y_sensor[i,s],
                                                  pathmax=pathmax_value)
@@ -225,7 +245,11 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
             v_backtrack.append(backtrack_v)
             coords.append(x_sensor[i,s])
             coords.append(y_sensor[i,s])
-            coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
+            # vertical displacement relative to met sensor height
+            coords.append(relative_sensor_locs.sel(variable='ref_distance').values[i,s]*
+                          np.sin(relative_sensor_locs.sel(variable='ref_elv').values[i, s]))
+#            coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
+
 
 #           this appends the ch4 values at all the other sensors r at the time of the max CH4 value at sensor s
 
@@ -238,9 +262,11 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
         input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
 
-        print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
+#    print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
 
-
+    print(input_array.shape)
+    print('input_array=\n',input_array)
+    
     return input_array, target_array
 
 def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.ndarray:
