@@ -155,9 +155,8 @@ def test_dip():
 
 
 def test_DataSampler():
-
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
-                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4, 
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11,
+                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4,
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
 
@@ -167,7 +166,7 @@ def test_DataSampler():
 
     for i in range(num_sources):
         sampler.data_extract(ds.isel(srcDim=i))
-        
+
     time_window_size = 20
     samples_per_window = 2
     window_stride = 10
@@ -175,18 +174,26 @@ def test_DataSampler():
     data = sampler.sample(time_window_size, samples_per_window, window_stride)
     encoder_input, decoder_input, targets = data['encoder_input'], data['decoder_input'], data['target']
 
+    p = Preprocessor()
+    p.preprocess(encoder_input.load(), decoder_input.load(), fit_scaler=True)
+    p.preprocess(encoder_input.load(), decoder_input.load(), fit_scaler=False)
+    p.save_scalers("./")
+    p.load_scalers("./coord_scaler.json", "./sensor_scaler.json")
+
     step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
     total_samples = samples_per_window * len(step_size)
 
-    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
+    assert encoder_input.shape == (
+    total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
     assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
 
     rand_sample = np.random.randint(1, total_samples, 1)[0]
-    rand_time_1, rand_time_2 = (np.random.randint(0, time_window_size,  1)[0],
-                                np.random.randint(0, time_window_size,  1)[0])
+    rand_time_1, rand_time_2 = (np.random.randint(0, time_window_size, 1)[0],
+                                np.random.randint(0, time_window_size, 1)[0])
     # assert mask is equal
-    assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
+    assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :,
+                                                                 -1]).all()
 
 def test_distance_matrix_export():
     array = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
@@ -219,12 +226,17 @@ def test_static():
     assert isinstance(ds['encoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
 
+    ts_1 = ds['encoder_input'].isel(sample=10, sensor=0, variable=slice(4, 6), mask=0, time=slice(0, 50)).values
+    ts_2 = ds['encoder_input'].isel(sample=11, sensor=0, variable=slice(4, 6), mask=0, time=slice(50, 100)).values
+    assert(ts_1.all() == ts_2.all())
+
     p = Preprocessor()
-    # p.load_scaler("/Users/cbecker/Desktop/scaler_2024-05-23_1736.json")
-    scaled_encoder, encoder_mask = p.preprocess(ds['encoder_input'], fit_scaler=True)
-    save_scaler(p.scaler, "./scaler.json")
-    p.load_scaler("./scaler.json")
-    scaled_decoder, decoder_mask = p.preprocess(ds['decoder_input'], fit_scaler=False)
+    scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(ds['encoder_input'],
+                                                                              ds['decoder_input'],
+                                                                              fit_scaler=True)
+
+    p.save_scalers("./")
+    p.load_scalers("./coord_scaler.json", "./sensor_scaler.json")
     assert scaled_encoder.shape[:4] == ds['encoder_input'].shape[:4]
     assert scaled_decoder.shape[:3] == ds['decoder_input'].squeeze().shape[:3]
     assert encoder_mask.shape == (ds['encoder_input'].shape[0], ds['encoder_input'].shape[1])
