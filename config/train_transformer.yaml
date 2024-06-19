@@ -1,7 +1,7 @@
 #data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
 #data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
 #out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
-data_path: "/glade/work/cbecker/SEALS_training_data/data_gen_20240215/"
+data_path: "/glade/work/cbecker/SEALS_training_data/data_gen_20240529/"
 out_path: "/glade/work/username/SEALS_output/train/"
 #data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
 #out_path: "/glade/scratch/username/SEALS_output/"
@@ -13,8 +13,10 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
+#models: ['transformer_leak_loc']
 #models: ['backtracker']
 models: ['transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
+
 transformer_leak_loc:
   kwargs:
     encoder_layers: 2
@@ -41,8 +43,14 @@ transformer_leak_loc:
     batch_size: 1024
   compile:
     loss: "binary_crossentropy"
-    optimizer: "adam"
     metrics: ["binary_accuracy"]
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 transformer_leak_rate:
   kwargs:
     encoder_layers: 2
@@ -68,8 +76,14 @@ transformer_leak_rate:
     batch_size: 512
   compile:
     loss: "mse"
-#    optimizer: "adam"
     metrics: [ "mse" ]
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 backtracker:
   kwargs:
     hidden_layers: 1
@@ -94,6 +108,13 @@ backtracker:
     kwargs: None
   compile:
     loss: "mse"
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 gaussian_process:
   kwargs:
     num_met_sensors: 1
