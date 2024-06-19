@@ -48,6 +48,7 @@ class DataSampler(object):
         self.n_rotated_vars = len(coord_vars) + len(met_vars[:2])
         self.met_loc_mask = np.isin(self.variables, self.emission_vars) * sensor_type_mask
         self.ch4_mask = np.isin(self.variables, self.met_vars) * sensor_type_mask
+        self.leak_mask = np.isin(self.variables, self.met_vars + self.emission_vars) * sensor_type_mask
         self.pot_leaks_scheme = pot_leaks_scheme
         self.pot_leaks_file = pot_leaks_file
 
@@ -375,7 +376,7 @@ class DataSampler(object):
 
         elif kind == "leak":
 
-            mask_2d[:] = self.ch4_mask
+            mask_2d[:] = self.leak_mask
 
         expanded_mask = np.broadcast_to(mask_2d, array.shape)
         array_w_mask = np.stack(arrays=[array, expanded_mask], axis=-1)
