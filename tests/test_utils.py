@@ -9,7 +9,7 @@ from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
-from sealsml.staticinference import load_inference
+from sealsml.staticinference import specific_site_data_generation, extract_ts_segments
 from bridgescaler import save_scaler
 
 def test_polar_to_cart1():
@@ -155,9 +155,8 @@ def test_dip():
 
 
 def test_DataSampler():
-
-    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11, 
-                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4, 
+    sampler = DataSampler(min_trace_sensors=4, max_trace_sensors=12, min_leak_loc=1, max_leak_loc=11,
+                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4,
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'])
 
@@ -167,7 +166,7 @@ def test_DataSampler():
 
     for i in range(num_sources):
         sampler.data_extract(ds.isel(srcDim=i))
-        
+
     time_window_size = 20
     samples_per_window = 2
     window_stride = 10
@@ -184,15 +183,17 @@ def test_DataSampler():
     step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
     total_samples = samples_per_window * len(step_size)
 
-    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
+    assert encoder_input.shape == (
+    total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
     assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
 
     rand_sample = np.random.randint(1, total_samples, 1)[0]
-    rand_time_1, rand_time_2 = (np.random.randint(0, time_window_size,  1)[0],
-                                np.random.randint(0, time_window_size,  1)[0])
+    rand_time_1, rand_time_2 = (np.random.randint(0, time_window_size, 1)[0],
+                                np.random.randint(0, time_window_size, 1)[0])
     # assert mask is equal
-    assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :, -1]).all()
+    assert (encoder_input[rand_sample, :, rand_time_1, :, -1] == encoder_input[rand_sample, :, rand_time_2, :,
+                                                                 -1]).all()
 
 def test_distance_matrix_export():
     array = np.array([[0, 0, 0], [1, 1, 1], [2, 2, 2]])
@@ -210,33 +211,57 @@ def test_distance_matrix_export():
     assert result[2] == pytest.approx(expected_median, abs=1e-2)
     assert result[3] == pytest.approx(expected_max, abs=1e-2)
 
+def test_static():
 
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
+    test_data = os.path.expanduser(test_data_path)
+    assert os.path.exists(test_data), f"File not found: {test_data}"
 
-# def test_static():
-#
-#     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
-#     test_data = os.path.expanduser(test_data_path)
-#     assert os.path.exists(test_data), f"File not found: {test_data}"
-#
-#     sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
-#     sitemap = os.path.expanduser(sitemap_path)
-#     assert os.path.exists(test_data), f"File not found: {sitemap}"
-#
-#     ds = load_inference(test_data, sitemap, timestep=100)
-#     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
-#     assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
-#     assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
-#     # print(ds['encoder'], ds['decoder'])
-#     p = Preprocessor()
-#     scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(ds['encoder'], ds['decoder'], fit_scaler=True)
-#
-#     assert scaled_encoder.shape == ds['encoder'].shape
-#     assert scaled_decoder.shape == ds['decoder'].squeeze().shape
-#     assert encoder_mask.shape == (ds['encoder'].shape[0], ds['encoder'].shape[1])
+    sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
+    sitemap = os.path.expanduser(sitemap_path)
+    assert os.path.exists(test_data), f"File not found: {sitemap}"
 
+    ds = specific_site_data_generation(test_data, sitemap, time_window_size=100, window_stride=50)
+    assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
+    assert isinstance(ds['encoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
+    assert isinstance(ds['decoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
 
-    # assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
-    #
-    # Assert first dimension of both target and encoder are the same
-    # assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
-  
+    ts_1 = ds['encoder_input'].isel(sample=10, sensor=0, variable=slice(4, 6), mask=0, time=slice(0, 50)).values
+    ts_2 = ds['encoder_input'].isel(sample=11, sensor=0, variable=slice(4, 6), mask=0, time=slice(50, 100)).values
+    assert(ts_1.all() == ts_2.all())
+
+    p = Preprocessor()
+    scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(ds['encoder_input'],
+                                                                              ds['decoder_input'],
+                                                                              fit_scaler=True)
+
+    p.save_scalers("./")
+    p.load_scalers("./coord_scaler.json", "./sensor_scaler.json")
+    assert scaled_encoder.shape[:4] == ds['encoder_input'].shape[:4]
+    assert scaled_decoder.shape[:3] == ds['decoder_input'].squeeze().shape[:3]
+    assert encoder_mask.shape == (ds['encoder_input'].shape[0], ds['encoder_input'].shape[1])
+
+def test_extract_ts_segments():
+    # Test case 1: Regular case
+    time_series = np.arange(10)
+    segment_length = 3
+    stride = 2
+    expected_indices = np.array([[0, 3], [2, 5], [4, 7], [6, 9]])
+    expected_dropped_elements = np.array([9])
+    
+    start_end_indices, dropped_elements = extract_ts_segments(time_series, segment_length, stride)
+    
+    assert np.array_equal(start_end_indices, expected_indices), "Test case 1: Start-End Indices do not match"
+    assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 1: Dropped elements do not match"
+    
+    # Test case 2: No elements dropped
+    time_series = np.arange(9)
+    segment_length = 3
+    stride = 3
+    expected_indices = np.array([[0, 3], [3, 6], [6, 9]])
+    expected_dropped_elements = np.array([])
+    
+    start_end_indices, dropped_elements = extract_ts_segments(time_series, segment_length, stride)
+    
+    assert np.array_equal(start_end_indices, expected_indices), "Test case 2: Start-End Indices do not match"
+    assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 2: Dropped elements do not match"
