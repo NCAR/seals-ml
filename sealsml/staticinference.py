@@ -121,21 +121,18 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   # does not change with time
   XYZ_met = ds['metPos'].values
   XYZ_ch4 = ds['CH4Pos'].values
-  print('How many CH4 sensors?', len(ds.CH4Sensors.values))
 
   #### Let's make some targets
   mask = sitemap['structureMask'].where(sitemap['structureMask'] == 1, drop=False).notnull()
   leak_x = sitemap.xPos.values.ravel()[mask.values.ravel()]
   leak_y = sitemap.yPos.values.ravel()[mask.values.ravel()]
   leak_z = sitemap.zPos.values.ravel()[mask.values.ravel()]
-  print('Number of possible leaks:', len(leak_z))
 
   # time series chunking
   ts_indicies, dropped = extract_ts_segments(ds.time.values, 
                                              time_window_size=time_window_size, 
                                              window_stride=window_stride)
-
-  # we are going to run a loop for each 
+  # we are going to run a loop for each
   for t in range(ts_indicies.shape[0]):
     start = ts_indicies[t][0]
     end = ts_indicies[t][1]
@@ -147,13 +144,12 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
     w_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 2]
   
     # Met Sensor Math
-    met_array_zeros = np.zeros((time_window_size, 8))
-    met_array_zeros[:,2] = 1 #cos_azi = 1
-    met_array_zeros[:,4] = u_met.ravel()
-    met_array_zeros[:,5] = v_met.ravel()
-    met_array_zeros[:,6] = w_met.ravel()
+    met_array = np.zeros((time_window_size, 8))
+    met_array[:,2] = 1  #cos_azi = 1
+    met_array[:,4] = u_met.ravel()
+    met_array[:,5] = v_met.ravel()
+    met_array[:,6] = w_met.ravel()
 
-    met_array = met_array_zeros
     met_list.append(met_array)
     met_list_array = np.array(met_list)
     met_list_array_expanded = np.expand_dims(met_list_array, axis=1)
@@ -171,11 +167,12 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
         leak_z[a], #z_target
         time_series=False
         )
-      target_list.append(targets[:4]) # This is the other line that needs to be fixed
+      decoder_vars = np.zeros(shape=(8, 1))
+      decoder_vars[:4] = targets[:4]
+      target_list.append(decoder_vars)
 
     # For encoder
     for i in ds.CH4Sensors.values:
-    # get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target, time_series=True):
       output, mean_wd = get_relative_azimuth(
         u_met, # u
         v_met, # v
@@ -199,20 +196,14 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
   encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
   encoder_concat = np.concatenate((met_list_array_expanded, encoder_output), axis=1)
-  
-  print('encoder output shape', encoder_output.shape)
 
   # Target array is currently number of targets, variables, time)
-  print('Target list shape' , np.array(target_list, dtype=float).shape)
-  decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 4, 1).transpose(0, 1, 3, 2)
+  decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 8, 1).transpose(0, 1, 3, 2)
 
   ## Do the masking 
   encoder_output_masked = create_mask_inference(encoder_concat, kind='sensor')
-  print('masked encoder shape', encoder_output_masked.shape)
-                        
   decoder_output_masked = create_mask_inference(decoder_output, kind='leak')
-  print('masked decoder shape', decoder_output_masked.shape)
-  
+
   # Create xarray Dataset
   encoder_ds = xr.DataArray(encoder_output_masked.transpose(0,2,3,1,4),
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
@@ -220,8 +211,8 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
                                   name="encoder_input").astype('float32')
 
   decoder_ds = xr.DataArray(decoder_output_masked.transpose(0,2,3,1,4),
-                            dims=['sample', 'pot_leak', 'target_time', 'variable4', 'mask'],
-                            coords={'variable4': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]},
+                            dims=['sample', 'pot_leak', 'target_time', 'variable', 'mask'],
+                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
                             name="decoder_input").astype('float32')
     
   ds_static_output = xr.merge([encoder_ds, decoder_ds])
