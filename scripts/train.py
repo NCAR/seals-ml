@@ -7,6 +7,7 @@ from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
 from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
+from os.path import join
 import keras
 import numpy as np
 import datetime
@@ -33,7 +34,8 @@ config["out_path"] = config["out_path"].replace("username", username)
 date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 out_path = os.path.join(config["out_path"], date_str)
 os.makedirs(out_path, exist_ok=False)
-
+with open(join(out_path, 'train.yml'), 'w') as outfile:
+     yaml.dump(config, outfile, default_flow_style=False)
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
 training, validation = train_test_split(files,
