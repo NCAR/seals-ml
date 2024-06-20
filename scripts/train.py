@@ -6,7 +6,7 @@ from sealsml.data import Preprocessor, save_output
 from bridgescaler import save_scaler
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
-from sealsml.backtrack import preprocess
+from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
 import keras
 import numpy as np
@@ -30,6 +30,9 @@ keras.utils.set_random_seed(config["random_seed"])
 np.random.seed(config["random_seed"])
 username = os.environ.get('USER')
 config["out_path"] = config["out_path"].replace("username", username)
+date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
+out_path = os.path.join(config["out_path"], date_str)
+os.makedirs(out_path, exist_ok=False)
 
 files = glob.glob(os.path.join(config["data_path"], "*.nc"))
 
@@ -38,7 +41,7 @@ training, validation = train_test_split(files,
                                         random_state=config["random_seed"])
 
 p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
-p.save_filenames(training, validation, config["out_path"])
+p.save_filenames(training, validation, out_path)
 start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
@@ -51,9 +54,6 @@ print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
 scaled_encoder_val, encoder_mask_val = p.preprocess(encoder_data_val, fit_scaler=False)
 scaled_decoder_val, decoder_mask_val = p.preprocess(decoder_data_val, fit_scaler=False)
-date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
-out_path = os.path.join(config["out_path"], date_str)
-os.makedirs(out_path, exist_ok=False)
 
 for model_name in config["models"]:
     start = time.time()
@@ -70,8 +70,8 @@ for model_name in config["models"]:
         t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
         v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, y = preprocess(t, **config[model_name]["preprocess"])
-        x_val, y_val = preprocess(v, **config[model_name]["preprocess"])
+        x, y = backtrack_preprocess(t, **config[model_name]["preprocess"])
+        x_val, y_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
         scaler = DeepQuantileTransformer()
         scaled_encoder = scaler.fit_transform(x)
         scaled_encoder_val = scaler.transform(x_val)

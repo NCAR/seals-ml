@@ -1,7 +1,7 @@
 from sealsml.keras.layers import VectorQuantizer
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
 from sealsml.data import Preprocessor
-from sealsml.backtrack import preprocess, create_binary_preds_relative
+from sealsml.backtrack import backtrack_preprocess, create_binary_preds_relative
 import numpy as np
 import xarray as xr
 from keras.models import load_model
@@ -62,7 +62,7 @@ def test_transformer_regressor():
 
 def test_backtracker():
     data = xr.open_dataset(test_data[0])
-    x, y = preprocess(xr.open_dataset(test_data[0]), n_sensors=3)
+    x, y = backtrack_preprocess(xr.open_dataset(test_data[0]), n_sensors=3)
     np.random.seed(32525)
     model = BackTrackerDNN(hidden_layers=2, hidden_neurons=128, n_output_tasks=4)
     model.compile(loss='mse')

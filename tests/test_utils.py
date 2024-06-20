@@ -2,13 +2,15 @@ import os
 import pytest
 import numpy as np
 import xarray as xr
+import yaml 
 
 # Our functiuons 
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
-from sealsml.data import DataSampler
+from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import load_inference
+from bridgescaler import save_scaler
 
 def test_polar_to_cart1():
     # Test with single values
@@ -163,7 +165,7 @@ def test_DataSampler():
     test_data = os.path.expanduser(test_data_path)
     ds, num_sources = sampler.load_data([test_data])
 
-    for i in range(len(num_sources)):
+    for i in range(num_sources):
         sampler.data_extract(ds.isel(srcDim=i))
         
     time_window_size = 20
@@ -176,7 +178,7 @@ def test_DataSampler():
     step_size = np.arange(1, sampler.time_steps - time_window_size, window_stride)
     total_samples = samples_per_window * len(step_size)
 
-    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors, time_window_size, len(sampler.variables), 2)
+    assert encoder_input.shape == (total_samples, sampler.max_trace_sensors + 1, time_window_size, len(sampler.variables), 2)
     assert decoder_input.shape == (total_samples, sampler.max_leak_loc, 1, len(sampler.variables), 2)
     assert targets.shape == (total_samples, sampler.max_leak_loc, 1)
 
@@ -205,11 +207,7 @@ def test_distance_matrix_export():
 
 
 def test_static():
-    """
 
-    """
-
-    # Test Case #2
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/inference_example_v1.nc')
     test_data = os.path.expanduser(test_data_path)
     assert os.path.exists(test_data), f"File not found: {test_data}"
@@ -217,13 +215,25 @@ def test_static():
     sitemap_path = os.path.join(os.path.dirname(__file__), '../test_data/sitemap_A.nc')
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
-    
-    encoder, target = load_inference(test_data, sitemap, timestep=100)
 
-    # Assert encoder shape
-    assert encoder.shape[2] == 8, f"Expected encoder shape[0] to be 8, but got {encoder.shape[0]}"
-    assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+    ds = load_inference(test_data, sitemap, timestep=100)
+    assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
+    assert isinstance(ds['encoder'], xr.DataArray), "The object is not an xarray.DataArray"
+    assert isinstance(ds['decoder'], xr.DataArray), "The object is not an xarray.DataArray"
 
+    p = Preprocessor()
+    # p.load_scaler("/Users/cbecker/Desktop/scaler_2024-05-23_1736.json")
+    scaled_encoder, encoder_mask = p.preprocess(ds['encoder'], fit_scaler=True)
+    save_scaler(p.scaler, "./scaler.json")
+    p.load_scaler("./scaler.json")
+    scaled_decoder, decoder_mask = p.preprocess(ds['decoder'], fit_scaler=False)
+    assert scaled_encoder.shape == ds['encoder'].shape
+    assert scaled_decoder.shape == ds['decoder'].squeeze().shape
+    assert encoder_mask.shape == (ds['encoder'].shape[0], ds['encoder'].shape[1])
+
+
+    # assert encoder.shape[3] == 100, f"Expected encoder shape[2] to be 100, but got {encoder.shape[2]}"
+    #
     # Assert first dimension of both target and encoder are the same
-    assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
+    # assert encoder.shape[0] == target.shape[0], f"Expected encoder.shape[0] ({encoder.shape[0]}) to match target.shape[0] ({target.shape[0]})"
   
