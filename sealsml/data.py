@@ -5,7 +5,7 @@ from os.path import join, exists
 from os import makedirs
 from sealsml.geometry import GeoCalculator, get_relative_azimuth
 from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
-
+from bridgescaler import DQuantileScaler, DStandardScaler, DMinMaxScaler
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
@@ -308,7 +308,7 @@ class DataSampler(object):
         return ds
 
 
-class Preprocessor():
+class Preprocessor(object):
 
     def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
 
@@ -382,6 +382,17 @@ class Preprocessor():
         scaled_data = self.scaler.transform(data)
 
         return scaled_data
+
+
+class MultiPreprocessor(object):
+    def __init__(self, scaler_type="quantile", scaler_kwargs=None, sensor_pad_value=None, sensor_type_value=None):
+        self.sensor_pad_value = sensor_pad_value
+        self.sensor_type_value = sensor_type_value
+        if scaler_kwargs is None:
+            scaler_kwargs = {}
+        self.scaler_kwargs = scaler_kwargs
+
+
 
 
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):

@@ -1,16 +1,13 @@
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score
-from sealsml.geometry import GeoCalculator
 from sealsml.data import Preprocessor
 import xarray as xr
 from sealsml.geometry import get_relative_azimuth
 import os
-from keras.models import load_model
-from bridgescaler import load_scaler
 import matplotlib.pyplot as plt
-from hagelslag.evaluation.ContingencyTable import ContingencyTable
-from hagelslag.evaluation.ProbabilityMetrics import DistributedROC, DistributedReliability, DistributedCRPS
 from matplotlib.colors import LogNorm
+
+
 def provide_metrics(y_true, probabilities):
 
     metrics = {}
