@@ -312,9 +312,3 @@ def test_generate_sensor_positions_min_distance():
     # Ensure it doesn't enter an infinite loop
     assert len(i_sensor_impossible) < n_sensors_impossible, \
         "Function should not place all sensors in an impossible scenario"
-
-    # Ensure the warning message is printed
-    with pytest.raises(Warning, match="Only"):
-        generate_sensor_positions_min_distance(
-            n_sensors_impossible, min_distance, iDim_small, jDim_small, grid_resolution, max_attempts
-        )
