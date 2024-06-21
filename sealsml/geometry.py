@@ -285,9 +285,11 @@ def generate_sensor_positions_min_distance(n_sensors, min_distance, iDim, jDim, 
     
     attempts = 0  # Counter for attempts to place a sensor.
     
+    adjusted_min_distance = min_distance / grid_resolution
+
     while len(sensors) < n_sensors and attempts < max_attempts:
         new_point = (np.random.uniform(0, iDim), np.random.uniform(0, jDim))
-        adjusted_min_distance = min_distance / grid_resolution
+        
         
         if all(np.linalg.norm(np.array(new_point) - np.array(existing_point)) >= adjusted_min_distance for existing_point in sensors):
             sensors.append(new_point)

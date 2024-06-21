@@ -100,6 +100,7 @@ class DataSampler(object):
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
+        self.x_res = self.data['xPos'][1, 0, 0].values - self.data['xPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue'].values
         self.leak_loc = self.data['srcAuxScLocation'].values
 
@@ -145,9 +146,10 @@ class DataSampler(object):
                 elif strategy == 'minimum_distance':
                     # This does not take into account vertical componet
                     i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors, 
-                                                                                min_distance=minimum_distance,
+                                                                                min_distance=minimum_distance, # this needs to be yaml'd
                                                                                 iDim = self.iDim,
-                                                                                jDim = self.jDim)
+                                                                                jDim = self.jDim,
+                                                                                grid_resolution=self.x_res)
                 else:
                     print('bad strategy')
 
