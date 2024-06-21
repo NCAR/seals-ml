@@ -5,65 +5,10 @@ from typing import List
 from numpy.typing import NDArray
 import yaml
 import os
+import time
 
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
-
-def create_mask_inference(array, kind, sensor_mask_number=-999, emission_vars= ["q_CH4"], met_vars=["u", "v", "w"]):
-    """
-    Create a mask for inference.
-
-    Parameters:
-    array : np.ndarray
-        A 4-dimensional array with shape [samp, var, sensor, time].
-    kind : str
-        The kind of mask to create, either 'sensor' or 'leak'.
-    met_loc_mask : int, optional
-        The mask value for the 'met' sensor location (default is -1).
-    ch4_mask : int, optional
-        The mask value for other sensors (default is -999).
-
-    Returns:
-    np.ndarray
-        A 5-dimensional array with the mask applied.
-    """
-
- 
-    # Ensure the input array is 4-dimensional
-    if array.ndim != 4:
-        raise ValueError("Input array must be 4-dimensional with shape [samp, var, sensor, time].")
-
-    # Ensure the kind is either 'sensor' or 'leak'
-    if kind not in ["sensor", "leak"]:
-        raise ValueError("Invalid kind. Must be 'sensor' or 'leak'.")
-
-    # Building the mask logic
-    var8 = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]
-    met_loc_mask = np.isin(var8, emission_vars) * sensor_mask_number
-    ch4_mask = np.isin(var8, met_vars) * sensor_mask_number
-
-
-    # Reshape the array to shape [samp, time, sensor, var]
-    array = np.transpose(array, axes=[0, 2, 1, 3])
-    print('Array shape for mask 2', array.shape)
-    # Create the 2D mask with shape [sensor, var]
-    mask_2d = np.zeros((array.shape[-2], array.shape[-1]))
-
-    if kind == "sensor":
-        mask_2d[0] = met_loc_mask  # Set the first sensor as 'met sensor'
-        mask_2d[1:] = ch4_mask     # All other sensors are set to ch4_mask
-    elif kind == "leak":
-        # mask_2d[:] = ch4_mask      # All sensors are set to ch4_mask
-        print('Its already leak masked!')
-
-    # Broadcast the 2D mask to match the shape of the array
-    expanded_mask = np.broadcast_to(mask_2d, array.shape)
-
-    # Stack the original array and the mask along a new last dimension
-    array_w_mask = np.stack([array, expanded_mask], axis=-1)
-
-    # Return the array with the new mask, transposing it back to [samp, var, sensor, time, mask]
-    return np.transpose(array_w_mask, axes=[0, 3, 2, 1, 4])
 
 def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     """
@@ -92,7 +37,7 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     print('Number of dropped elements:', np.size(dropped_elements))
     return start_end_indices, dropped_elements
 
-def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: int, window_stride:int, export_mean_wd = False):
+def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_window_size: int, window_stride:int, sensor_type_value=-999, emission_vars=["q_CH4"], met_vars=["u", "v", "w"], coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]):
   """
   This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
 
@@ -104,120 +49,174 @@ def specific_site_data_generation(dataset_path, sitemap_path, time_window_size: 
   Parameters as netCDF:
     dataset: The dataset to be processed.
     sitemap: Sitemap in netCDF
-    timestep (int): The length of each timestep to chunk the data for ML inference.
+    potloc_path: Potential leak locations file
+  Configurable parameters:
+    time_window_size (int): Length of timeseries (index based) for each sample [needs to be consitent with the ML model...]
+    window_stride (int): stride width to slide window through time (index based)
 
   Returns:
     Encoder and Decoder in a xarray dataset
   """
+  # variables
+  variables = coord_vars + met_vars + emission_vars
+
   ds = xr.open_dataset(dataset_path).load()
   sitemap = xr.open_dataset(sitemap_path).load()
-
-  encoder_arrays: List[NDArray] = []  # List to store encoder arrays for each iteration
-  target_list: List[NDArray] = []  # List to store target arrays for each iteration
-  met_list: List[NDArray] = []  # List to store target arrays for each iteration
+  potloc = xr.open_dataset(potloc_path).load()
 
   # xyz location of the sensors 
-  
   # does not change with time
   XYZ_met = ds['metPos'].values
   XYZ_ch4 = ds['CH4Pos'].values
 
-  #### Let's make some targets
-  mask = sitemap['structureMask'].where(sitemap['structureMask'] == 1, drop=False).notnull()
-  leak_x = sitemap.xPos.values.ravel()[mask.values.ravel()]
-  leak_y = sitemap.yPos.values.ravel()[mask.values.ravel()]
-  leak_z = sitemap.zPos.values.ravel()[mask.values.ravel()]
+  potleak_locs = potloc.srcPotLeakLocation.values
+  leak_x = potleak_locs[:,0]
+  leak_y = potleak_locs[:,1]
+  leak_z = potleak_locs[:,2]
 
   # time series chunking
   ts_indicies, dropped = extract_ts_segments(ds.time.values, 
                                              time_window_size=time_window_size, 
                                              window_stride=window_stride)
+
+  sample_len = ts_indicies.shape[0]
+  sensor_len = ds.sizes['CH4Sensors'] + ds.sizes['metSensors']
+  variable_len = len(variables)
+  mask_len = 2
+  pot_leak_len = potloc.sizes['plDim']
+  target_time_len = 1
+
+  encoder_input = np.zeros([sample_len,sensor_len,time_window_size,variable_len,mask_len])
+  print('encoder_input.shape=',encoder_input.shape)
+  decoder_input = np.zeros([sample_len,pot_leak_len,target_time_len,variable_len,mask_len])
+  print('decoder_input.shape=',decoder_input.shape)
+  mean_wd = np.zeros(sample_len)
+
+  # encoder masks
+  mask_met = np.isin(variables, emission_vars) * sensor_type_value
+  mask_ch4 = np.isin(variables, met_vars) * sensor_type_value
+  mask_met_2d = np.matlib.repmat(mask_met, time_window_size, 1)
+  mask_ch4_2d = np.matlib.repmat(mask_ch4, time_window_size, 1)
+  # decoder mask
+  leak_mask = np.isin(variables, met_vars+emission_vars) * sensor_type_value
+
+  metVels = ds.metVels.values
+  q_CH4 = ds.q_CH4.values
+
   # we are going to run a loop for each
-  for t in range(ts_indicies.shape[0]):
+  for t in range(sample_len):
     start = ts_indicies[t][0]
     end = ts_indicies[t][1]
   
-    # new dataset 
-    ds_chunked = ds.isel(time=slice(start, end))
-    u_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 0]
-    v_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 1]
-    w_met = ds_chunked.metVels.sel(metSensors=0).values.T[:, 2]
-  
-    # Met Sensor Math
-    met_array = np.zeros((time_window_size, 8))
-    met_array[:,2] = 1  #cos_azi = 1
-    met_array[:,4] = u_met.ravel()
-    met_array[:,5] = v_met.ravel()
-    met_array[:,6] = w_met.ravel()
+    # velocity components from the reference (and only) meteorological sensor [encoder]
+    u_met = metVels[0,0,start:end]
+    v_met = metVels[0,1,start:end]
+    w_met = metVels[0,2,start:end]
 
-    met_list.append(met_array)
-    met_list_array = np.array(met_list)
-    met_list_array_expanded = np.expand_dims(met_list_array, axis=1)
-    
-    # For decoder
-    for a in range(len(leak_z)):
-      targets, mean_wd = get_relative_azimuth(
-        u_met, # u
-        v_met, # v
-        XYZ_met[0][0], #x_ref 
-        XYZ_met[0][1], #y_ref
-        XYZ_met[0][2], #z_ref
-        leak_x[a], #x_target
-        leak_y[a], #y_target
-        leak_z[a], #z_target
-        time_series=False
-        )
-      decoder_vars = np.zeros(shape=(8, 1))
-      decoder_vars[:4] = targets[:4]
-      target_list.append(decoder_vars)
+    derived_vars, mean_wd_t = get_relative_azimuth(u=u_met,
+                                                   v=v_met,
+                                                   x_ref=XYZ_met[0][0],
+                                                   y_ref=XYZ_met[0][1],
+                                                   z_ref=XYZ_met[0][2],
+                                                   x_target=XYZ_met[0][0],
+                                                   y_target=XYZ_met[0][1],
+                                                   z_target=XYZ_met[0][2],
+                                                   time_series=True)
 
-    # For encoder
+    encoder_input[t,0,:,0:6,0] = derived_vars.T
+    encoder_input[t,0,:,6,0] = w_met
+    encoder_input[t,0,:,:,1] = mask_met_2d
+    mean_wd[t] = mean_wd_t
+
+    # CH4 sensors [encoder]
     for i in ds.CH4Sensors.values:
-      output, mean_wd = get_relative_azimuth(
-        u_met, # u
-        v_met, # v
-        XYZ_met[0][0], #x_ref 
-        XYZ_met[0][1], #y_ref
-        XYZ_met[0][2], #z_ref
-        XYZ_ch4[i][0], #x_target
-        XYZ_ch4[i][1], #y_target
-        XYZ_ch4[i][2], #z_target
-        time_series=True  
-        )
-      # met_array
-      # print('output shape', output.shape)
-      ch4_data = ds_chunked['q_CH4'].values[i]
-      encoder_array = np.vstack((output, w_met, ch4_data))
-      encoder_array = np.expand_dims(encoder_array, axis=-1)
-      encoder_arrays.append(encoder_array)
-      returned_array = np.concatenate(encoder_arrays, axis=-1).transpose(0, 2, 1)
-      # print('returned_array', returned_array.shape)
-  
-  # Reshape the array to (variables, number of ch4 sensors, timeseries, number of timeseries)
-  encoder_output = returned_array.reshape(8, len(ds.CH4Sensors.values), time_window_size, ts_indicies.shape[0]).transpose(3, 1, 2, 0)
-  encoder_concat = np.concatenate((met_list_array_expanded, encoder_output), axis=1)
 
-  # Target array is currently number of targets, variables, time)
-  decoder_output = np.array(target_list, dtype=float).reshape(ts_indicies.shape[0], len(leak_z), 8, 1).transpose(0, 1, 3, 2)
+        ch4_tmp = q_CH4[i,start:end]
 
-  ## Do the masking 
-  encoder_output_masked = create_mask_inference(encoder_concat, kind='sensor')
-  decoder_output_masked = create_mask_inference(decoder_output, kind='leak')
+        derived_vars, theta_wd = get_relative_azimuth(u=u_met,
+                                                      v=v_met,
+                                                      x_ref=XYZ_met[0][0],
+                                                      y_ref=XYZ_met[0][1],
+                                                      z_ref=XYZ_met[0][2],
+                                                      x_target=XYZ_ch4[i][0],
+                                                      y_target=XYZ_ch4[i][1],
+                                                      z_target=XYZ_ch4[i][2],
+                                                      time_series=True)
+
+        encoder_input[t,i+ds.sizes['metSensors'],:,0:4,0] = derived_vars[0:4].T
+        encoder_input[t,i+ds.sizes['metSensors'],:,:,1] = mask_ch4_2d
+
+    # Potential leaks [decoder]
+    for a in range(len(leak_z)):
+
+        derived_vars, theta_wd = get_relative_azimuth(u=u_met,
+                                                      v=v_met,
+                                                      x_ref=XYZ_met[0][0],
+                                                      y_ref=XYZ_met[0][1],
+                                                      z_ref=XYZ_met[0][2],
+                                                      x_target=leak_x[a],
+                                                      y_target=leak_y[a],
+                                                      z_target=leak_z[a],
+                                                      time_series=False)
+
+        decoder_input[t,a,0,0:4,0] = np.squeeze(derived_vars[0:4])
+        decoder_input[t,a,0,:,1] = leak_mask
+
+  sensor_meta_1d = np.zeros([sensor_len,ds.sizes['locDim']])
+  sensor_name = []
+  for ss in range(0,sensor_len):
+      if (ss==0):
+          sensor_name.append(ds.metSensorsName.values[ss])
+          for ll in range(0,3):
+              sensor_meta_1d[ss,ll] = XYZ_met[0][ll]   
+      else:
+          sensor_name.append(ds.CH4SensorsName.values[ss-1])
+          for ll in range(0,3):
+              sensor_meta_1d[ss,ll] = XYZ_ch4[ss-1][ll]
+
+  time_v = ds.time.values
+  dt = (time_v[1]-time_v[0])/np.timedelta64(1000000000, 'ns')
 
   # Create xarray Dataset
-  encoder_ds = xr.DataArray(encoder_output_masked.transpose(0,2,3,1,4),
+  encoder_ds = xr.DataArray(encoder_input,
                                   dims=['sample', 'sensor', 'time', 'variable', 'mask'],
-                                  coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
+                                  coords={'variable': variables},
                                   name="encoder_input").astype('float32')
 
-  decoder_ds = xr.DataArray(decoder_output_masked.transpose(0,2,3,1,4),
+  decoder_ds = xr.DataArray(decoder_input,
                             dims=['sample', 'pot_leak', 'target_time', 'variable', 'mask'],
-                            coords={'variable': ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv", "u", "v", "w", "q_CH4"]},
+                            coords={'variable': variables},
                             name="decoder_input").astype('float32')
-    
-  ds_static_output = xr.merge([encoder_ds, decoder_ds])
-  # Decide what to export 
-  if export_mean_wd:
-    return ds_static_output, mean_wd
-  else:
-    return ds_static_output
+
+  mean_wd = xr.DataArray(mean_wd,
+                            dims=['sample'],
+                            coords={},
+                            name="mean_wd").astype('float32')
+
+  met_sensor_loc = xr.DataArray(np.tile(XYZ_met,[sample_len,1]),
+                                dims=['sample', 'sensor_loc'],
+                                coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
+                                name="met_sensor_loc").astype('float32')
+
+  sensor_meta = xr.DataArray(np.tile(sensor_meta_1d,[sample_len,1,1]),
+                             dims=['sample', 'sensor', 'sensor_loc'],
+                             coords={'sensor_loc': ['xPos', 'yPos', 'zPos']},
+                             name="sensor_meta").astype('float32')
+
+  sensor_name = xr.DataArray(sensor_name,
+                             dims=['sensor'],
+                             coords={},
+                             name="sensor_name")
+
+  dt = xr.DataArray(dt,
+                    dims=[],
+                    coords={},
+                    name="dt").astype('float32')
+
+  time_ref = xr.DataArray(time_v[0],
+                          dims=[],
+                          coords={},
+                          name="time_ref")
+
+  ds_static_output = xr.merge([encoder_ds, decoder_ds, mean_wd, met_sensor_loc, sensor_meta, sensor_name, dt, time_ref])
+  return ds_static_output
