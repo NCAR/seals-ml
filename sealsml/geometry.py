@@ -260,3 +260,47 @@ def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     y = distance * ref_azi_sin
     
     return x, y
+
+def generate_sensor_positions_min_distance(n_sensors, min_distance, iDim, jDim, grid_resolution=0.5):
+    """
+    Generate random sensor positions within specified dimensions with a minimum distance constraint,
+    adjusted by a grid resolution factor.
+
+    The variation for height is generally small, I do not want to include 
+
+    Parameters:
+    - n_sensors (int): Number of sensor positions to generate.
+    - min_distance (float): Minimum distance between any two sensors.
+    - iDim (float): Maximum value for the i-coordinate (x-axis).
+    - jDim (float): Maximum value for the j-coordinate (y-axis).
+    - grid_resolution (float, optional): Factor to adjust the minimum distance. Default is 0.5.
+
+    Returns:
+    - i_sensor (np.ndarray): Array of i-coordinates of the generated sensors.
+    - j_sensor (np.ndarray): Array of j-coordinates of the generated sensors.
+    """
+    
+    sensors = []  # List to store the (i, j) coordinates of sensors.
+    i_sensor = []  # List to store i-coordinates (x-axis).
+    j_sensor = []  # List to store j-coordinates (y-axis).
+    
+    # Generate sensors until the desired number is reached.
+    while len(sensors) < n_sensors:
+        # Create a new point with random i and j coordinates within the given dimensions.
+        new_point = (np.random.uniform(0, iDim), np.random.uniform(0, jDim))
+        
+        # Adjust minimum distance by grid_resolution.
+        adjusted_min_distance = min_distance / grid_resolution
+        
+        # Check if the new point is at least the adjusted minimum distance away from all existing points.
+        if all(np.linalg.norm(np.array(new_point) - np.array(existing_point)) >= adjusted_min_distance for existing_point in sensors):
+            sensors.append(new_point)  # Add the new point to the sensors list.
+            i_sensor.append(new_point[0])  # Add the i-coordinate of the new point to i_sensor.
+            j_sensor.append(new_point[1])  # Add the j-coordinate of the new point to j_sensor.
+    
+    # Convert the lists of coordinates to NumPy arrays.
+    i_sensor = np.array(i_sensor)
+    j_sensor = np.array(j_sensor)
+    
+    # Return the i and j coordinates as NumPy arrays.
+    return i_sensor, j_sensor

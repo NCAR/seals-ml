@@ -4,7 +4,7 @@ import numpy as np
 from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
-from sealsml.geometry import GeoCalculator, get_relative_azimuth
+from sealsml.geometry import GeoCalculator, get_relative_azimuth, generate_sensor_positions_min_distance
 from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler, save_scaler
 
 
@@ -109,7 +109,7 @@ class DataSampler(object):
                                                                         len(self.data.jDim),
                                                                         len(self.data.iDim))))
 
-    def sample(self, time_window_size, samples_per_window, window_stride=5):
+    def sample(self, time_window_size, samples_per_window, window_stride=5, strategy='random', minimum_distance=5):
 
         """  Sample different geometric configurations of sensors from LES data for ML ingestion.
         Args:
@@ -139,8 +139,17 @@ class DataSampler(object):
 
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
-                i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
-                j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                if strategy == 'random':
+                    i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
+                    j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                elif strategy == 'minimum_distance':
+                    # This does not take into account vertical componet
+                    i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors, 
+                                                                                min_distance=minimum_distance,
+                                                                                iDim = self.iDim,
+                                                                                jDim = self.jDim)
+                else:
+                    print('bad strategy')
 
                 # Converting to index space
                 sensor_height_max_index = int(np.rint(self.sensor_height_max / self.z_res))
