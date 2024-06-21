@@ -222,7 +222,11 @@ def test_static():
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
 
-    ds = specific_site_data_generation(test_data, sitemap, time_window_size=100, window_stride=50)
+    potleak_path = os.path.join(os.path.dirname(__file__), '../test_data/METEC_EquipLevelPotLeaks_RefOri.nc')
+    potleak = os.path.expanduser(potleak_path)
+    assert os.path.exists(test_data), f"File not found: {potleak}"
+
+    ds = specific_site_data_generation(test_data, sitemap, potleak, time_window_size=100, window_stride=50)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
     assert isinstance(ds['encoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
@@ -266,6 +270,7 @@ def test_extract_ts_segments():
     
     assert np.array_equal(start_end_indices, expected_indices), "Test case 2: Start-End Indices do not match"
     assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 2: Dropped elements do not match"
+
 
 def test_generate_sensor_positions_min_distance():
     # Define parameters for the test
