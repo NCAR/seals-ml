@@ -6,6 +6,7 @@ from numpy.typing import NDArray
 import yaml
 import os
 import time
+import numpy.matlib
 
 # seals geo stuff
 from sealsml.geometry import get_relative_azimuth
