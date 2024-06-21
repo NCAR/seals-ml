@@ -5,12 +5,13 @@ import xarray as xr
 import yaml 
 
 # Our functiuons 
-from sealsml.geometry import GeoCalculator, polar_to_cartesian
+from sealsml.geometry import GeoCalculator, polar_to_cartesian, generate_sensor_positions_min_distance
 from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import specific_site_data_generation, extract_ts_segments
 from bridgescaler import save_scaler
+from scipy.spatial.distance import pdist, squareform
 
 def test_polar_to_cart1():
     # Test with single values
@@ -265,3 +266,55 @@ def test_extract_ts_segments():
     
     assert np.array_equal(start_end_indices, expected_indices), "Test case 2: Start-End Indices do not match"
     assert np.array_equal(dropped_elements, expected_dropped_elements), "Test case 2: Dropped elements do not match"
+
+def test_generate_sensor_positions_min_distance():
+    # Define parameters for the test
+    n_sensors = 10
+    min_distance = 2.0
+    iDim = 10.0
+    jDim = 10.0
+    grid_resolution = 1.0
+    max_attempts = 1000
+    
+    # Generate sensor positions
+    i_sensor, j_sensor = generate_sensor_positions_min_distance(
+        n_sensors, min_distance, iDim, jDim, grid_resolution, max_attempts
+    )
+    
+    # Test if the correct number of sensors is generated
+    assert len(i_sensor) == min(n_sensors, len(i_sensor)), \
+        f"Expected {n_sensors} sensors, but got {len(i_sensor)}"
+    
+    # Test if the generated sensors are within the specified dimensions
+    assert np.all((i_sensor >= 0) & (i_sensor <= iDim)), \
+        "Some i-coordinates are out of bounds"
+    assert np.all((j_sensor >= 0) & (j_sensor <= jDim)), \
+        "Some j-coordinates are out of bounds"
+    
+    # Check minimum distance constraint
+    if len(i_sensor) > 1:
+        points = np.vstack((i_sensor, j_sensor)).T
+        distances = squareform(pdist(points))
+        np.fill_diagonal(distances, np.inf)  # Ignore distance to self
+        
+        assert np.all(distances >= (min_distance / grid_resolution)), \
+            "Some sensors are too close to each other"
+    
+    # Test the function with a small area where placing all sensors is impossible
+    n_sensors_impossible = 50
+    iDim_small = 1.0
+    jDim_small = 1.0
+    
+    i_sensor_impossible, j_sensor_impossible = generate_sensor_positions_min_distance(
+        n_sensors_impossible, min_distance, iDim_small, jDim_small, grid_resolution, max_attempts
+    )
+    
+    # Ensure it doesn't enter an infinite loop
+    assert len(i_sensor_impossible) < n_sensors_impossible, \
+        "Function should not place all sensors in an impossible scenario"
+
+    # Ensure the warning message is printed
+    with pytest.raises(Warning, match="Only"):
+        generate_sensor_positions_min_distance(
+            n_sensors_impossible, min_distance, iDim_small, jDim_small, grid_resolution, max_attempts
+        )
