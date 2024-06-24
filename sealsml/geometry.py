@@ -309,4 +309,3 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
     j_sensor = np.array(j_sensor)
 
     return i_sensor, j_sensor
-
