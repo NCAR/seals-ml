@@ -12,6 +12,8 @@ sampler_args:
   max_leak_loc: 20
   sensor_height_min: 2
   sensor_height_max: 4
+  sensor_sampling_strategy: "random_sampling"
+  sensor_min_distance: 5.0
   leak_height_min: 0 
   leak_height_max: 4 
   sensor_type_mask: -999
@@ -19,3 +21,5 @@ sampler_args:
   coord_vars: ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
   met_vars: ['u', 'v', 'w']
   emission_vars: ['q_CH4']
+  pot_leaks_scheme: "random_sampling" 
+  pot_leaks_file: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/FE_METEC_potleaks/METEC_EquipLevelPotLeaks_RefOri.nc"
