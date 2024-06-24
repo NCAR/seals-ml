@@ -221,7 +221,11 @@ def test_static():
     sitemap = os.path.expanduser(sitemap_path)
     assert os.path.exists(test_data), f"File not found: {sitemap}"
 
-    ds = specific_site_data_generation(test_data, sitemap, time_window_size=100, window_stride=50)
+    potleak_path = os.path.join(os.path.dirname(__file__), '../test_data/METEC_EquipLevelPotLeaks_RefOri.nc')
+    potleak = os.path.expanduser(potleak_path)
+    assert os.path.exists(test_data), f"File not found: {potleak}"
+
+    ds = specific_site_data_generation(test_data, sitemap, potleak, time_window_size=100, window_stride=50)
     assert isinstance(ds, xr.Dataset), "The object is not an xarray.Dataset"
     assert isinstance(ds['encoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
     assert isinstance(ds['decoder_input'], xr.DataArray), "The object is not an xarray.DataArray"
