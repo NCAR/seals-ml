@@ -285,12 +285,17 @@ def generate_sensor_positions_min_distance(n_sensors, min_distance, iDim, jDim, 
     
     attempts = 0  # Counter for attempts to place a sensor.
     
-    adjusted_min_distance = min_distance / grid_resolution
+    # We need to make the minimum distanace in real meters, match index math
+    adjusted_min_distance = np.round(min_distance / grid_resolution, 1)
+
+    # Just for a sanity check, if the resoultion was 2m (horzontally) and the minium distance (in meters) was 4, 
+    # than adjusted_min_distance would be 2 grid cells (4/2 = 2)
 
     while len(sensors) < n_sensors and attempts < max_attempts:
+        # This is picking points in the index space (0 to iDim, just like current random sampling)
         new_point = (np.random.uniform(0, iDim), np.random.uniform(0, jDim))
         
-        
+        # This is also calc'ing distance in the index space
         if all(np.linalg.norm(np.array(new_point) - np.array(existing_point)) >= adjusted_min_distance for existing_point in sensors):
             sensors.append(new_point)
             i_sensor.append(new_point[0])
