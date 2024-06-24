@@ -276,14 +276,14 @@ def test_generate_sensor_positions_min_distance():
     # Define parameters for the test
     n_sensors = 10
     min_distance = 2.0
-    iDim = 10.0
-    jDim = 10.0
-    grid_resolution = 1.0
     max_attempts = 1000
-    
+    xVec = np.linspace(0.25,49.75,100)
+    yVec = np.linspace(0.25,49.75,100)
+    iDim = xVec.shape[0]
+    jDim = yVec.shape[0]
     # Generate sensor positions
     i_sensor, j_sensor = generate_sensor_positions_min_distance(
-        n_sensors, min_distance, iDim, jDim, grid_resolution, max_attempts
+        n_sensors, xVec, yVec, min_distance, max_attempts
     )
     
     # Test if the correct number of sensors is generated
@@ -298,7 +298,7 @@ def test_generate_sensor_positions_min_distance():
     
     # Check minimum distance constraint
     if len(i_sensor) > 1:
-        points = np.vstack((i_sensor, j_sensor)).T
+        points = np.vstack((xVec[i_sensor], yVec[j_sensor])).T
         distances = squareform(pdist(points))
         np.fill_diagonal(distances, np.inf)  # Ignore distance to self
         
@@ -307,11 +307,9 @@ def test_generate_sensor_positions_min_distance():
     
     # Test the function with a small area where placing all sensors is impossible
     n_sensors_impossible = 50
-    iDim_small = 1.0
-    jDim_small = 1.0
     
     i_sensor_impossible, j_sensor_impossible = generate_sensor_positions_min_distance(
-        n_sensors_impossible, min_distance, iDim_small, jDim_small, grid_resolution, max_attempts
+        n_sensors, xVec, yVec, min_distance, max_attempts
     )
     
     # Ensure it doesn't enter an infinite loop
