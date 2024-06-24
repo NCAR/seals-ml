@@ -302,7 +302,7 @@ def test_generate_sensor_positions_min_distance():
         distances = squareform(pdist(points))
         np.fill_diagonal(distances, np.inf)  # Ignore distance to self
         
-        assert np.all(distances >= (min_distance / grid_resolution)), \
+        assert np.all(distances >= min_distance), \
             "Some sensors are too close to each other"
     
     # Test the function with a small area where placing all sensors is impossible
