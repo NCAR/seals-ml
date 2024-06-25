@@ -260,3 +260,52 @@ def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     y = distance * ref_azi_sin
     
     return x, y
+
+def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, max_attempts=500):
+    """
+    Generate random sensor positions within specified dimensions with a minimum distance constraint,
+    adjusted by a grid resolution factor. Includes an iteration limit to prevent infinite loops.
+
+    Parameters:
+    - n_sensors (int): Number of sensor positions to generate.
+    - min_distance (float): Minimum distance between any two sensors.
+    - xVec = a vector of cartesian x-coordinate
+    - yVec = a vector of cartesian y coordinate
+    - max_attempts (int, optional): Maximum number of attempts to place a sensor before giving up. Default is 500.
+
+    Returns:
+    - i_sensor (np.ndarray): Array of i-indices of the generated sensors.
+    - j_sensor (np.ndarray): Array of j-indices of the generated sensors.
+    """
+    iDim = xVec.shape[0]
+    jDim = yVec.shape[0]
+    sensors = []  # List to store the (i, j) coordinates of sensors.
+    i_sensor = []  # List to store i-coordinates (x-axis).
+    j_sensor = []  # List to store j-coordinates (y-axis).
+    existing_points = np.zeros(shape=(n_sensors,2))
+    cnt_points=0
+    while cnt_points < n_sensors:
+        goodPoint=False
+        attempts = 0  # Counter for attempts to place a sensor.
+        while attempts < max_attempts and not(goodPoint):
+            new_indices = (np.random.randint(0, iDim), np.random.randint(0, jDim))
+            new_point = np.asarray([xVec[new_indices[0]], yVec[new_indices[1]]])
+            if (np.linalg.norm(existing_points[:cnt_points,:]-new_point,axis=1) >= min_distance).all() or cnt_points == 0:
+                sensors.append(new_indices)
+                i_sensor.append(new_indices[0])
+                j_sensor.append(new_indices[1])
+                goodPoint=True
+            else:
+                attempts += 1
+        if attempts >= max_attempts:
+            print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
+        else:
+            existing_points[cnt_points,:] = new_point
+        cnt_points+=1
+    if len(sensors) < n_sensors:
+        print(f"Warning: Only {len(sensors)} sensors placed out of {n_sensors} requested.")
+
+    i_sensor = np.array(i_sensor)
+    j_sensor = np.array(j_sensor)
+
+    return i_sensor, j_sensor
