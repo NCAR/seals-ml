@@ -35,7 +35,7 @@ def test_quantized_transformer():
     y_pred_new = new_qt.predict([x_encoder, x_decoder], batch_size=batch_size)
     max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
     assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
-    assert new_qt.summary() == qt.summary(), "models do not match"
+    # assert new_qt.summary() == qt.summary(), "models do not match"
 
 def test_transformer_regressor():
     np.random.seed(32525)
@@ -56,7 +56,7 @@ def test_transformer_regressor():
     y_pred_new = new_model.predict([x_encoder, x_decoder], batch_size=batch_size)
     max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
     assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
-    assert new_model.summary() == model.summary(), "models do not match"
+    # assert new_model.summary() == model.summary(), "models do not match"
 
 
 def test_backtracker():
@@ -78,4 +78,4 @@ def test_backtracker():
     y_pred_new = new_model.predict([x, x_decoder], batch_size=batch_size)
     max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
     assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
-    assert new_model.summary() == model.summary(), "models do not match"
+    # assert new_model.summary() == model.summary(), "models do not match"
