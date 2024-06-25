@@ -97,9 +97,9 @@ class DataSampler(object):
 
         self.data = ds.load()
         self.time_steps = len(self.data['timeDim'].values)
-        self.iDim = len(self.data.iDim)
-        self.jDim = len(self.data.jDim)
-        self.kDim = len(self.data.kDim)  # needed for vert sampling
+        self.iDim = self.data.sizes['iDim']
+        self.jDim = self.data.sizes['jDim']
+        self.kDim = self.data.sizes['kDim']  # needed for vert sampling
         self.x = self.data['xPos'][0, 0, :].values
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
@@ -145,8 +145,8 @@ class DataSampler(object):
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
                 if self.sensor_sampling_strategy == 'random_sampling':
-                    i_sensor = np.random.randint(low=0, high=self.iDim+1, size=n_sensors)
-                    j_sensor = np.random.randint(low=0, high=self.jDim+1, size=n_sensors)
+                    i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
+                    j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
                 elif self.sensor_sampling_strategy == 'minimum_distance':
                     # This does not take into account vertical componet
                     i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors,
