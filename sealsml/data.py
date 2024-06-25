@@ -145,8 +145,8 @@ class DataSampler(object):
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
                 if self.sensor_sampling_strategy == 'random_sampling':
-                    i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
-                    j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                    i_sensor = np.random.randint(low=0, high=self.iDim+1, size=n_sensors)
+                    j_sensor = np.random.randint(low=0, high=self.jDim+1, size=n_sensors)
                 elif self.sensor_sampling_strategy == 'minimum_distance':
                     # This does not take into account vertical componet
                     i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors,

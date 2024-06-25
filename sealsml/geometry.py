@@ -288,7 +288,7 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
         goodPoint=False
         attempts = 0  # Counter for attempts to place a sensor.
         while attempts < max_attempts and not(goodPoint):
-            new_indices = (np.random.randint(0, iDim), np.random.randint(0, jDim))
+            new_indices = (np.random.randint(0, iDim+1), np.random.randint(0, jDim+1))
             new_point = np.asarray([xVec[new_indices[0]], yVec[new_indices[1]]])
             if (np.linalg.norm(existing_points[:cnt_points,:]-new_point,axis=1) >= min_distance).all() or cnt_points == 0:
                 sensors.append(new_indices)
@@ -301,7 +301,7 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
             print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
         else:
             existing_points[cnt_points,:] = new_point
-            cnt_points+=1
+        cnt_points+=1
     if len(sensors) < n_sensors:
         print(f"Warning: Only {len(sensors)} sensors placed out of {n_sensors} requested.")
 

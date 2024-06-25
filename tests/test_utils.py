@@ -307,6 +307,7 @@ def test_generate_sensor_positions_min_distance():
     
     # Test the function with a small area where placing all sensors is impossible
     n_sensors_impossible = 50
+    min_distance = 50.0
     
     i_sensor_impossible, j_sensor_impossible = generate_sensor_positions_min_distance(
         n_sensors, xVec, yVec, min_distance, max_attempts
