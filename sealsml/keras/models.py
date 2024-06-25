@@ -1,7 +1,7 @@
 import numpy as np
 import keras.layers as layers
 from keras_nlp.layers import TransformerDecoder, TransformerEncoder
-from .layers import VectorQuantizer, ConvSensorEncoder
+from .layers import VectorQuantizer, ConvSensorEncoder, TimeBlockSensorEncoder
 import keras
 import keras.ops as ops
 from keras.regularizers import L1, L2, L1L2
@@ -10,6 +10,93 @@ from keras.layers import Dense, LeakyReLU, GaussianNoise, Dropout
 # If using TensorFlow, this will make GPU ops as deterministic as possible,
 # but it will affect the overall performance, so be mindful of that.
 # tf.config.experimental.enable_op_determinism()
+
+
+class BlockTransformer(keras.models.Model):
+    def __init__(self, encoder_layers=1, decoder_layers=1,
+                 hidden_size=512,
+                 n_heads=8,
+                 hidden_activation="relu",
+                 output_activation="sigmoid",
+                 dropout_rate=0.1,
+                 n_outputs=1,
+                 block_size=10,
+                 n_coords=4,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.encoder_layers = encoder_layers
+        self.decoder_layers = decoder_layers
+        self.hidden_size = hidden_size
+        self.n_heads = n_heads
+        self.hidden_activation = hidden_activation
+        self.output_activation = output_activation
+        self.dropout_rate = dropout_rate
+        self.n_outputs = n_outputs
+        self.block_size = block_size
+        self.n_coords = n_coords
+        self.hyperparameters = ["encoder_layers", "hidden_size", "n_heads",
+                                "hidden_activation", "output_activation",
+                                "dropout_rate", "n_outputs", "min_filters",
+                                "block_size", "n_coords"]
+        self.time_block_sensor_encoder = TimeBlockSensorEncoder(embedding_size=self.hidden_size,
+                                                                block_size=self.block_size,
+                                                                n_coords=self.n_coords)
+        self.decoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation,
+                                           name="decoder_hidden")
+        self.encoder_transformers = []
+        self.decoder_transformers = []
+        self.vector_quantizers = {}
+        for n in range(self.encoder_layers):
+            self.encoder_transformers.append(TransformerEncoder(intermediate_dim=self.hidden_size,
+                                                                num_heads=self.n_heads,
+                                                                dropout=self.dropout_rate,
+                                                                activation=self.hidden_activation,
+                                                                name=f"encoder_transformer_{n:02d}"))
+        for n in range(self.decoder_layers):
+            self.decoder_transformers.append(TransformerDecoder(intermediate_dim=self.hidden_size,
+                                                                num_heads=self.n_heads,
+                                                                dropout=self.dropout_rate,
+                                                                activation=self.hidden_activation,
+                                                                name=f"decoder_transformer_{n:02d}"))
+        self.output_hidden = layers.Dense(self.n_outputs, activation=self.output_activation, name="output_hidden")
+        return
+
+    def call(self, inputs, training=False):
+        # First inputs element is the encoder input, which would be the sensors.
+        encoder_input = inputs[0]
+        # Second inputs element is the decoder input, which would be the potential leak locations.
+        decoder_input = inputs[1][..., :4]
+        encoder_padding_mask = None
+        decoder_padding_mask = None
+        if len(inputs) > 2:
+            encoder_padding_mask = inputs[2]
+        if len(inputs) > 3:
+            decoder_padding_mask = inputs[3]
+        encoder_hidden_out = self.time_block_sensor_encoder(encoder_input)
+        decoder_hidden_out = self.decoder_hidden(decoder_input)
+        encoder_output = self.encoder_transformers[0](encoder_hidden_out,
+                                                      padding_mask=encoder_padding_mask)
+        for e in range(1, self.encoder_layers):
+            encoder_output = self.encoder_transformers[e](encoder_output,
+                                                          padding_mask=encoder_padding_mask)
+        decoder_output = self.decoder_transformers[0](decoder_hidden_out, encoder_output,
+                                                      encoder_padding_mask=encoder_padding_mask,
+                                                      decoder_padding_mask=decoder_padding_mask)
+        for d in range(1, self.decoder_layers):
+            decoder_output = self.decoder_transformers[d](decoder_output, encoder_output,
+                                                          encoder_padding_mask=encoder_padding_mask,
+                                                          decoder_padding_mask=decoder_padding_mask)
+        output = self.output_hidden(decoder_output)
+
+        return output
+
+    def get_config(self):
+        base_config = super().get_config()
+        parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
+        return {**base_config, **parameter_config}
+
+
+
 
 class QuantizedTransformer(keras.models.Model):
     """
