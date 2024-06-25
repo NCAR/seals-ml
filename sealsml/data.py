@@ -4,7 +4,7 @@ import numpy as np
 from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
-from sealsml.geometry import GeoCalculator, get_relative_azimuth
+from sealsml.geometry import GeoCalculator, get_relative_azimuth, generate_sensor_positions_min_distance
 from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler, save_scaler
 
 
@@ -16,10 +16,10 @@ class DataSampler(object):
                  sensor_height_max=4,
                  leak_height_min=0,
                  leak_height_max=4,
-                 sensor_type_mask=1, sensor_exist_mask=-1,
+                 sensor_type_mask=1, sensor_exist_mask=-1,sensor_min_distance=5.0,
                  coord_vars=None,
                  met_vars=None, emission_vars=None,
-                 pot_leaks_scheme=None, pot_leaks_file=None):
+                 pot_leaks_scheme=None, pot_leaks_file=None, sensor_sampling_strategy=None):
         if coord_vars is None:
             coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
         if met_vars is None:
@@ -30,6 +30,8 @@ class DataSampler(object):
             pot_leaks_scheme = 'random_sampling'
         if pot_leaks_file == None:
             pot_leaks_file = ''
+        if sensor_sampling_strategy == None:
+            sensor_sampling_strategy = 'random_sampling'
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.max_met_sensors = 1  # Currently self.max_met_sensors strictly permitted to be 1
@@ -37,6 +39,8 @@ class DataSampler(object):
         self.max_leak_loc = max_leak_loc
         self.sensor_height_min = sensor_height_min
         self.sensor_height_max = sensor_height_max
+        self.sensor_sampling_strategy = sensor_sampling_strategy
+        self.sensor_min_distance = sensor_min_distance
         self.leak_height_min = leak_height_min
         self.leak_height_max = leak_height_max
         self.sensor_exist_mask = sensor_exist_mask
@@ -93,13 +97,14 @@ class DataSampler(object):
 
         self.data = ds.load()
         self.time_steps = len(self.data['timeDim'].values)
-        self.iDim = len(self.data.iDim)
-        self.jDim = len(self.data.jDim)
-        self.kDim = len(self.data.kDim)  # needed for vert sampling
+        self.iDim = self.data.sizes['iDim']
+        self.jDim = self.data.sizes['jDim']
+        self.kDim = self.data.sizes['kDim']  # needed for vert sampling
         self.x = self.data['xPos'][0, 0, :].values
         self.y = self.data['yPos'][0, :, 0].values
         self.z = self.data['zPos'][:, 0, 0].values
         self.z_res = self.data['zPos'][1, 0, 0].values - self.data['zPos'][0, 0, 0].values
+        self.x_res = self.data['xPos'][1, 0, 0].values - self.data['xPos'][0, 0, 0].values
         self.leak_rate = self.data['srcAuxScMassSpecValue'].values
         self.leak_loc = self.data['srcAuxScLocation'].values
 
@@ -139,8 +144,17 @@ class DataSampler(object):
 
                 # Sensor in ijk (xyz) space
                 # X, Y samples the entire domain, and already in index space
-                i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
-                j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                if self.sensor_sampling_strategy == 'random_sampling':
+                    i_sensor = np.random.randint(low=0, high=self.iDim, size=n_sensors)
+                    j_sensor = np.random.randint(low=0, high=self.jDim, size=n_sensors)
+                elif self.sensor_sampling_strategy == 'minimum_distance':
+                    # This does not take into account vertical componet
+                    i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors,
+                                                                                self.x,
+                                                                                self.y,
+                                                                                min_distance=self.sensor_min_distance)
+                else:
+                    print('bad strategy')
 
                 # Converting to index space
                 sensor_height_max_index = int(np.rint(self.sensor_height_max / self.z_res))
