@@ -133,21 +133,24 @@ class TimeBlockSensorEncoder(layers.Layer):
     plume signals at different locations.
 
     Attributes:
-        embedding_size: number of neurons in the for the dense layer that performs vector embedding
-        embedding_activation: activation function for the dense layer
-        block_size: number of time steps in each time block
-        n_coords: number of coordinate variables in the input data.
-        pe_max_wavelength: max wavelength setting for the position encoder. Using default of 10000 for now.
+        embedding_size (int): number of neurons in the for the dense layer that performs vector embedding
+        embedding_activation (str): activation function for the dense layer
+        block_size (int): number of time steps in each time block
+        n_coords (int): number of coordinate variables in the input data.
+        pe_max_wavelength (int): max wavelength setting for the position encoder. Using default of 10000 for now.
+        data_start_index (int): Starting index of the data. If only a subset of coordinates is used without the
+            data being changed, this allows one to make sure only data variables are ingested into the encoder.
 
     """
     def __init__(self, embedding_size=512, embedding_activation="relu",
-                 block_size=10, n_coords=4, pe_max_wavelength=10000, **kwargs):
+                 block_size=10, n_coords=4, pe_max_wavelength=10000, data_start_index=4, **kwargs):
         super().__init__(**kwargs)
         self.embedding_size = embedding_size
         self.embedding_activation = embedding_activation
         self.block_size = block_size
         self.n_coords = n_coords
         self.pe_max_wavelength = pe_max_wavelength
+        self.data_start_index = data_start_index
         self.position_encoder = keras_nlp.layers.SinePositionEncoding(max_wavelength=self.pe_max_wavelength, name="tb_pe")
         self.dense_embedding = layers.Dense(self.embedding_size, activation=embedding_activation, name="tb_embedding")
 
@@ -161,7 +164,7 @@ class TimeBlockSensorEncoder(layers.Layer):
             # Extract coordinate information from last timestep
             sensor_coords = x[:, s, -1, :self.n_coords]
             # Extract coordinates from all time steps
-            sensor_data = x[:, s, :, self.n_coords:]
+            sensor_data = x[:, s, :, self.data_start_index:]
             # Break time series into equally-sized sub blocks
             time_blocks = np.arange(0, sensor_data.shape[1] + self.block_size, self.block_size)
             outputs = []
@@ -197,6 +200,7 @@ class TimeBlockSensorEncoder(layers.Layer):
                             pe_max_wavelength=self.pe_max_wavelength)
         base_config.update(param_config)
         return base_config
+
 
 @keras.saving.register_keras_serializable(package="SEALS_keras")
 class MaskedSoftmax(layers.Layer):

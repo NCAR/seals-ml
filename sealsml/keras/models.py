@@ -28,6 +28,7 @@ class BlockTransformer(keras.models.Model):
         n_outputs (int): number of outputs per potential leak location.
         block_size (int): number of time steps in each block. Will error if block_size is not divisible by the time dimension.
         n_coords (int): number of input variables used for coordinate values.
+        data_start_index (int): index of the first data variable.
     """
     def __init__(self, encoder_layers=1, decoder_layers=1,
                  hidden_size=512,
@@ -38,6 +39,7 @@ class BlockTransformer(keras.models.Model):
                  n_outputs=1,
                  block_size=10,
                  n_coords=4,
+                 data_start_index=4,
                  **kwargs):
         super().__init__(**kwargs)
         self.encoder_layers = encoder_layers
@@ -50,6 +52,7 @@ class BlockTransformer(keras.models.Model):
         self.n_outputs = n_outputs
         self.block_size = block_size
         self.n_coords = n_coords
+        self.data_start_index = data_start_index
         self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
                                 "hidden_activation", "output_activation",
                                 "dropout_rate", "n_outputs",
@@ -125,6 +128,7 @@ class BlockTransformer(keras.models.Model):
         return {**base_config, **parameter_config}
 
 
+
 class QuantizedTransformer(keras.models.Model):
     """
     Transformer model with an optional vector quantizer layer in the encoder branch to produce sharper forecasts.
@@ -158,6 +162,8 @@ class QuantizedTransformer(keras.models.Model):
                  n_outputs=1,
                  min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3,
                  pooling="average", pool_size=2, padding="valid",
+                 n_coords=4,
+                 data_start_index=4,
                  **kwargs):
         super().__init__(**kwargs)
         assert encoder_layers > 0, "Should be at least 1 encoder layer"
@@ -184,6 +190,8 @@ class QuantizedTransformer(keras.models.Model):
         self.pooling = pooling
         self.pool_size = pool_size
         self.padding = padding
+        self.n_coords = n_coords
+        self.data_start_index = data_start_index
         self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
                                 "num_quantized_embeddings", "hidden_activation", "output_activation",
                                 "dropout_rate", "use_quantizer", "quantized_beta", "n_outputs", "min_filters",
@@ -234,7 +242,7 @@ class QuantizedTransformer(keras.models.Model):
         # First inputs element is the encoder input, which would be the sensors.
         encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
-        decoder_input = inputs[1][..., :4]
+        decoder_input = inputs[1][..., :self.n_coords]
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
