@@ -16,7 +16,9 @@ class DataSampler(object):
                  sensor_height_max=4,
                  leak_height_min=0,
                  leak_height_max=4,
-                 sensor_type_mask=1, sensor_exist_mask=-1,sensor_min_distance=5.0,
+                 sensor_type_mask=1, 
+                 sensor_exist_mask=-1,
+                 sensor_min_distance=20.0,
                  coord_vars=None,
                  met_vars=None, emission_vars=None,
                  pot_leaks_scheme=None, pot_leaks_file=None, sensor_sampling_strategy=None):
