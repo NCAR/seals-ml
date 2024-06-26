@@ -577,7 +577,7 @@ class MultiPreprocessor(object):
 
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):
 
-    if model_name == "transformer_leak_loc" or model_name == "gaussian_process":
+    if model_name == "transformer_leak_loc" or model_name == "gaussian_process" or model_name == "block_transformer_leak_loc":
 
         train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], train_targets),
                                                  leak_loc_pred=(["sample", "pot_leak_locs"], train_predictions)))

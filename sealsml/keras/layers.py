@@ -209,8 +209,8 @@ class MaskedSoftmax(layers.Layer):
 
     def call(self, x, mask=None, axis=-1):
         if mask is not None:
-            x_updated = ops.where(mask == 1, x, -999.0)
+            x_updated = ops.where(mask, x, -999.0)
         else:
             x_updated = x
-        return layers.softmax(x_updated, axis=axis)
+        return keras.activations.softmax(x_updated, axis=axis)
 

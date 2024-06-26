@@ -85,13 +85,14 @@ class BlockTransformer(keras.models.Model):
         # First inputs element is the encoder input, which would be the sensors.
         encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
-        decoder_input = inputs[1][..., :4]
+        decoder_input = inputs[1][..., :self.n_coords]
+        encoder_shape = ops.shape(encoder_input)
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
             # Repeat the encoder padding mask values for each time block.
-            # Output shape should be (batch_size, n_sensors * block_size)
-            encoder_padding_mask = ops.repeat(inputs[2], self.block_size, axis=1)
+            # Output shape should be (batch_size, n_sensors * n_times / block_size )
+            encoder_padding_mask = ops.repeat(inputs[2], int(encoder_shape[2] // self.block_size), axis=1)
         if len(inputs) > 3:
             decoder_padding_mask = inputs[3]
 
@@ -110,7 +111,12 @@ class BlockTransformer(keras.models.Model):
                                                           encoder_padding_mask=encoder_padding_mask,
                                                           decoder_padding_mask=decoder_padding_mask)
         output = self.output_hidden(decoder_output)
-        output = self.output_activation_layer(output)
+        if self.output_activation == "softmax":
+            output = ops.squeeze(output, axis=-1)
+            output = self.output_activation_layer(output, mask=decoder_padding_mask, axis=-1)
+            output = ops.expand_dims(output, -1)
+        else:
+            output = self.output_activation_layer(output)
         return output
 
     def get_config(self):
