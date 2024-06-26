@@ -3,6 +3,7 @@ import keras.initializers as initializers
 import keras.ops as ops
 import keras
 import keras_nlp
+import numpy as np
 
 
 @keras.saving.register_keras_serializable(package="SEALS_keras")
@@ -147,8 +148,8 @@ class TimeBlockSensorEncoder(layers.Layer):
         self.block_size = block_size
         self.n_coords = n_coords
         self.pe_max_wavelength = pe_max_wavelength
-        self.position_encoder = keras_nlp.layers.SinePositionEncoding(max_wavelength=self.pe_max_wavelength)
-        self.dense_embedding = layers.Dense(self.embedding_size, activation=embedding_activation)
+        self.position_encoder = keras_nlp.layers.SinePositionEncoding(max_wavelength=self.pe_max_wavelength, name="tb_pe")
+        self.dense_embedding = layers.Dense(self.embedding_size, activation=embedding_activation, name="tb_embedding")
 
     def call(self, x):
         input_shape = ops.shape(x)
@@ -162,15 +163,16 @@ class TimeBlockSensorEncoder(layers.Layer):
             # Extract coordinates from all time steps
             sensor_data = x[:, s, :, self.n_coords:]
             # Break time series into equally-sized sub blocks
-            time_blocks = range(0, sensor_data.shape[1] + self.block_size, self.block_size)
+            time_blocks = np.arange(0, sensor_data.shape[1] + self.block_size, self.block_size)
             outputs = []
             for t, tb in enumerate(time_blocks[:-1]):
                 sensor_block = sensor_data[:, time_blocks[t]:time_blocks[t+1]]
+                block_shape = ops.shape(sensor_block)
                 # Want to flatten time series of sensor values into one long vector
                 sensor_block_flat = ops.reshape(sensor_block,
-                                                (sensor_block.shape[0], sensor_block.shape[1] * sensor_block.shape[2]))
+                                                (block_shape[0], block_shape[1] * block_shape[2]))
                 # Append spatial coordinates of sensor onto beginning of vector to prevent coord repeats
-                combined_block = ops.hstack([sensor_coords, sensor_block_flat])
+                combined_block = ops.concatenate([sensor_coords, sensor_block_flat], axis=1)
                 # Use dense layer to do  linear transform of vector into latent space of same size of decoder
                 embedded_block = self.dense_embedding(combined_block)
                 outputs.append(embedded_block)
@@ -183,7 +185,7 @@ class TimeBlockSensorEncoder(layers.Layer):
             sensor_outputs.append(final_sensor_output)
         # Stack embeddings of all sensors together into tensor shape (batch size, n_blocks * n_sensors, embedding size)
         # This way the transformer layers can do attention across both time blocks and sensor locations
-        all_outputs = ops.hstack(sensor_outputs)
+        all_outputs = ops.concatenate(sensor_outputs, axis=1)
         return all_outputs
 
     def get_config(self):

@@ -34,9 +34,9 @@ class BlockTransformer(keras.models.Model):
         self.n_outputs = n_outputs
         self.block_size = block_size
         self.n_coords = n_coords
-        self.hyperparameters = ["encoder_layers", "hidden_size", "n_heads",
+        self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
                                 "hidden_activation", "output_activation",
-                                "dropout_rate", "n_outputs", "min_filters",
+                                "dropout_rate", "n_outputs",
                                 "block_size", "n_coords"]
         self.time_block_sensor_encoder = TimeBlockSensorEncoder(embedding_size=self.hidden_size,
                                                                 block_size=self.block_size,
