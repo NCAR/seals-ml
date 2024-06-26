@@ -97,8 +97,7 @@ for model_name in config["models"]:
                          y=y,
                          validation_data=((scaled_encoder_val,
                                            scaled_decoder_val,
-                                           encoder_mask_val,
-                                           decoder_mask_val),
+                                           encoder_mask_val, decoder_mask_val),
                                           y_val),
                          **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
