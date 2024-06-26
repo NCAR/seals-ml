@@ -538,9 +538,14 @@ class Preprocessor():
 
         return arr, new_mask.astype(bool)
 
-    def inv_impute_mask(self, data, mask, impute_value=0):
+    def inv_impute_mask(self, data, mask, impute_value=0, impute_wind_vals=True):
 
         data[mask == True] = impute_value
+
+        if impute_wind_vals:
+
+            winds = data[:, 0:1, :, 4:7]
+            data[:, 1:, :, 4:7] = winds # impute wind data on all ch4 sensors
 
         return data
 
