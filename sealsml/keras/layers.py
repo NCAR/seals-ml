@@ -198,4 +198,19 @@ class TimeBlockSensorEncoder(layers.Layer):
         base_config.update(param_config)
         return base_config
 
+@keras.saving.register_keras_serializable(package="SEALS_keras")
+class MaskedSoftmax(layers.Layer):
+    """
+    Mask out decoder values in softmax calculation by replacing masked values with -999.
+    exp(-999)= 0, so exp(x) / sum(exp(x)) should not be influenced by masked potential leak locations.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def call(self, x, mask=None, axis=-1):
+        if mask is not None:
+            x_updated = ops.where(mask == 1, x, -999.0)
+        else:
+            x_updated = x
+        return layers.softmax(x_updated, axis=axis)
 

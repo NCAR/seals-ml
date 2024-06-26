@@ -1,7 +1,7 @@
 import numpy as np
 import keras.layers as layers
 from keras_nlp.layers import TransformerDecoder, TransformerEncoder
-from .layers import VectorQuantizer, ConvSensorEncoder, TimeBlockSensorEncoder
+from .layers import VectorQuantizer, ConvSensorEncoder, TimeBlockSensorEncoder, MaskedSoftmax
 import keras
 import keras.ops as ops
 from keras.regularizers import L1, L2, L1L2
@@ -13,11 +13,27 @@ from keras.layers import Dense, LeakyReLU, GaussianNoise, Dropout
 
 
 class BlockTransformer(keras.models.Model):
+    """
+    Transformer model that can attend across both time blocks and sensors to localize potential
+    leaks.
+
+    Parameters:
+        encoder_layers (int): number of encoder transformer layers
+        decoder_layers (int): number of decoder transformer layers
+        hidden_size (int): number of neurons in latent representation for both encoder and decoder layers
+        n_heads (int): number of attention heads
+        hidden_activation (str): nonlinear function applied to each dense or transformer layer inside the model
+        output_activation (str): nonlinear function for output. Suggest softmax or sigmoid.
+        dropout_rate (float): Rate at which neurons are randomly dropped out in the transformer layers.
+        n_outputs (int): number of outputs per potential leak location.
+        block_size (int): number of time steps in each block. Will error if block_size is not divisible by the time dimension.
+        n_coords (int): number of input variables used for coordinate values.
+    """
     def __init__(self, encoder_layers=1, decoder_layers=1,
                  hidden_size=512,
                  n_heads=8,
                  hidden_activation="relu",
-                 output_activation="sigmoid",
+                 output_activation="softmax",
                  dropout_rate=0.1,
                  n_outputs=1,
                  block_size=10,
@@ -58,7 +74,11 @@ class BlockTransformer(keras.models.Model):
                                                                 dropout=self.dropout_rate,
                                                                 activation=self.hidden_activation,
                                                                 name=f"decoder_transformer_{n:02d}"))
-        self.output_hidden = layers.Dense(self.n_outputs, activation=self.output_activation, name="output_hidden")
+        self.output_hidden = layers.Dense(self.n_outputs, name="output_hidden")
+        if self.output_activation == "softmax":
+            self.output_activation_layer = MaskedSoftmax(name="output_activation_layer")
+        else:
+            self.output_activation_layer = layers.Activation(self.output_activation, name="output_activation_layer")
         return
 
     def call(self, inputs, training=False):
@@ -69,9 +89,12 @@ class BlockTransformer(keras.models.Model):
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
-            encoder_padding_mask = inputs[2]
+            # Repeat the encoder padding mask values for each time block.
+            # Output shape should be (batch_size, n_sensors * block_size)
+            encoder_padding_mask = ops.repeat(inputs[2], self.block_size, axis=1)
         if len(inputs) > 3:
             decoder_padding_mask = inputs[3]
+
         encoder_hidden_out = self.time_block_sensor_encoder(encoder_input)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
         encoder_output = self.encoder_transformers[0](encoder_hidden_out,
@@ -87,15 +110,13 @@ class BlockTransformer(keras.models.Model):
                                                           encoder_padding_mask=encoder_padding_mask,
                                                           decoder_padding_mask=decoder_padding_mask)
         output = self.output_hidden(decoder_output)
-
+        output = self.output_activation_layer(output)
         return output
 
     def get_config(self):
         base_config = super().get_config()
         parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
-
-
 
 
 class QuantizedTransformer(keras.models.Model):
