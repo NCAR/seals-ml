@@ -28,14 +28,14 @@ def test_block_transformer():
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=1)
     weights_after = qt.get_weights()
     weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
-    assert np.all(weights_constant), "Weights are not changing somewhere"
+    assert not np.any(weights_constant), "Weights are not changing somewhere"
     y_pred = qt.predict([x_encoder, x_decoder], batch_size=batch_size)
     assert y_pred[:, :, 0].shape == y.shape
     qt.save("./test_model.keras")
     new_qt = load_model("./test_model.keras")
     weights_new = new_qt.get_weights()
     weights_constant = [np.all(s == e) for s, e in zip(weights_after, weights_new)]
-    assert np.all(weights_constant), "Weights are not changing somewhere"
+    assert np.all(weights_constant), "Weights are changing somewhere"
     y_pred_new = new_qt.predict([x_encoder, x_decoder], batch_size=batch_size)
     max_pred_diff = np.max(np.abs(y_pred - y_pred_new))
     assert max_pred_diff == 0, f"predictions change by max {max_pred_diff}"
