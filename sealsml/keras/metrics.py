@@ -1,6 +1,8 @@
 import keras.ops as ops
+import keras
 
 
+@keras.saving.register_keras_serializable()
 def mean_searched_locations(y_true, y_pred):
     """
     Calculates the mean number of leak locations that need to be searched before finding the true leak
@@ -16,7 +18,7 @@ def mean_searched_locations(y_true, y_pred):
     pred_search_length = search_length(y_true, y_pred)
     return ops.mean(pred_search_length)
 
-
+@keras.saving.register_keras_serializable()
 def search_length(y_true, y_pred):
     """
     Calculates how many locations have to be searched before finding the true leak for each example.
@@ -32,7 +34,7 @@ def search_length(y_true, y_pred):
     y_pred_2d = ops.squeeze(y_pred)
     leak_index = ops.argmax(y_true_2d, axis=1)
     pred_leak_loc_order = ops.argsort(y_pred_2d, axis=1)[:, ::-1]
-    pred_search_length = ops.zeros(leak_index.shape, dtype=int)
-    for i in range(leak_index.size):
-        pred_search_length[i] = ops.where(pred_leak_loc_order[i] == leak_index[i])[0][0]
-    return pred_search_length
+    pred_search_length = []
+    for i in range(ops.shape(leak_index)[0]):
+        pred_search_length.append(ops.where(pred_leak_loc_order[i] == leak_index[i])[0][0])
+    return ops.stack(pred_search_length)

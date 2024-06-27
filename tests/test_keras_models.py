@@ -2,10 +2,12 @@ from sealsml.keras.layers import VectorQuantizer
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN, BlockTransformer
 from sealsml.data import Preprocessor
 from sealsml.backtrack import backtrack_preprocess, create_binary_preds_relative
+from sealsml.keras.metrics import mean_searched_locations
 import numpy as np
 import xarray as xr
 from keras.models import load_model
 from os.path import exists
+import keras
 
 test_data = ["../test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc"]
 if not exists(test_data[0]):
@@ -19,10 +21,11 @@ batch_size = x_encoder.shape[0]
 
 def test_block_transformer():
     np.random.seed(32525)
+    keras.utils.set_random_seed(32525)
     print("x encoder shape", x_encoder.shape)
     print("x decoder shape", x_decoder.shape)
-    qt = BlockTransformer(encoder_layers=2, decoder_layers=2, hidden_size=64)
-    qt.compile(loss="binary_crossentropy", optimizer="adam")
+    qt = BlockTransformer(encoder_layers=2, decoder_layers=2, hidden_size=64, output_activation="softmax")
+    qt.compile(loss="categorical_crossentropy", optimizer="adam", metrics=[mean_searched_locations])
     qt.call((x_encoder, x_decoder))
     weights_init = qt.get_weights()
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=1)
@@ -30,7 +33,7 @@ def test_block_transformer():
     weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
     assert not np.any(weights_constant), "Weights are not changing somewhere"
     y_pred = qt.predict([x_encoder, x_decoder], batch_size=batch_size)
-    assert y_pred[:, :, 0].shape == y.shape
+    assert y_pred.shape == y.shape
     qt.save("./test_model.keras")
     new_qt = load_model("./test_model.keras")
     weights_new = new_qt.get_weights()
@@ -49,7 +52,7 @@ def test_quantized_transformer():
     qt.compile(loss="binary_crossentropy", optimizer="adam")
     qt.call((x_encoder, x_decoder))
     weights_init = qt.get_weights()
-    qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=1)
+    qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=2)
     weights_after = qt.get_weights()
     weights_constant = [np.all(s == e) for s, e in zip(weights_init, weights_after)]
     assert not np.any(weights_constant), "Weights are not changing somewhere"
