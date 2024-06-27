@@ -28,7 +28,8 @@ class BlockTransformer(keras.models.Model):
         n_outputs (int): number of outputs per potential leak location.
         block_size (int): number of time steps in each block. Will error if block_size is not divisible by the time dimension.
         n_coords (int): number of input variables used for coordinate values.
-        data_start_index (int): index of the first data variable.
+        data_start_index (int): index of the first data variable. Can be used to help exclude coords or other inputs
+            without reprocessing the data.
     """
     def __init__(self, encoder_layers=1, decoder_layers=1,
                  hidden_size=512,
@@ -117,7 +118,7 @@ class BlockTransformer(keras.models.Model):
         if self.output_activation == "softmax":
             output = ops.squeeze(output, axis=-1)
             output = self.output_activation_layer(output, mask=decoder_padding_mask, axis=-1)
-            output = ops.expand_dims(output, -1)
+            # output = ops.expand_dims(output, -1)
         else:
             output = self.output_activation_layer(output)
         return output
@@ -126,7 +127,6 @@ class BlockTransformer(keras.models.Model):
         base_config = super().get_config()
         parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
-
 
 
 class QuantizedTransformer(keras.models.Model):
@@ -403,6 +403,7 @@ class TEncoder(keras.models.Model):
         base_config = super().get_config()
         parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
+
 
 class BackTrackerDNN(keras.models.Model):
     """
