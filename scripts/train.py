@@ -103,7 +103,7 @@ for model_name in config["models"]:
 
     model.compile(optimizer=optimizer, **config[model_name]["compile"])
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
-                         y=y.squeeze(),
+                         y=y,
                          validation_data=((scaled_encoder_val,
                                            scaled_decoder_val,
                                            encoder_mask_val, decoder_mask_val),

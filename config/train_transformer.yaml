@@ -28,7 +28,7 @@ block_transformer_leak_loc:
     batch_size: 128
   compile:
     loss: "categorical_crossentropy"
-    metrics: ["categorical_accuarcy", "mean_searched_locations"]
+    metrics: ["categorical_accuracy"]
   optimizer:
     learning_rate: 0.0001
     optimizer_type: "adam"

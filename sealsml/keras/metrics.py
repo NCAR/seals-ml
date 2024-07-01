@@ -30,11 +30,9 @@ def search_length(y_true, y_pred):
     Returns:
         keras Tensor containing the search length count for each example.
     """
-    y_true_2d = ops.squeeze(y_true)
-    y_pred_2d = ops.squeeze(y_pred)
-    leak_index = ops.argmax(y_true_2d, axis=1)
-    pred_leak_loc_order = ops.argsort(y_pred_2d, axis=1)[:, ::-1]
-    pred_search_length = []
-    for i in range(ops.shape(leak_index)[0]):
-        pred_search_length.append(ops.where(pred_leak_loc_order[i] == leak_index[i])[0][0])
-    return ops.stack(pred_search_length)
+    leak_index = ops.argmax(y_true, axis=1)
+    pred_leak_loc_order = ops.argsort(y_pred, axis=1)[:, ::-1]
+    pred_search_length = ops.argmin(ops.abs(pred_leak_loc_order - ops.expand_dims(leak_index, axis=-1)), axis=1)
+    return pred_search_length
+
+
