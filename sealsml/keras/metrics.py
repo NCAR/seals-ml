@@ -7,6 +7,7 @@ def mean_searched_locations(y_true, y_pred):
     """
     Calculates the mean number of leak locations that need to be searched before finding the true leak
     assuming the leak locations are sorted by the predicted probability of a leak at that location.
+    Minimum mean_search_locations should be 1. 
 
     Args:
         y_true: Tensor or array of shape [batch_size, num_locations] or [batch_size, num_locations, num_outputs]
@@ -16,7 +17,7 @@ def mean_searched_locations(y_true, y_pred):
         expected_searched_locations
     """
     pred_search_length = search_length(y_true, y_pred)
-    return ops.mean(pred_search_length)
+    return ops.mean(pred_search_length) + 1.0 # Add 1 to account for 0-based indexing.
 
 @keras.saving.register_keras_serializable()
 def search_length(y_true, y_pred):
