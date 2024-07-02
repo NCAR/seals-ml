@@ -11,7 +11,8 @@ from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_s
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
 
-    def __init__(self, min_trace_sensors=3, 
+    def __init__(self, 
+                 min_trace_sensors=3, 
                  max_trace_sensors=15, 
                  min_leak_loc=1, 
                  max_leak_loc=10,
@@ -177,7 +178,10 @@ class DataSampler(object):
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
                 elif self.sensor_sampling_strategy == 'samples_from_file':
-                    print("Using a file for sensor sampling")
+                    print("Using a file for sensor sampling")    
+                    print('Number of sensors set by config file')
+                    n_sensors = self.ds_configs['sensor'].values.shape[0]
+                    
                     i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
                                                                                             layout=s)
                 else:

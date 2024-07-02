@@ -326,7 +326,7 @@ def test_DataSampler_generate_sensor_positions_from_file():
     test_data = os.path.expanduser(test_data_path)
     assert os.path.exists(test_data), f"File not found: {test_data}"
 
-    sampler = DataSampler(min_trace_sensors=13, max_trace_sensors=13, min_leak_loc=2, max_leak_loc=11,
+    sampler = DataSampler(min_trace_sensors=6, max_trace_sensors=6, min_leak_loc=2, max_leak_loc=11,
                           sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4,
                           coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
                           met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'],
