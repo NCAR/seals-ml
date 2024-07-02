@@ -14,7 +14,7 @@ sampler_args:
   sensor_height_max: 4
   sensor_sampling_strategy: "random_sampling"
   sensor_min_distance: 20.0
-  sensor_samples_file: "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/FE_METECconfigs/example_METECconfigs.nc"
+  sensor_samples_file: None  # "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/FE_METECconfigs/example_METECconfigs.nc"
   leak_height_min: 0 
   leak_height_max: 4 
   sensor_type_mask: -999
