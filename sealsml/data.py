@@ -177,9 +177,9 @@ class DataSampler(object):
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
                 elif self.sensor_sampling_strategy == 'samples_from_file':
+                    print("Using a file for sensor sampling")
                     i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
-                                                                                       self.ds_configs,
-                                                                                       layout=s)
+                                                                                            layout=s)
                 else:
                     print('bad strategy')
 
@@ -286,16 +286,23 @@ class DataSampler(object):
 
         return self.make_xr_ds(sensor_samples, leak_samples, targets, sensor_meta, leak_meta, mean_wd)
 
-    def generate_sensor_positions_from_file(self, n_sensors, ds_configs, layout=0):
+    def generate_sensor_positions_from_file(self, n_sensors, layout=0):
         # Function to create i,j,k for sensors from a netCDF file
         # n_sensors : int
         # Output is 3 numpy arrays
-        xpts = ds_configs['configs'][layout,:,0].values
-        ypts = ds_configs['configs'][layout,:,1].values
-        zpts = ds_configs['configs'][layout,:,2].values
-        i_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
-        j_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
-        k_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
+        xpts = self.ds_configs['configs'][layout,:,0].values
+        ypts = self.ds_configs['configs'][layout,:,1].values
+        zpts = self.ds_configs['configs'][layout,:,2].values
+
+        i_sensor = np.zeros(self.ds_configs.sizes['sensor'], dtype=np.int32)
+        j_sensor = np.zeros(self.ds_configs.sizes['sensor'], dtype=np.int32)
+        k_sensor = np.zeros(self.ds_configs.sizes['sensor'], dtype=np.int32)
+        
+        # Ensure that xpts and ypts have the same number of points as n_sensors
+        assert len(xpts) == n_sensors, f"Number of xpts ({len(xpts)}) does not match n_sensors ({n_sensors})"
+        assert len(ypts) == n_sensors, f"Number of ypts ({len(ypts)}) does not match n_sensors ({n_sensors})"
+        assert len(zpts) == n_sensors, f"Number of zpts ({len(zpts)}) does not match n_sensors ({n_sensors})"
+        
         for idx in range(n_sensors):
           i_sensor[idx], j_sensor[idx], k_sensor[idx] = self.findIndices(xpts[idx], ypts[idx], zpts[idx])
 
