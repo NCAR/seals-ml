@@ -83,6 +83,11 @@ class DataSampler(object):
                 raise FileNotFoundError("Sensor Sampling file does not exist.")
             
             self.ds_configs = xr.open_dataset(self.sensor_samples_file)  # lazy evaluation is likely fine here
+            # Overwrite some yaml properties, we want to set number of sensors from config file, not the yaml
+
+            self.min_trace_sensors = self.ds_configs.sizes['sensor'] - self.max_met_sensors
+            self.max_trace_sensors = self.ds_configs.sizes['sensor'] - self.max_met_sensors
+
             if not (self.ds_configs.sizes['sensor'] == self.max_trace_sensors + self.max_met_sensors):
                 print(f"ERROR with sensor_samples_file: ")
                 print(f"dim sensor = {self.ds_configs.sizes['sensor']} not equal to expected value of max met+trace sensors = {self.max_trace_sensors + self.max_met_sensors}")
@@ -178,9 +183,7 @@ class DataSampler(object):
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
                 elif self.sensor_sampling_strategy == 'samples_from_file':
-                    print("Using a file for sensor sampling")    
-                    n_sensors = self.ds_configs['sensor'].values.shape[0] # might not need?
-                    
+                    print("Using a file for sensor sampling")            
                     i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
                                                                                             layout=s)
                 else:
