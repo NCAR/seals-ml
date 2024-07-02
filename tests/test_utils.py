@@ -316,3 +316,36 @@ def test_generate_sensor_positions_min_distance():
     # Ensure it doesn't enter an infinite loop
     assert len(i_sensor_impossible) < n_sensors_impossible, \
         "Function should not place all sensors in an impossible scenario"
+    
+
+def test_DataSampler_generate_sensor_positions_from_file():
+    # This will be more abbbreviated since the earlier test covers the pre-processor, etc.
+    # Main point of this test is to test samples_from_file functionality 
+
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/example_METECconfigs.nc')
+    test_data = os.path.expanduser(test_data_path)
+    assert os.path.exists(test_data), f"File not found: {test_data}"
+
+    # Want to test that the min_trace_sensors gets overwritten 
+    sampler = DataSampler(min_trace_sensors=5, max_trace_sensors=9, min_leak_loc=2, max_leak_loc=11,
+                          sensor_height_min=1, sensor_height_max=4, leak_height_min=0, leak_height_max=4,
+                          coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"],
+                          met_vars=['u', 'v', 'w'], emission_vars=['q_CH4'],
+                          sensor_sampling_strategy='samples_from_file', 
+                          sensor_samples_file=test_data_path)
+
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/CBL2m_Ug2p5_src1-8kg_a.1')
+    test_data = os.path.expanduser(test_data_path)
+    ds, num_sources = sampler.load_data([test_data])
+
+    for i in range(num_sources):
+        sampler.data_extract(ds.isel(srcDim=i))
+
+    time_window_size = 20
+    samples_per_window = 2
+    window_stride = 10
+
+    data = sampler.sample(time_window_size, samples_per_window, window_stride)
+   
+    # Check if data is an instance of xarray.Dataset
+    assert isinstance(data, xr.Dataset), "Data should be an xarray Dataset"
