@@ -21,7 +21,8 @@ class DataSampler(object):
                  sensor_min_distance=20.0,
                  coord_vars=None,
                  met_vars=None, emission_vars=None,
-                 pot_leaks_scheme=None, pot_leaks_file=None, sensor_sampling_strategy=None):
+                 pot_leaks_scheme=None, pot_leaks_file=None, 
+                 sensor_sampling_strategy=None, sensor_samples_file=None):
         if coord_vars is None:
             coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
         if met_vars is None:
@@ -34,6 +35,8 @@ class DataSampler(object):
             pot_leaks_file = ''
         if sensor_sampling_strategy == None:
             sensor_sampling_strategy = 'random_sampling'
+        if sensor_samples_file == None:
+            sensor_samples_file = ''
         self.min_trace_sensors = min_trace_sensors
         self.max_trace_sensors = max_trace_sensors
         self.max_met_sensors = 1  # Currently self.max_met_sensors strictly permitted to be 1
@@ -43,6 +46,7 @@ class DataSampler(object):
         self.sensor_height_max = sensor_height_max
         self.sensor_sampling_strategy = sensor_sampling_strategy
         self.sensor_min_distance = sensor_min_distance
+        self.sensor_samples_file = sensor_samples_file
         self.leak_height_min = leak_height_min
         self.leak_height_max = leak_height_max
         self.sensor_exist_mask = sensor_exist_mask
@@ -65,6 +69,12 @@ class DataSampler(object):
             ds = xr.open_mfdataset(file_names, parallel=use_dask).swap_dims({'time': 'timeDim'})
         else:
             ds = xr.open_mfdataset(file_names, parallel=use_dask)
+        #Prepare sensor sampling strategy
+        if self.sensor_sampling_strategy == 'samples_from_file':
+            self.ds_configs = xr.open_dataset(self.sensor_samples_file)  # lazy evaluation is likely fine here
+            if not (self.ds_configs.sizes['sensor'] == self.max_trace_sensors + self.max_met_sensors):
+                print(f"ERROR with sensor_samples_file: ")
+                print(f"dim sensor = {self.ds_configs.sizes['sensor']} not equal to expected value of max met+trace sensors = {self.max_trace_sensors + self.max_met_sensors}")
         # need the number of sources
         num_sources = ds.sizes['srcDim']
         # may need the structureMask and/or shell_mask and self.max_leak_loc to be set accordingly
@@ -155,26 +165,31 @@ class DataSampler(object):
                                                                                 self.x,
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
+                elif self.sensor_sampling_strategy == 'samples_from_file':
+                    i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
+                                                                                       self.ds_configs,
+                                                                                       layout=s)
                 else:
                     print('bad strategy')
 
-                # Converting to index space
-                sensor_height_max_index = int(np.rint(self.sensor_height_max / self.z_res))
-                sensor_height_min_index = int(np.rint(self.sensor_height_min / self.z_res))
+                if not (self.sensor_sampling_strategy == 'samples_from_file'): #samples_from_file has specified the vertical already
+                  # Converting to index space
+                  sensor_height_max_index = int(np.rint(self.sensor_height_max / self.z_res))
+                  sensor_height_min_index = int(np.rint(self.sensor_height_min / self.z_res))
 
-                ## Sensor vertical logic
-                if sensor_height_max_index > self.kDim:
+                  ## Sensor vertical logic
+                  if sensor_height_max_index > self.kDim:
                     raise ValueError("Max sensor height is greater than domain, please pick a smaller number")
-                elif sensor_height_min_index > sensor_height_max_index:
+                  elif sensor_height_min_index > sensor_height_max_index:
                     raise ValueError("Min sensor height is greater than the maximum (in index space), please try again")
-                elif sensor_height_min_index == sensor_height_max_index:
+                  elif sensor_height_min_index == sensor_height_max_index:
                     k_sensor = np.repeat(sensor_height_max_index,
                                          n_sensors)
-                else:
+                  else:
                     k_sensor = np.random.randint(low=sensor_height_min_index,
                                                  high=sensor_height_max_index,
                                                  size=n_sensors)
-                # end of sensor vertical sampling logic
+                  # end of sensor vertical sampling logic
 
                 sensor_phi = self.data[self.met_vars].isel({'timeDim': slice(t, t + time_window_size),
                                                             'kDim': k_sensor[0],
@@ -259,6 +274,18 @@ class DataSampler(object):
         targets = self.create_targets(leak_samples, true_leak_idx)
 
         return self.make_xr_ds(sensor_samples, leak_samples, targets, sensor_meta, leak_meta, mean_wd)
+
+    def generate_sensor_positions_from_file(self, n_sensors, ds_configs, layout=0):
+        xpts = ds_configs['configs'][layout,:,0].values
+        ypts = ds_configs['configs'][layout,:,1].values
+        zpts = ds_configs['configs'][layout,:,2].values
+        i_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
+        j_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
+        k_sensor = np.zeros(ds_configs.sizes['sensor'], dtype=np.int32)
+        for idx in range(n_sensors):
+          i_sensor[idx], j_sensor[idx], k_sensor[idx] = self.findIndices(xpts[idx], ypts[idx], zpts[idx])
+
+        return i_sensor, j_sensor, k_sensor
 
     def setupRandomLeakLocations(self):
         # Number of potential leak locations
