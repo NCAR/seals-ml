@@ -179,8 +179,7 @@ class DataSampler(object):
                                                                                 min_distance=self.sensor_min_distance)
                 elif self.sensor_sampling_strategy == 'samples_from_file':
                     print("Using a file for sensor sampling")    
-                    print('Number of sensors set by config file')
-                    n_sensors = self.ds_configs['sensor'].values.shape[0]
+                    n_sensors = self.ds_configs['sensor'].values.shape[0] # might not need?
                     
                     i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
                                                                                             layout=s)

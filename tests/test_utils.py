@@ -346,8 +346,5 @@ def test_DataSampler_generate_sensor_positions_from_file():
 
     data = sampler.sample(time_window_size, samples_per_window, window_stride)
    
-    # Check if data is an instance of np.ndarray
-    assert isinstance(data, np.ndarray), "Data should be a NumPy array."
-
-    # Check if data is not empty
-    assert data.size > 0, "Data should not be empty."
+    # Check if data is an instance of xarray.Dataset
+    assert isinstance(data, xr.Dataset), "Data should be an xarray Dataset"
