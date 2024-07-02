@@ -1,7 +1,7 @@
 import numpy as np
 import keras.layers as layers
 from keras_nlp.layers import TransformerDecoder, TransformerEncoder
-from .layers import VectorQuantizer, ConvSensorEncoder
+from .layers import VectorQuantizer, ConvSensorEncoder, TimeBlockSensorEncoder, MaskedSoftmax
 import keras
 import keras.ops as ops
 from keras.regularizers import L1, L2, L1L2
@@ -10,6 +10,124 @@ from keras.layers import Dense, LeakyReLU, GaussianNoise, Dropout
 # If using TensorFlow, this will make GPU ops as deterministic as possible,
 # but it will affect the overall performance, so be mindful of that.
 # tf.config.experimental.enable_op_determinism()
+
+
+class BlockTransformer(keras.models.Model):
+    """
+    Transformer model that can attend across both time blocks and sensors to localize potential
+    leaks.
+
+    Parameters:
+        encoder_layers (int): number of encoder transformer layers
+        decoder_layers (int): number of decoder transformer layers
+        hidden_size (int): number of neurons in latent representation for both encoder and decoder layers
+        n_heads (int): number of attention heads
+        hidden_activation (str): nonlinear function applied to each dense or transformer layer inside the model
+        output_activation (str): nonlinear function for output. Suggest softmax or sigmoid.
+        dropout_rate (float): Rate at which neurons are randomly dropped out in the transformer layers.
+        n_outputs (int): number of outputs per potential leak location.
+        block_size (int): number of time steps in each block. Will error if block_size is not divisible by the time dimension.
+        n_coords (int): number of input variables used for coordinate values.
+        data_start_index (int): index of the first data variable. Can be used to help exclude coords or other inputs
+            without reprocessing the data.
+    """
+    def __init__(self, encoder_layers=1, decoder_layers=1,
+                 hidden_size=512,
+                 n_heads=8,
+                 hidden_activation="relu",
+                 output_activation="softmax",
+                 dropout_rate=0.1,
+                 n_outputs=1,
+                 block_size=10,
+                 n_coords=4,
+                 data_start_index=4,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.encoder_layers = encoder_layers
+        self.decoder_layers = decoder_layers
+        self.hidden_size = hidden_size
+        self.n_heads = n_heads
+        self.hidden_activation = hidden_activation
+        self.output_activation = output_activation
+        self.dropout_rate = dropout_rate
+        self.n_outputs = n_outputs
+        self.block_size = block_size
+        self.n_coords = n_coords
+        self.data_start_index = data_start_index
+        self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
+                                "hidden_activation", "output_activation",
+                                "dropout_rate", "n_outputs",
+                                "block_size", "n_coords"]
+        self.time_block_sensor_encoder = TimeBlockSensorEncoder(embedding_size=self.hidden_size,
+                                                                block_size=self.block_size,
+                                                                n_coords=self.n_coords)
+        self.decoder_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation,
+                                           name="decoder_hidden")
+        self.encoder_transformers = []
+        self.decoder_transformers = []
+        self.vector_quantizers = {}
+        for n in range(self.encoder_layers):
+            self.encoder_transformers.append(TransformerEncoder(intermediate_dim=self.hidden_size,
+                                                                num_heads=self.n_heads,
+                                                                dropout=self.dropout_rate,
+                                                                activation=self.hidden_activation,
+                                                                name=f"encoder_transformer_{n:02d}"))
+        for n in range(self.decoder_layers):
+            self.decoder_transformers.append(TransformerDecoder(intermediate_dim=self.hidden_size,
+                                                                num_heads=self.n_heads,
+                                                                dropout=self.dropout_rate,
+                                                                activation=self.hidden_activation,
+                                                                name=f"decoder_transformer_{n:02d}"))
+        self.output_hidden = layers.Dense(self.n_outputs, name="output_hidden")
+        if self.output_activation == "softmax":
+            self.output_activation_layer = MaskedSoftmax(name="output_activation_layer")
+        else:
+            self.output_activation_layer = layers.Activation(self.output_activation, name="output_activation_layer")
+        return
+
+    def call(self, inputs, training=False):
+        # First inputs element is the encoder input, which would be the sensors.
+        encoder_input = inputs[0]
+        # Second inputs element is the decoder input, which would be the potential leak locations.
+        decoder_input = inputs[1][..., :self.n_coords]
+        encoder_shape = ops.shape(encoder_input)
+        encoder_padding_mask = None
+        decoder_padding_mask = None
+        if len(inputs) > 2:
+            # Repeat the encoder padding mask values for each time block.
+            # Output shape should be (batch_size, n_sensors * n_times / block_size )
+            encoder_padding_mask = ops.repeat(inputs[2], int(encoder_shape[2] // self.block_size), axis=1)
+        if len(inputs) > 3:
+            decoder_padding_mask = inputs[3]
+
+        encoder_hidden_out = self.time_block_sensor_encoder(encoder_input)
+        decoder_hidden_out = self.decoder_hidden(decoder_input)
+        encoder_output = self.encoder_transformers[0](encoder_hidden_out,
+                                                      padding_mask=encoder_padding_mask)
+        for e in range(1, self.encoder_layers):
+            encoder_output = self.encoder_transformers[e](encoder_output,
+                                                          padding_mask=encoder_padding_mask)
+        decoder_output = self.decoder_transformers[0](decoder_hidden_out, encoder_output,
+                                                      encoder_padding_mask=encoder_padding_mask,
+                                                      decoder_padding_mask=decoder_padding_mask)
+        for d in range(1, self.decoder_layers):
+            decoder_output = self.decoder_transformers[d](decoder_output, encoder_output,
+                                                          encoder_padding_mask=encoder_padding_mask,
+                                                          decoder_padding_mask=decoder_padding_mask)
+        output = self.output_hidden(decoder_output)
+        if self.output_activation == "softmax":
+            output = ops.squeeze(output, axis=-1)
+            output = self.output_activation_layer(output, mask=decoder_padding_mask, axis=-1)
+            # output = ops.expand_dims(output, -1)
+        else:
+            output = self.output_activation_layer(output)
+        return output
+
+    def get_config(self):
+        base_config = super().get_config()
+        parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
+        return {**base_config, **parameter_config}
+
 
 class QuantizedTransformer(keras.models.Model):
     """
@@ -44,6 +162,8 @@ class QuantizedTransformer(keras.models.Model):
                  n_outputs=1,
                  min_filters=4, kernel_size=3, filter_growth_rate=2, n_conv_layers=3,
                  pooling="average", pool_size=2, padding="valid",
+                 n_coords=4,
+                 data_start_index=4,
                  **kwargs):
         super().__init__(**kwargs)
         assert encoder_layers > 0, "Should be at least 1 encoder layer"
@@ -70,6 +190,8 @@ class QuantizedTransformer(keras.models.Model):
         self.pooling = pooling
         self.pool_size = pool_size
         self.padding = padding
+        self.n_coords = n_coords
+        self.data_start_index = data_start_index
         self.hyperparameters = ["encoder_layers", "decoder_layers", "hidden_size", "n_heads",
                                 "num_quantized_embeddings", "hidden_activation", "output_activation",
                                 "dropout_rate", "use_quantizer", "quantized_beta", "n_outputs", "min_filters",
@@ -120,7 +242,7 @@ class QuantizedTransformer(keras.models.Model):
         # First inputs element is the encoder input, which would be the sensors.
         encoder_input = inputs[0]
         # Second inputs element is the decoder input, which would be the potential leak locations.
-        decoder_input = inputs[1][..., :4]
+        decoder_input = inputs[1][..., :self.n_coords]
         encoder_padding_mask = None
         decoder_padding_mask = None
         if len(inputs) > 2:
@@ -281,6 +403,7 @@ class TEncoder(keras.models.Model):
         base_config = super().get_config()
         parameter_config = {hp: getattr(self, hp) for hp in self.hyperparameters}
         return {**base_config, **parameter_config}
+
 
 class BackTrackerDNN(keras.models.Model):
     """

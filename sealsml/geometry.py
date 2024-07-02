@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
 
-class GeoCalculator(object):
 
+class GeoCalculator(object):
   def __init__(self, ref_array=None, target_array=None):
 
       self.reference_array = ref_array

@@ -1,11 +1,5 @@
-#data_path: "/glade/work/cbecker/SEALS_training_data_20231205/"
-#data_path: "/glade/derecho/scratch/dgagne/SEALS_training_data_20231206/"
-#out_path: "/glade/derecho/scratch/username/SEALS_output/train_20231206/"
-data_path: "/glade/work/cbecker/SEALS_training_data/data_gen_20240529/"
+data_path: "/glade/derecho/sratch/username/SEALS_training_data/data_gen_20240529/"
 out_path: "/glade/work/username/SEALS_output/train/"
-#data_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/"
-#out_path: "/glade/scratch/username/SEALS_output/"
-#out_path: "/Users/cbecker/PycharmProjects/seals-ml/SEALS_training_data_20231201_windrel/train/"
 random_seed: 812
 save_model: True
 save_output: True
@@ -13,10 +7,35 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-#models: ['transformer_leak_loc']
-#models: ['backtracker']
-models: ['transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
+models: ['block_transformer_leak_loc', 'transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
 
+block_transformer_leak_loc:
+  kwargs:
+    encoder_layers: 2
+    decoder_layers: 2
+    hidden_size: 256
+    n_heads: 4
+    hidden_activation: "relu"
+    output_activation: "softmax"
+    dropout_rate: 0.05
+    n_outputs: 1
+    block_size: 20
+    n_coords: 3
+    data_start_index: 4
+  fit:
+    epochs: 40
+    verbose: 1
+    batch_size: 128
+  compile:
+    loss: "categorical_crossentropy"
+    metrics: ["categorical_accuracy"]
+  optimizer:
+    learning_rate: 0.0001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 transformer_leak_loc:
   kwargs:
     encoder_layers: 2

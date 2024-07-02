@@ -5,6 +5,7 @@ from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
 from sealsml.geometry import GeoCalculator, get_relative_azimuth, generate_sensor_positions_min_distance
+from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler, save_scaler
 
 
@@ -463,7 +464,7 @@ class DataSampler(object):
         return ds
 
 
-class Preprocessor():
+class Preprocessor(object):
 
     def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
 
@@ -570,9 +571,20 @@ class Preprocessor():
         return scaled_encoder_data, scaled_decoder_data
 
 
+class MultiPreprocessor(object):
+    def __init__(self, scaler_type="quantile", scaler_kwargs=None, sensor_pad_value=None, sensor_type_value=None):
+        self.sensor_pad_value = sensor_pad_value
+        self.sensor_type_value = sensor_type_value
+        if scaler_kwargs is None:
+            scaler_kwargs = {}
+        self.scaler_kwargs = scaler_kwargs
+
+
+
+
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):
 
-    if model_name == "transformer_leak_loc" or model_name == "gaussian_process":
+    if model_name == "transformer_leak_loc" or model_name == "gaussian_process" or model_name == "block_transformer_leak_loc":
 
         train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], train_targets),
                                                  leak_loc_pred=(["sample", "pot_leak_locs"], train_predictions)))

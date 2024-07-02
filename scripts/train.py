@@ -3,7 +3,7 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN
+from sealsml.keras.models import QuantizedTransformer, BlockTransformer, TEncoder, BackTrackerDNN
 from sealsml.baseline import GPModel
 from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
@@ -18,15 +18,23 @@ import pandas as pd
 from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler
 from sealsml.backtrack import create_binary_preds_relative
 from sealsml.evaluate import provide_metrics
+from sealsml.keras.metrics import mean_searched_locations
 tf.debugging.disable_traceback_filtering()
 from keras.optimizers import SGD, Adam
+
+custom_keras_metrics = {"mean_searched_locations": mean_searched_locations}
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
 args = parser.parse_args()
 with open(args.config) as config_file:
     config = yaml.safe_load(config_file)
-
+for model in config["models"]:
+    if "compile" in config[model]:
+        if "metrics" in config[model]["compile"]:
+            for m, metric in enumerate(config[model]["compile"]["metrics"]):
+                if metric in custom_keras_metrics.keys():
+                    config[model]["compile"]["metrics"][m] = custom_keras_metrics[metric]
 keras.utils.set_random_seed(config["random_seed"])
 np.random.seed(config["random_seed"])
 username = os.environ.get('USER')
@@ -60,6 +68,9 @@ for model_name in config["models"]:
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
+    elif model_name == "block_transformer_leak_loc":
+        model = BlockTransformer(**config[model_name]["kwargs"])
+        y, y_val = leak_location, leak_location_val
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
@@ -87,15 +98,15 @@ for model_name in config["models"]:
                          beta_2=config[model_name]["optimizer"]["adam_beta_2"],
                          epsilon=config[model_name]["optimizer"]["epsilon"])
     else:
-        TypeError("Only 'sgd' or 'adam' optimizers are currently supported.")
+        optimizer = None
+        raise TypeError("Only 'sgd' or 'adam' optimizers are currently supported.")
 
     model.compile(optimizer=optimizer, **config[model_name]["compile"])
     fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                          y=y,
                          validation_data=((scaled_encoder_val,
                                            scaled_decoder_val,
-                                           encoder_mask_val,
-                                           decoder_mask_val),
+                                           encoder_mask_val, decoder_mask_val),
                                           y_val),
                          **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
