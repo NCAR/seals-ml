@@ -107,7 +107,18 @@ class DataSampler(object):
                 self.max_leak_loc = np.argwhere(self.shell_mask > 0).shape[0] + 1  # padded by 1 for a true leak
                 self.min_leak_loc = self.max_leak_loc
             elif self.pot_leaks_scheme == 'from_pot_leak_file':
-                self.ds_pot_leaks = xr.open_dataset(self.pot_leaks_file)  # lazy evaluation is likely fine here
+                file=file_names
+                #print(file)
+                tmpFile = self.pot_leaks_file
+                if 'RefOri' in (file.split('_')[-1]):
+                  rotAngle = 0
+                  #print(rotAngle)
+                  pl_file = tmpFile
+                else:
+                  rotAngle = ((file.split('_')[-1].split('RotCW')[-1].split('.')[0]))
+                  #print(rotAngle)
+                  pl_file = tmpFile.replace("RefOri", f"RotCW{rotAngle}")
+                self.ds_pot_leaks = xr.open_dataset(pl_file)  # lazy evaluation is likely fine here
                 self.max_leak_loc = self.ds_pot_leaks.sizes['plDim'] + 1  # padded by 1 for a true leak
                 self.min_leak_loc = self.max_leak_loc
             else:
@@ -184,9 +195,7 @@ class DataSampler(object):
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
                 elif self.sensor_sampling_strategy == 'samples_from_file':
-                    print("Using a file for sensor sampling")            
-                    i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,
-                                                                                            layout=s)
+                    i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,layout=s)
                 else:
                     print('bad strategy')
 
