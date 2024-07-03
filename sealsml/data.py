@@ -113,7 +113,7 @@ class DataSampler(object):
                 if 'RefOri' in (file.split('_')[-1]):
                   rotAngle = 0
                   #print(rotAngle)
-                  pl_file = pl_file
+                  pl_file = tmpFile
                 else:
                   rotAngle = ((file.split('_')[-1].split('RotCW')[-1].split('.')[0]))
                   #print(rotAngle)
