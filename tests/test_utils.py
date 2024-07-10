@@ -12,6 +12,8 @@ from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import specific_site_data_generation, extract_ts_segments
 from bridgescaler import save_scaler
 from scipy.spatial.distance import pdist, squareform
+from sealsml.backtrack import create_binary_preds_relative
+
 
 def test_polar_to_cart1():
     # Test with single values
@@ -349,3 +351,17 @@ def test_DataSampler_generate_sensor_positions_from_file():
    
     # Check if data is an instance of xarray.Dataset
     assert isinstance(data, xr.Dataset), "Data should be an xarray Dataset"
+
+def test_create_binary_preds_relative():
+    # make some data
+    test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc')
+    test_data = os.path.expanduser(test_data_path)
+    fake_preds = np.random.uniform(low=-5, high=5, size=(100, 3))
+
+
+    unranked_preds = create_binary_preds_relative(test_data, fake_preds)
+    assert np.unique(unranked_preds).shape[0] == 2, "The ranked output does not equal 2 (0 and 1)."
+
+    ranked_output = create_binary_preds_relative(test_data, fake_preds, ranked=True)
+    # Assert that the unique values in ranked_output equal 21
+    assert np.unique(ranked_output).shape[0] == 21, "The ranked output does not equal 21."
