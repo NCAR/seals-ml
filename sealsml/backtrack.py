@@ -243,7 +243,7 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
     return input_array, target_array
 
-def create_binary_preds_relative(data, y_pred: np.ndarra, ranked=False) -> np.ndarray:
+def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.ndarray:
     '''
     Create either a binary (0,1) or ranked array based on predicted coordinates and potential leak locations.
 
