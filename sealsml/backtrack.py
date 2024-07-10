@@ -249,8 +249,9 @@ def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.n
 
     Returns:
     - location_array: np.ndarray, shape (n_samples, max_potential_leaks), binary or ranked array.
-      If ranked=True, ranks distances from 1 (closest) to n (farthest) for each potential leak location.
-      If ranked=False, marks the closest leak location with 1 (binary classification).
+        If ranked=True, ranks distances from 1 (closest) to n (farthest) for each potential leak location.
+            The value of zero marks nothing basically, for 10 leak locations it will range from 1 to 11, and then it will use 0 to mark nothing
+        If ranked=False, marks the closest leak location with 1 (binary classification).
     '''
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values

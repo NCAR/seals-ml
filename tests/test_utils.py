@@ -355,13 +355,13 @@ def test_DataSampler_generate_sensor_positions_from_file():
 def test_create_binary_preds_relative():
     # make some data
     test_data_path = os.path.join(os.path.dirname(__file__), '../test_data/training_data_CBL2m_Ug10_src1-8kg_a.3_100samples.nc')
-    test_data = os.path.expanduser(test_data_path)
+    dataset = xr.open_dataset(test_data_path)
     fake_preds = np.random.uniform(low=-5, high=5, size=(100, 3))
 
 
-    unranked_preds = create_binary_preds_relative(test_data, fake_preds)
+    unranked_preds = create_binary_preds_relative(dataset, fake_preds)
     assert np.unique(unranked_preds).shape[0] == 2, "The ranked output does not equal 2 (0 and 1)."
 
-    ranked_output = create_binary_preds_relative(test_data, fake_preds, ranked=True)
+    ranked_output = create_binary_preds_relative(dataset, fake_preds, ranked=True)
     # Assert that the unique values in ranked_output equal 21
     assert np.unique(ranked_output).shape[0] == 21, "The ranked output does not equal 21."
