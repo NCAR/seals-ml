@@ -268,7 +268,8 @@ def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.n
         
         if ranked:
             # Rank distances and assign ranks to location_array
-            ranked_indices = np.argsort(distance)
+            ranked_indices = np.argsort(distance) # Computes indices that would sort the distance array in ascending order.
+            # Index of the location in location_array corresponding to the sorted order of distances.
             for rank, idx in enumerate(ranked_indices, start=1):
                 location_array[s, idx] = rank
         else:
