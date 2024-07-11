@@ -270,7 +270,7 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
     - xVec (np.ndarray): Vector of cartesian x-coordinates.
     - yVec (np.ndarray): Vector of cartesian y-coordinates.
     - min_distance (float): Minimum distance between any two sensors.
-    - placement_strategy (str): Strategy to place sensors ('random', 'fenceline', 'quadrants').
+    - placement_strategy (str): Strategy to place sensors ('random', 'fenceline', 'quadrant').
     - max_attempts (int, optional): Maximum number of attempts to place a sensor before giving up. Default is 500.
 
     Returns:
@@ -324,7 +324,7 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
                 print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
                 break
 
-    elif placement_strategy == 'quadrants':
+    elif placement_strategy == 'quadrant':
         quadrants = {
             "NW": (xVec[:iDim // 2], yVec[:jDim // 2]),
             "NE": (xVec[iDim // 2:], yVec[:jDim // 2]),
