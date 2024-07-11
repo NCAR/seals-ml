@@ -194,6 +194,13 @@ class DataSampler(object):
                                                                                 self.x,
                                                                                 self.y,
                                                                                 min_distance=self.sensor_min_distance)
+                elif self.sensor_sampling_strategy == 'fenceline':
+                    # This does not take into account vertical componet
+                    i_sensor, j_sensor = generate_sensor_positions_min_distance(n_sensors,
+                                                                                self.x,
+                                                                                self.y,
+                                                                                min_distance=self.sensor_min_distance,
+                                                                                placement_strategy='fenceline')
                 elif self.sensor_sampling_strategy == 'samples_from_file':
                     i_sensor, j_sensor, k_sensor = self.generate_sensor_positions_from_file(n_sensors,layout=s)
                 else:

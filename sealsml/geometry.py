@@ -358,7 +358,7 @@ def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, 
                     break
 
     else:
-        raise ValueError("Invalid placement strategy. Choose from 'random', 'fenceline', or 'quadrants'.")
+        print("Invalid placement strategy. Choose from 'random', 'fenceline', or 'quadrants'.")
 
     if cnt_points < n_sensors:
         print(f"Warning: Only {cnt_points} sensors placed out of {n_sensors} requested.")
