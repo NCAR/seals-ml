@@ -243,23 +243,39 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
     return input_array, target_array
 
-def create_binary_preds_relative(data, y_pred: np.ndarray) -> np.ndarray:
-    # This function creates the padded binary array (0,1 for leak) used for evaluation
-    # output is a np.array in the shape of max potential leaks by number of samples
+def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.ndarray:
+    '''
+    Create either a binary (0,1) or ranked array based on predicted coordinates and potential leak locations.
+
+    Returns:
+    - location_array: np.ndarray, shape (n_samples, max_potential_leaks), binary or ranked array.
+        If ranked=True, ranks distances from 1 (closest) to n (farthest) for each potential leak location.
+            The value of zero marks nothing basically, for 10 leak locations it will range from 1 to 11, and then it will use 0 to mark nothing
+        If ranked=False, marks the closest leak location with 1 (binary classification).
+    '''
     n_samples = y_pred.shape[0]
     y_true = data['leak_meta'].values
     met_locs = data['met_sensor_loc'].values
     xyz_pred = y_pred[:, :3]
     location_array = np.zeros(shape=y_true.shape[:-1])
     
-    # The loop has to exist due to different number of leaks per sample
+    # Loop through each sample
     for s in range(n_samples):
+        # Remove rows where leak_meta is zero (indicating no leak)
         pot_leak_locs = remove_all_rows_with_val(y_true[s], value_to_drop=0)
         pred_coord = xyz_pred[s]
         geo = GeoCalculator(pred_coord, met_locs[s] - pot_leak_locs)
         distance = geo.distance_between_points_3d()
-        arg_min = np.argmin(distance)
-        location_array[s, arg_min] = 1
+        
+        if ranked:
+            # Rank distances and assign ranks to location_array
+            ranked_indices = np.argsort(distance) # Computes indices that would sort the distance array in ascending order.
+            # Index of the location in location_array corresponding to the sorted order of distances.
+            for rank, idx in enumerate(ranked_indices, start=1):
+                location_array[s, idx] = rank
+        else:
+            # Mark the closest leak location with 1 in location_array
+            arg_min = np.argmin(distance)
+            location_array[s, arg_min] = 1
 
-    # Returns a 2D numpy array 
     return location_array
