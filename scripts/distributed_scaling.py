@@ -38,7 +38,7 @@ def main():
     pool = Pool(processes=args.procs)
     fit_scaler_single = partial(fit_scaler_single_file, scaler_type=config["scaler_type"],
                                 scaler_options=config["scaler_options"])
-    all_scalers = pool.map(fit_scaler_single_file, training)
+    all_scalers = pool.map(fit_scaler_single, training)
     all_scalers_arr = np.array(all_scalers)
     total_scalers_arr = np.sum(all_scalers_arr, axis=0)
     save_scaler(total_scalers_arr[0], join(out_path, "coord_scaler.json"))
