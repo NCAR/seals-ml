@@ -1,5 +1,5 @@
-data_path: "/glade/derecho/sratch/username/SEALS_training_data/data_gen_20240529/"
-out_path: "/glade/work/username/SEALS_output/train/"
+data_path: "/glade/derecho/scratch/username/SEALS_training_data/data_gen_20240718/"
+out_path: "/glade/derecho/scratch/username/SEALS_output/train/"
 random_seed: 812
 save_model: True
 save_output: True
@@ -7,7 +7,7 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-models: ['loc_rate_block_transformer', 'block_transformer_leak_loc',  'backtracker']
+models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
     encoder_layers: 2
@@ -22,11 +22,11 @@ loc_rate_block_transformer:
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 40
-    verbose: 1
-    batch_size: 128
+    epochs: 50
+    verbose: 2
+    batch_size: 1024
   compile:
-    loss: ["categorical_crossentropy", "mean_squared_error"]
+    loss: ["binary_crossentropy", "mean_squared_error"]
   optimizer:
     learning_rate: 0.0001
     optimizer_type: "adam"
@@ -49,7 +49,7 @@ block_transformer_leak_loc:
     data_start_index: 4
   fit:
     epochs: 40
-    verbose: 1
+    verbose: 2
     batch_size: 128
   compile:
     loss: "categorical_crossentropy"

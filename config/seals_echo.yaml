@@ -1,5 +1,5 @@
 log: True
-save_path: "/glade/derecho/scratch/dgagne/seals_echo/"
+save_path: "/glade/derecho/scratch/username/seals_echo/"
 pbs:
   jobs: 30
   bash: ["source ~/.bashrc", "conda activate seals_20240515"]
@@ -15,7 +15,7 @@ optuna:
   storage: "seals_echo.db"
   storage_type: "sqlite"
   objective: "/glade/u/home/dgagne/seals-ml/sealsml/keras/objective.py"
-  metric: ["val_loss", "val_rmse"]
+  metric: ["val_binary_crossentropy", "val_rmse"]
   direction: ["minimize", "minimize"]
   n_trials: 2000
   gpu: True
@@ -53,5 +53,17 @@ optuna:
         name: "dropout_rate"
         low: 0.01
         high: 0.5
+    loc_rate_block_transformer:kwargs:block_size:
+      type: "categorical"
+      settings:
+        name: "block_size"
+        choices: [10, 20, 30, 50]
+    loc_rate_block_transformer:optimizer:learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 0.000001
+        high: 0.001
+
 
 

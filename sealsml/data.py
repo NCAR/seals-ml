@@ -529,20 +529,21 @@ class DataSampler(object):
 
 class Preprocessor(object):
 
-    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
-
+    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None, scaler_options=None):
+        if scaler_options is None:
+            scaler_options = {}
         self.sensor_pad_value = sensor_pad_value
         self.sensor_type_value = sensor_type_value
 
         if scaler_type.lower() == "standard":
-            self.coord_scaler = DStandardScaler()
-            self.sensor_scaler = DStandardScaler()
+            self.coord_scaler = DStandardScaler(**scaler_options)
+            self.sensor_scaler = DStandardScaler(**scaler_options)
         elif scaler_type.lower() == "minmax":
-            self.coord_scaler = DMinMaxScaler()
-            self.sensor_scaler = DMinMaxScaler()
+            self.coord_scaler = DMinMaxScaler(**scaler_options)
+            self.sensor_scaler = DMinMaxScaler(**scaler_options)
         elif scaler_type.lower() == "quantile":
-            self.coord_scaler = DQuantileScaler()
-            self.sensor_scaler = DQuantileScaler()
+            self.coord_scaler = DQuantileScaler(**scaler_options)
+            self.sensor_scaler = DQuantileScaler(**scaler_options)
 
     def load_data(self, files):
 

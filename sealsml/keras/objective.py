@@ -5,16 +5,15 @@ import keras
 import os
 import datetime
 import time
-from os.path import join
 from .metrics import mean_searched_locations
 from sealsml.data import Preprocessor, save_output
 from sklearn.model_selection import train_test_split
 import glob
 from bridgescaler import DQuantileScaler
 import xarray as xr
-import pandas as pd
 from .callbacks import LeakLocRateMetricsCallback
-from sealsml.backtrack import backtrack_preprocess, create_binary_preds_relative
+from sealsml.backtrack import backtrack_preprocess
+
 
 class Objective(BaseObjective):
     def __init__(self, config, metric="val_loss"):
@@ -44,8 +43,10 @@ class Objective(BaseObjective):
         encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
         print(f"Minutes to load training data: {(time.time() - start) / 60}")
         start = time.time()
+        p.load_scalers(os.path.join(config["scaler_path"], "coord_scaler.json"),
+                       os.path.join(config["scaler_path"], "sensor_scaler.json"))
         scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
-                                                                                  fit_scaler=True)
+                                                                                  fit_scaler=False)
         print(f"Minutes to fit scaler: {(time.time() - start) / 60}")
         start = time.time()
         print(f"Minutes to transform with scaler: {(time.time() - start) / 60}")
