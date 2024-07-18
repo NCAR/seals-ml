@@ -24,11 +24,12 @@ def main():
     config["out_path"] = config["out_path"].replace("username", username)
     date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
     out_path = os.path.join(config["out_path"], f"scalers_{date_str}")
-
+    config["data_path"] = config["data_path"].replace("username", username)
     os.makedirs(out_path, exist_ok=False)
     with open(join(out_path, 'train.yml'), 'w') as outfile:
         yaml.dump(config, outfile, default_flow_style=False)
     files = sorted(glob(os.path.join(config["data_path"], "*.nc")))
+    print(files)
     training, validation = train_test_split(files,
                                             test_size=config["validation_ratio"],
                                             random_state=config["random_seed"])
