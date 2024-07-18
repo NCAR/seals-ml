@@ -9,7 +9,7 @@ import numpy as np
 from os.path import join
 import datetime
 import os
-
+from functools import partial
 
 def main():
     parser = argparse.ArgumentParser()
@@ -35,6 +35,8 @@ def main():
     p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
     p.save_filenames(training, validation, out_path)
     pool = Pool(processes=args.procs)
+    fit_scaler_single = partial(fit_scaler_single_file, scaler_type=config["scaler_type"],
+                                scaler_options=config["scaler_options"])
     all_scalers = pool.map(fit_scaler_single_file, training)
     all_scalers_arr = np.array(all_scalers)
     total_scalers_arr = np.sum(all_scalers_arr, axis=0)

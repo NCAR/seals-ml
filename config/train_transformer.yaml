@@ -1,5 +1,5 @@
-data_path: "/glade/derecho/scratch/username/SEALS_training_data/data_gen_20240718/"
-out_path: "/glade/derecho/scratch/username/SEALS_output/train/"
+data_path: "/glade/derecho/scratch/username/SEALS_training_data/data_gen_20240717/"
+out_path: "/glade/derecho/scratch/username/SEALS_output/"
 random_seed: 812
 save_model: True
 save_output: True
@@ -7,6 +7,9 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
+scaler_options:
+  compression: 500
+  distribution: "uniform"
 models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
