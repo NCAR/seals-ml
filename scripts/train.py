@@ -3,7 +3,8 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from sealsml.keras.models import QuantizedTransformer, BlockTransformer, TEncoder, BackTrackerDNN
+from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder,
+                                  BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
@@ -71,6 +72,10 @@ for model_name in config["models"]:
     elif model_name == "block_transformer_leak_loc":
         model = BlockTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
+    elif model_name == "localized_leak_rate_block_transformer":
+        model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
+        y = (leak_location, leak_rate)
+        y_val = (leak_location_val, leak_rate_val)
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val

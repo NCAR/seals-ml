@@ -7,8 +7,33 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-models: ['block_transformer_leak_loc', 'transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
-
+models: ['loc_rate_block_transformer', 'block_transformer_leak_loc',  'backtracker']
+loc_rate_block_transformer:
+  kwargs:
+    encoder_layers: 2
+    decoder_layers: 2
+    hidden_size: 256
+    n_heads: 4
+    hidden_activation: "relu"
+    output_activation: "softmax"
+    dropout_rate: 0.05
+    n_outputs: 1
+    block_size: 20
+    n_coords: 3
+    data_start_index: 4
+  fit:
+    epochs: 40
+    verbose: 1
+    batch_size: 128
+  compile:
+    loss: ["categorical_crossentropy", "mean_squared_error"]
+  optimizer:
+    learning_rate: 0.0001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 block_transformer_leak_loc:
   kwargs:
     encoder_layers: 2
