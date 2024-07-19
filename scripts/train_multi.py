@@ -75,7 +75,7 @@ scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.p
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
 v = None
-strategy = = tf.distribute.MirroredStrategy()
+strategy = tf.distribute.MirroredStrategy()
 print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 with strategy.scope():
     for model_name in config["models"]:
@@ -139,9 +139,9 @@ with strategy.scope():
                             **config[model_name]["fit"])
         print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
         output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
-                            batch_size=config["predict_batch_size"]).squeeze()
+                            batch_size=config["predict_batch_size"])
         output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
-                                    batch_size=config["predict_batch_size"]).squeeze()
+                                    batch_size=config["predict_batch_size"])
 
         if model_name == "backtracker":
             backtracker_targets = create_binary_preds_relative(v, output)

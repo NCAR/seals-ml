@@ -11,6 +11,7 @@ scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207
 scaler_options:
   compression: 500
   distribution: "uniform"
+predict_batch_size: 10000
 models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
@@ -26,14 +27,14 @@ loc_rate_block_transformer:
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 20
+    epochs: 5
     verbose: 2
-    batch_size: 512
+    batch_size: 256
   compile:
     loss: ["binary_crossentropy", "mean_absolute_error"]
-    loss_weights: [1.0, 0.001]
+    loss_weights: [1000.0, 0.001]
   optimizer:
-    learning_rate: 0.0001
+    learning_rate: 0.001
     optimizer_type: "adam"
     adam_beta_1: 0.9
     adam_beta_2: 0.999
@@ -172,6 +173,5 @@ gaussian_process:
     length_scale_bounds: "fixed"
   fit:
     epochs: None
-predict_batch_size: 10000
 
 
