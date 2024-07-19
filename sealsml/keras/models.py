@@ -103,17 +103,21 @@ class BlockTransformer(keras.models.Model):
         encoder_hidden_out = self.time_block_sensor_encoder(encoder_input)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
         encoder_output = self.encoder_transformers[0](encoder_hidden_out,
-                                                      padding_mask=encoder_padding_mask)
+                                                      padding_mask=encoder_padding_mask,
+                                                      training=training)
         for e in range(1, self.encoder_layers):
             encoder_output = self.encoder_transformers[e](encoder_output,
-                                                          padding_mask=encoder_padding_mask)
+                                                          padding_mask=encoder_padding_mask,
+                                                          training=training)
         decoder_output = self.decoder_transformers[0](decoder_hidden_out, encoder_output,
                                                       encoder_padding_mask=encoder_padding_mask,
-                                                      decoder_padding_mask=decoder_padding_mask)
+                                                      decoder_padding_mask=decoder_padding_mask,
+                                                      training=training)
         for d in range(1, self.decoder_layers):
             decoder_output = self.decoder_transformers[d](decoder_output, encoder_output,
                                                           encoder_padding_mask=encoder_padding_mask,
-                                                          decoder_padding_mask=decoder_padding_mask)
+                                                          decoder_padding_mask=decoder_padding_mask,
+                                                          training=training)
         output = self.output_hidden(decoder_output)
         if self.output_activation == "softmax":
             output = ops.squeeze(output, axis=-1)
@@ -223,17 +227,21 @@ class LocalizedLeakRateBlockTransformer(keras.models.Model):
         encoder_hidden_out = self.time_block_sensor_encoder(encoder_input)
         decoder_hidden_out = self.decoder_hidden(decoder_input)
         encoder_output = self.encoder_transformers[0](encoder_hidden_out,
-                                                      padding_mask=encoder_padding_mask)
+                                                      padding_mask=encoder_padding_mask,
+                                                      training=training)
         for e in range(1, self.encoder_layers):
             encoder_output = self.encoder_transformers[e](encoder_output,
-                                                          padding_mask=encoder_padding_mask)
+                                                          padding_mask=encoder_padding_mask, 
+                                                          training=training)
         decoder_output = self.decoder_transformers[0](decoder_hidden_out, encoder_output,
                                                       encoder_padding_mask=encoder_padding_mask,
-                                                      decoder_padding_mask=decoder_padding_mask)
+                                                      decoder_padding_mask=decoder_padding_mask,
+                                                      training=training)
         for d in range(1, self.decoder_layers):
             decoder_output = self.decoder_transformers[d](decoder_output, encoder_output,
                                                           encoder_padding_mask=encoder_padding_mask,
-                                                          decoder_padding_mask=decoder_padding_mask)
+                                                          decoder_padding_mask=decoder_padding_mask,
+                                                          training=training)
         output_latent = self.output_hidden(decoder_output)
         output_squeezed = ops.squeeze(output_latent, axis=-1)
         if self.output_activation == "softmax":
