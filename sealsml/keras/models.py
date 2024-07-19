@@ -196,11 +196,12 @@ class LocalizedLeakRateBlockTransformer(keras.models.Model):
                                                                 activation=self.hidden_activation,
                                                                 name=f"decoder_transformer_{n:02d}"))
         self.output_hidden = layers.Dense(self.n_outputs, name="output_hidden")
-        self.output_leak = layers.Dense(self.n_outputs, name="output_leak")
+        self.leak_rate_hidden = layers.Dense(self.hidden_size, activation=self.hidden_activation, name="rate_hidden")
+        self.output_leak_rate = layers.Dense(self.n_outputs, name="rate")
         if self.output_activation == "softmax":
-            self.output_activation_layer = MaskedSoftmax(name="output_activation_layer")
+            self.output_activation_layer = MaskedSoftmax(name="location")
         else:
-            self.output_activation_layer = layers.Activation(self.output_activation, name="output_activation_layer")
+            self.output_activation_layer = layers.Activation(self.output_activation, name="location")
 
         return
 
@@ -236,13 +237,14 @@ class LocalizedLeakRateBlockTransformer(keras.models.Model):
         output_latent = self.output_hidden(decoder_output)
         output_squeezed = ops.squeeze(output_latent, axis=-1)
         if self.output_activation == "softmax":
-            output_local = self.output_activation_layer(output_squeezed, mask=decoder_padding_mask, axis=-1)
+            output_location = self.output_activation_layer(output_squeezed, mask=decoder_padding_mask, axis=-1)
             # output = ops.expand_dims(output, -1)
         else:
-            output_local = self.output_activation_layer(output_squeezed)
-        weighted_decoder_hidden = ops.sum(decoder_output * ops.expand_dims(output_local, axis=-1), axis=1)
-        output_leak = self.output_leak(weighted_decoder_hidden)
-        return output_local, output_leak
+            output_location = self.output_activation_layer(output_squeezed)
+        weighted_decoder_hidden = ops.sum(decoder_output * ops.expand_dims(output_location, axis=-1), axis=1)
+        hidden_rate = self.leak_rate_hidden(weighted_decoder_hidden)
+        output_rate = self.output_leak_rate(hidden_rate)
+        return output_location, output_rate
 
     def get_config(self):
         base_config = super().get_config()

@@ -57,6 +57,7 @@ p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_
 p.save_filenames(training, validation, out_path)
 start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
+print("Train Encoder shape", encoder_data.shape)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
 start = time.time()
 fit_scaler = True
@@ -74,6 +75,8 @@ encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_da
 scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
+
+print("Val Encoder shape", encoder_data_val.shape)
 v = None
 for model_name in config["models"]:
     start = time.time()
@@ -83,7 +86,7 @@ for model_name in config["models"]:
     elif model_name == "block_transformer_leak_loc":
         model = BlockTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
-    elif model_name == "localized_leak_rate_block_transformer":
+    elif model_name == "loc_rate_block_transformer":
         model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
         y = (leak_location, leak_rate)
         y_val = (leak_location_val, leak_rate_val)
@@ -136,9 +139,9 @@ for model_name in config["models"]:
                          **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
-                           batch_size=config["predict_batch_size"]).squeeze()
+                           batch_size=config["predict_batch_size"])
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
-                                 batch_size=config["predict_batch_size"]).squeeze()
+                                 batch_size=config["predict_batch_size"])
 
     if model_name == "backtracker":
         backtracker_targets = create_binary_preds_relative(v, output)

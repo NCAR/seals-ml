@@ -26,11 +26,12 @@ loc_rate_block_transformer:
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 50
+    epochs: 20
     verbose: 2
-    batch_size: 1024
+    batch_size: 512
   compile:
-    loss: ["binary_crossentropy", "mean_squared_error"]
+    loss: ["binary_crossentropy", "mean_absolute_error"]
+    loss_weights: [1.0, 0.001]
   optimizer:
     learning_rate: 0.0001
     optimizer_type: "adam"

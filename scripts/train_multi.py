@@ -86,7 +86,7 @@ with strategy.scope():
         elif model_name == "block_transformer_leak_loc":
             model = BlockTransformer(**config[model_name]["kwargs"])
             y, y_val = leak_location, leak_location_val
-        elif model_name == "localized_leak_rate_block_transformer":
+        elif model_name == "loc_rate_block_transformer":
             model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
             y = (leak_location, leak_rate)
             y_val = (leak_location_val, leak_rate_val)

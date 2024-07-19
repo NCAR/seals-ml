@@ -650,11 +650,20 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
 
     if model_name == "transformer_leak_loc" or model_name == "gaussian_process" or model_name == "block_transformer_leak_loc":
 
-        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], train_targets),
-                                                 leak_loc_pred=(["sample", "pot_leak_locs"], train_predictions)))
-        val_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], val_targets),
-                                               leak_loc_pred=(["sample", "pot_leak_locs"], val_predictions)))
+        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(train_targets)),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(train_predictions))))
+        val_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], np.squeeze(val_targets)),
+                                               leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(val_predictions))))
+    elif model_name == "loc_rate_block_transformer":
+        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(train_targets[0])),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(train_predictions[0])),
+                                                 target_leak_rate=(["sample"], np.squeeze(train_targets[1])),
+                                                 leak_rate_pred=(["sample"], np.squeeze(train_predictions[1]))))
 
+        val_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(val_targets[0])),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(val_predictions[0])),
+                                                 target_leak_rate=(["sample"], np.squeeze(val_targets[1])),
+                                                 leak_rate_pred=(["sample"], np.squeeze(val_predictions[1]))))
     elif model_name == "transformer_leak_rate":
 
         train_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], train_targets),
