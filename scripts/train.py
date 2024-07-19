@@ -3,8 +3,10 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from sealsml.keras.models import QuantizedTransformer, BlockTransformer, TEncoder, BackTrackerDNN
+from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder,
+                                  BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
+from sealsml.keras.callbacks import LeakLocRateMetricsCallback
 from sealsml.backtrack import backtrack_preprocess
 from sklearn.model_selection import train_test_split
 from os.path import join
@@ -15,12 +17,12 @@ import time
 import xarray as xr
 import tensorflow as tf
 import pandas as pd
-from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler
+from bridgescaler import DQuantileScaler
 from sealsml.backtrack import create_binary_preds_relative
-from sealsml.evaluate import provide_metrics
 from sealsml.keras.metrics import mean_searched_locations
 tf.debugging.disable_traceback_filtering()
-from keras.optimizers import SGD, Adam
+
+
 
 custom_keras_metrics = {"mean_searched_locations": mean_searched_locations}
 
@@ -39,12 +41,13 @@ keras.utils.set_random_seed(config["random_seed"])
 np.random.seed(config["random_seed"])
 username = os.environ.get('USER')
 config["out_path"] = config["out_path"].replace("username", username)
+config["data_path"] = config["data_path"].replace("username", username)
 date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 out_path = os.path.join(config["out_path"], date_str)
 os.makedirs(out_path, exist_ok=False)
 with open(join(out_path, 'train.yml'), 'w') as outfile:
      yaml.dump(config, outfile, default_flow_style=False)
-files = glob.glob(os.path.join(config["data_path"], "*.nc"))
+files = sorted(glob.glob(os.path.join(config["data_path"], "*.nc")))
 
 training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
@@ -54,15 +57,27 @@ p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_
 p.save_filenames(training, validation, out_path)
 start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
+print("Train Encoder shape", encoder_data.shape)
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
 start = time.time()
-scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data, fit_scaler=True)
+fit_scaler = True
+if "scaler_path" in config.keys():
+    if os.path.exists(join(config["scaler_path"], "coord_scaler.json")):
+        p.load_scalers(coord_scaler_path=join(config["scaler_path"], "coord_scaler.json"),
+                       sensor_scaler_path=join(config["scaler_path"], "sensor_scaler.json"))
+        fit_scaler = False
+scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
+                                                                          fit_scaler=fit_scaler)
 print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
-scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val, decoder_data_val, fit_scaler=False)
+scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
+                                                                                          decoder_data_val,
+                                                                                          fit_scaler=False)
 
+print("Val Encoder shape", encoder_data_val.shape)
+v = None
 for model_name in config["models"]:
     start = time.time()
     if model_name == "transformer_leak_loc":
@@ -71,6 +86,19 @@ for model_name in config["models"]:
     elif model_name == "block_transformer_leak_loc":
         model = BlockTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
+    elif model_name == "loc_rate_block_transformer":
+        model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
+        y = (leak_location, leak_rate)
+        y_val = (leak_location_val, leak_rate_val)
+        cb_metrics = LeakLocRateMetricsCallback((scaled_encoder_val,
+                                                 scaled_decoder_val,
+                                                 encoder_mask_val,
+                                                 decoder_mask_val),
+                                                y_val)
+        if "callbacks" not in config[model_name]["fit"].keys():
+            config[model_name]["fit"]["callbacks"] = [cb_metrics]
+        else:
+            config[model_name]["fit"]["callbacks"].append(cb_metrics)
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
@@ -90,10 +118,10 @@ for model_name in config["models"]:
         raise ValueError(f"Incompatible model type {model_name}")
 
     if config[model_name]["optimizer"]["optimizer_type"].lower() == "sgd":
-        optimizer = SGD(learning_rate=config[model_name]["optimizer"]["learning_rate"],
+        optimizer = keras.optimizers.SGD(learning_rate=config[model_name]["optimizer"]["learning_rate"],
                         momentum=config[model_name]["optimizer"]["sgd_momentum"])
     elif config[model_name]["optimizer"]["optimizer_type"].lower() == "adam":
-        optimizer = Adam(learning_rate=config[model_name]["optimizer"]["learning_rate"],
+        optimizer = keras.optimizers.Adam(learning_rate=config[model_name]["optimizer"]["learning_rate"],
                          beta_1=config[model_name]["optimizer"]["adam_beta_1"],
                          beta_2=config[model_name]["optimizer"]["adam_beta_2"],
                          epsilon=config[model_name]["optimizer"]["epsilon"])
@@ -111,9 +139,9 @@ for model_name in config["models"]:
                          **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
-                           batch_size=config["predict_batch_size"]).squeeze()
+                           batch_size=config["predict_batch_size"])
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
-                                 batch_size=config["predict_batch_size"]).squeeze()
+                                 batch_size=config["predict_batch_size"])
 
     if model_name == "backtracker":
         backtracker_targets = create_binary_preds_relative(v, output)

@@ -529,20 +529,21 @@ class DataSampler(object):
 
 class Preprocessor(object):
 
-    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None):
-
+    def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None, scaler_options=None):
+        if scaler_options is None:
+            scaler_options = {}
         self.sensor_pad_value = sensor_pad_value
         self.sensor_type_value = sensor_type_value
 
         if scaler_type.lower() == "standard":
-            self.coord_scaler = DStandardScaler()
-            self.sensor_scaler = DStandardScaler()
+            self.coord_scaler = DStandardScaler(**scaler_options)
+            self.sensor_scaler = DStandardScaler(**scaler_options)
         elif scaler_type.lower() == "minmax":
-            self.coord_scaler = DMinMaxScaler()
-            self.sensor_scaler = DMinMaxScaler()
+            self.coord_scaler = DMinMaxScaler(**scaler_options)
+            self.sensor_scaler = DMinMaxScaler(**scaler_options)
         elif scaler_type.lower() == "quantile":
-            self.coord_scaler = DQuantileScaler()
-            self.sensor_scaler = DQuantileScaler()
+            self.coord_scaler = DQuantileScaler(**scaler_options)
+            self.sensor_scaler = DQuantileScaler(**scaler_options)
 
     def load_data(self, files):
 
@@ -649,11 +650,20 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
 
     if model_name == "transformer_leak_loc" or model_name == "gaussian_process" or model_name == "block_transformer_leak_loc":
 
-        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], train_targets),
-                                                 leak_loc_pred=(["sample", "pot_leak_locs"], train_predictions)))
-        val_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], val_targets),
-                                               leak_loc_pred=(["sample", "pot_leak_locs"], val_predictions)))
+        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(train_targets)),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(train_predictions))))
+        val_output = xr.Dataset(data_vars=dict(targets=(["sample", "pot_leak_locs"], np.squeeze(val_targets)),
+                                               leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(val_predictions))))
+    elif model_name == "loc_rate_block_transformer":
+        train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(train_targets[0])),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(train_predictions[0])),
+                                                 target_leak_rate=(["sample"], np.squeeze(train_targets[1])),
+                                                 leak_rate_pred=(["sample"], np.squeeze(train_predictions[1]))))
 
+        val_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(val_targets[0])),
+                                                 leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(val_predictions[0])),
+                                                 target_leak_rate=(["sample"], np.squeeze(val_targets[1])),
+                                                 leak_rate_pred=(["sample"], np.squeeze(val_predictions[1]))))
     elif model_name == "transformer_leak_rate":
 
         train_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], train_targets),

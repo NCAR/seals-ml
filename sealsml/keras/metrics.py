@@ -36,4 +36,11 @@ def search_length(y_true, y_pred):
     pred_search_length = ops.argmin(ops.abs(pred_leak_loc_order - ops.expand_dims(leak_index, axis=-1)), axis=1)
     return pred_search_length
 
+@keras.saving.register_keras_serializable()
+def mean_error(y_true, y_pred):
+    return ops.mean(y_true - y_pred)
 
+
+@keras.saving.register_keras_serializable()
+def sharpness(y_true, y_pred):
+    return ops.var(y_pred) / ops.var(y_true)

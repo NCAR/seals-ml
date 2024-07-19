@@ -1,5 +1,5 @@
-data_path: "/glade/derecho/sratch/username/SEALS_training_data/data_gen_20240529/"
-out_path: "/glade/work/username/SEALS_output/train/"
+data_path: "/glade/derecho/scratch/username/SEALS_training_data/data_gen_20240717/"
+out_path: "/glade/derecho/scratch/username/SEALS_output/"
 random_seed: 812
 save_model: True
 save_output: True
@@ -7,8 +7,39 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-models: ['block_transformer_leak_loc', 'transformer_leak_loc', 'transformer_leak_rate', 'backtracker']
-
+scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207/"
+scaler_options:
+  compression: 500
+  distribution: "uniform"
+predict_batch_size: 10000
+models: ['loc_rate_block_transformer']
+loc_rate_block_transformer:
+  kwargs:
+    encoder_layers: 3
+    decoder_layers: 2
+    hidden_size: 512
+    n_heads: 4
+    hidden_activation: "relu"
+    output_activation: "softmax"
+    dropout_rate: 0.2
+    n_outputs: 1
+    block_size: 20
+    n_coords: 3
+    data_start_index: 4
+  fit:
+    epochs: 5
+    verbose: 1
+    batch_size: 256
+  compile:
+    loss: ["binary_crossentropy", "mean_absolute_error"]
+    loss_weights: [1000.0, 0.0001]
+  optimizer:
+    learning_rate: 0.001
+    optimizer_type: "adam"
+    adam_beta_1: 0.9
+    adam_beta_2: 0.999
+    epsilon: 0.0000001
+    sgd_momentum: 0
 block_transformer_leak_loc:
   kwargs:
     encoder_layers: 2
@@ -24,7 +55,7 @@ block_transformer_leak_loc:
     data_start_index: 4
   fit:
     epochs: 40
-    verbose: 1
+    verbose: 2
     batch_size: 128
   compile:
     loss: "categorical_crossentropy"
@@ -142,6 +173,5 @@ gaussian_process:
     length_scale_bounds: "fixed"
   fit:
     epochs: None
-predict_batch_size: 10000
 
 

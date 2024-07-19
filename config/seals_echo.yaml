@@ -1,0 +1,70 @@
+log: True
+save_path: "/glade/derecho/scratch/username/seals_echo/"
+pbs:
+  jobs: 10
+  gpus_per_node: 4
+  bash: ["source ~/.bashrc", "conda activate seals_20240515"]
+  batch:
+    l: ["select=1:ncpus=64:ngpus=4:mem=128GB", "walltime=12:00:00"]
+    A: "NRAL0033"
+    q: "main"
+    N: "seals-echo"
+    o: "/glade/derecho/scratch/dgagne/seals_echo/"
+    e: "/glade/derecho/scratch/dgagne/seals_echo/"
+optuna:
+  study_name: "seals_leak_loc_rate_echo"
+  storage: "seals_echo.db"
+  storage_type: "sqlite"
+  objective: "/glade/u/home/dgagne/seals-ml/sealsml/keras/objective.py"
+  metric: ["val_binary_crossentropy", "val_rmse"]
+  direction: ["minimize", "minimize"]
+  n_trials: 2000
+  gpu: True
+  sampler:
+    type: "MOTPESampler"
+    n_startup_trials: 200
+  parameters:
+    loc_rate_block_transformer:kwargs:encoder_layers:
+      type: "int"
+      settings:
+        name: "encoder_layers"
+        low: 1
+        high: 5
+    loc_rate_block_transformer:kwargs:decoder_layers:
+      type: "int"
+      settings:
+        name: "decoder_layers"
+        low: 1
+        high: 5
+    loc_rate_block_transformer:kwargs:hidden_size:
+      type: "int"
+      settings:
+        name: "hidden_size"
+        low: 128
+        high: 1024
+    loc_rate_block_transformer:kwargs:n_heads:
+      type: "int"
+      settings:
+        name: "n_heads"
+        low: 1
+        high: 8
+    loc_rate_block_transformer:kwargs:dropout_rate:
+      type: "float"
+      settings:
+        name: "dropout_rate"
+        low: 0.01
+        high: 0.5
+    loc_rate_block_transformer:kwargs:block_size:
+      type: "categorical"
+      settings:
+        name: "block_size"
+        choices: [10, 20, 30, 50]
+    loc_rate_block_transformer:optimizer:learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 0.000001
+        high: 0.001
+
+
+
