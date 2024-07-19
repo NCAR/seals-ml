@@ -7,19 +7,20 @@ validation_ratio: 0.3
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
+scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207/"
 scaler_options:
   compression: 500
   distribution: "uniform"
 models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
-    encoder_layers: 2
-    decoder_layers: 2
-    hidden_size: 256
+    encoder_layers: 4
+    decoder_layers: 1
+    hidden_size: 512
     n_heads: 4
     hidden_activation: "relu"
     output_activation: "softmax"
-    dropout_rate: 0.05
+    dropout_rate: 0.2
     n_outputs: 1
     block_size: 20
     n_coords: 3
