@@ -42,7 +42,7 @@ def main():
     all_scalers_arr = np.array(all_scalers)
     total_scalers_arr = np.sum(all_scalers_arr, axis=0)
     save_scaler(total_scalers_arr[0], join(out_path, "coord_scaler.json"))
-    save_scaler(total_scalers_arr[0], join(out_path, "sensor_scaler.json"))
+    save_scaler(total_scalers_arr[1], join(out_path, "sensor_scaler.json"))
     return
 
 
