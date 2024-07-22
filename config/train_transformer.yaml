@@ -16,7 +16,7 @@ models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
     encoder_layers: 4
-    decoder_layers: 2
+    decoder_layers: 3
     hidden_size: 256
     n_heads: 12
     hidden_activation: "relu"
@@ -34,7 +34,7 @@ loc_rate_block_transformer:
     loss: ["categorical_crossentropy", "mean_absolute_error"]
     loss_weights: [1.0, 1.0]
   optimizer:
-    learning_rate: 0.01
+    learning_rate: 0.0001
     optimizer_type: "adam"
     adam_beta_1: 0.9
     adam_beta_2: 0.999
