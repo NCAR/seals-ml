@@ -3,11 +3,11 @@ out_path: "/glade/derecho/scratch/username/SEALS_output/"
 random_seed: 812
 save_model: True
 save_output: True
-validation_ratio: 0.3
+validation_ratio: 0.2
 sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
-scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207/"
+#scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207/"
 scaler_options:
   compression: 500
   distribution: "uniform"
@@ -15,26 +15,26 @@ predict_batch_size: 10000
 models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
-    encoder_layers: 3
-    decoder_layers: 2
-    hidden_size: 512
-    n_heads: 4
+    encoder_layers: 4
+    decoder_layers: 3
+    hidden_size: 256
+    n_heads: 12
     hidden_activation: "relu"
     output_activation: "softmax"
     dropout_rate: 0.2
     n_outputs: 1
-    block_size: 20
+    block_size: 10
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 5
+    epochs: 100
     verbose: 1
-    batch_size: 256
+    batch_size: 512
   compile:
-    loss: ["binary_crossentropy", "mean_absolute_error"]
-    loss_weights: [1000.0, 0.0001]
+    loss: ["categorical_crossentropy", "mean_absolute_error"]
+    loss_weights: [1.0, 1.0]
   optimizer:
-    learning_rate: 0.001
+    learning_rate: 0.0001
     optimizer_type: "adam"
     adam_beta_1: 0.9
     adam_beta_2: 0.999
@@ -42,21 +42,21 @@ loc_rate_block_transformer:
     sgd_momentum: 0
 block_transformer_leak_loc:
   kwargs:
-    encoder_layers: 2
-    decoder_layers: 2
+    encoder_layers: 4
+    decoder_layers: 3
     hidden_size: 256
-    n_heads: 4
+    n_heads: 12
     hidden_activation: "relu"
     output_activation: "softmax"
-    dropout_rate: 0.05
+    dropout_rate: 0.1
     n_outputs: 1
-    block_size: 20
+    block_size: 10
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 40
+    epochs: 30
     verbose: 2
-    batch_size: 128
+    batch_size: 256
   compile:
     loss: "categorical_crossentropy"
     metrics: ["categorical_accuracy"]
@@ -69,7 +69,7 @@ block_transformer_leak_loc:
     sgd_momentum: 0
 transformer_leak_loc:
   kwargs:
-    encoder_layers: 2
+    encoder_layers: 4
     decoder_layers: 2
     hidden_size: 128
     n_heads: 8

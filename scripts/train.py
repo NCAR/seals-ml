@@ -95,10 +95,15 @@ for model_name in config["models"]:
                                                  encoder_mask_val,
                                                  decoder_mask_val),
                                                 y_val)
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
+                                                      patience=5,
+                                                      verbose=1,
+                                                      factor=0.2,
+                                                      min_lr=1e-7)
         if "callbacks" not in config[model_name]["fit"].keys():
-            config[model_name]["fit"]["callbacks"] = [cb_metrics]
+            config[model_name]["fit"]["callbacks"] = [cb_metrics, reduce_lr]
         else:
-            config[model_name]["fit"]["callbacks"].append(cb_metrics)
+            config[model_name]["fit"]["callbacks"].extend([cb_metrics, reduce_lr])
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
