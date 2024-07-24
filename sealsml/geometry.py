@@ -221,7 +221,7 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     # Rotate the wind vectors to align with the rotated coordinate system
     u_rot = u * np.cos(-theta_wd) - v * np.sin(-theta_wd)
     v_rot = u * np.sin(-theta_wd) + v * np.cos(-theta_wd)
-    
+   
     # Construct an array containing positional variables and rotated wind vectors
     pos_vars = np.column_stack([radius_rotated, np.sin(theta), np.cos(theta), elevation_theta])
     
@@ -232,7 +232,7 @@ def get_relative_azimuth(u, v, x_ref, y_ref, z_ref, x_target, y_target, z_target
     # If time_series is False, stack positional variables, provide the rotated mean wind components, and transpose the result
     else:
         return np.column_stack([pos_vars, ubar * np.cos(-theta_wd) - vbar * np.sin(-theta_wd), 
-                                          ubar * np.sin(-theta_wd) - vbar * np.cos(-theta_wd)]).T, theta_wd
+                                          ubar * np.sin(-theta_wd) + vbar * np.cos(-theta_wd)]).T, theta_wd
 
 def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     """
