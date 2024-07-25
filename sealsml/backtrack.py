@@ -32,9 +32,9 @@ def pathmax(x_width, y_width, factor_x=0.4, factor_y=0.4):
     if not (factor_x.shape == x_width.shape == factor_y.shape == y_width.shape):
         raise TypeError("All inputs must have the same shape.")
 
-    # Check if factors are within the valid range [0, 0.75]
-    if not (0 <= np.min(factor_x) <= 0.75) or not (0 <= np.min(factor_y) <= 0.75):
-        raise ValueError("Factors should range between 0 and 0.75.")
+    # Check if factors are within the valid range [0, 0.90]
+    if not (0 <= np.min(factor_x) <= 5.0) or not (0 <= np.min(factor_y) <= 5.0):
+        raise ValueError("Factors should range between 0 and 5.0.")
 
     # Calculate pathmax using NumPy operations
     return np.minimum(factor_x * x_width, factor_y * y_width)
@@ -79,7 +79,7 @@ def findmaxCH4(CH4: np.ndarray, times: np.ndarray) -> Tuple[float, float, int]:
 
     return max_c, time_max_c, max_idx
 
-def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax):
+def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax, n_pot_leaks, leak_x, leak_y, structure_flag,pass_num):
     """
     Backtracks along a velocity path until a specified distance is traversed and returns the average velocity vector.
 
@@ -124,9 +124,21 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
     dy = 0.0
     total_dist = 0.0
     HALF = 0.5
+    distances=np.zeros(shape=(n_pot_leaks))
+    closest_i=np.zeros(shape=(ijk_start))
+    leak_id_i=np.zeros(shape=(ijk_start))
+    closest_u_avg=np.zeros(shape=(ijk_start))
+    closest_v_avg=np.zeros(shape=(ijk_start))
+    xn_i=np.zeros(shape=(ijk_start+1))
+    yn_i=np.zeros(shape=(ijk_start+1))
+    counter=-1
+    xn_i[0]=xn
+    yn_i[0]=yn
 
-    # Backtrack along the velocity path
+    # Backtrack along the velocity path; dt is constant
+
     while total_dist < pathmax and ijk > 0:
+        
         u_current, u_previous = u_sonic[ijk], u_sonic[ijk - 1]
         v_current, v_previous = v_sonic[ijk], v_sonic[ijk - 1]
 
@@ -138,42 +150,134 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax)
         ijk -= 1
         ux_sum += u_bar
         vy_sum += v_bar
+
+        step_dist=np.sqrt((xn-xnm1)**2+(yn-ynm1)**2)
+
         xn = xnm1
         yn = ynm1
-        # Calculating Distance
+
+        # Calculating straight-line Distance
         dx = sensor_x - xn
         dy = sensor_y - yn
-        total_dist = np.sqrt((dx**2 + dy**2))
+        # straight line distance, doesn't account for meandering
+        total_st_dist = np.sqrt((dx**2 + dy**2))
+        # path distancee
+        total_dist +=step_dist
+
+        denominator = max(1, (ijk_start - ijk))
+
+        if structure_flag == 1:
+
+            counter += 1
+            for j in range(n_pot_leaks):
+                distances[j]=np.sqrt((xn-leak_x[j])**2+(yn-leak_y[j])**2)
+            closest_i[counter]=np.min(distances)
+            leak_id_i[counter]=np.argmin(distances)
+            closest_u_avg[counter]=ux_sum/denominator
+            closest_v_avg[counter]=vy_sum/denominator
+            xn_i[counter+1]=xn
+            yn_i[counter+1]=yn
+
+        else: 
 
     # Compute average horizontal wind components
-    denominator = max(1, (ijk_start - ijk))
     
-    avg_u = ux_sum / denominator
-    avg_v = vy_sum / denominator
+            avg_u = ux_sum / denominator
+            avg_v = vy_sum / denominator
 
-    return avg_u, avg_v
+    if structure_flag == 1:
 
-def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4):
+        closest=closest_i[0]
+        closest_leak_id=0
+        leak_counter=0
+        for j in range(1,counter+1):
+            if closest_i[j] < closest:
+                closest=closest_i[j]
+                closest_leak_id=int(leak_id_i[j])
+                leak_counter=j
+
+        avg_u=closest_u_avg[leak_counter]
+        avg_v=closest_v_avg[leak_counter]
+
+        if(pass_num > 10 and pass_num <= 20):
+            print('in backtrack: pass_num,counter,leak_counter,closest,closest_leak_id,',
+                  'leak_x.closest,leak_y.closest,xn.i,yn.i,closest_i,leak_id=\n',
+                  pass_num,counter,leak_counter,closest,closest_leak_id,
+                  leak_x[closest_leak_id],leak_y[closest_leak_id],
+                  xn_i[leak_counter],yn_i[leak_counter],closest_i,leak_counter)
+
+    return avg_u, avg_v, xn, yn
+
+def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4, structure_flag=1):
+
     # This function creates both the input data, and target data for the ANN/MLP
+
     encoder = data['encoder_input'].load()
-    targets = data['target'].values
-    target_mask = np.argwhere(targets == 1)
+    decoder = data['decoder_input'].load()
+    target = data['target'].values
+    target_mask = np.argwhere(target == 1)
     leak_locs = data['leak_meta'].values[target_mask[:, 0], target_mask[:, 1]]
     met_locs = data['met_sensor_loc'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
+    target_polar=np.zeros(shape=(n_samples,4))
+    target_array=np.zeros(shape=(n_samples,4))
 
-    print('leak_locs=',leak_locs)
-    print('met_locs=',met_locs)
+    indices_tuple=np.nonzero(target[:,:,0])
+
+    # assumes met sensor is origin in all 3 directions
+    for s in range(indices_tuple[0].shape[0]):
+        target_polar[s,:4]=decoder[s,indices_tuple[1][s],0,:4,0]
+    
+    x_leak, y_leak = polar_to_cartesian(target_polar[:,0],
+                                        target_polar[:,1],
+                                        target_polar[:,2])
+    z_leak=target_polar[:,0]*np.sin(target_polar[:,3])
+
+    #     decoder_input  (sample, pot_leak, target_time, variable, mask)
+    n_pot_leaks=len(decoder[0,:,0,0,0])
+    print('n_pot_leaks = ',n_pot_leaks)
+    x_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
+    y_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
+    z_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
+    smax=int(0)
+    for s in range(n_samples):
+        for j in range(n_pot_leaks):
+            x_pot_leaks[s,j], y_pot_leaks[s,j] = polar_to_cartesian(decoder[s,j,0,0,0],
+                                                  decoder[s,j,0,1,0],
+                                                  decoder[s,j,0,2,0])
+            z_pot_leaks[s,j]=decoder[s,j,0,0,0]*np.sin(decoder[s,j,0,3,0])
+        smax+=1
+    print('smax=n_pot_leaks*n_samples = ',smax,'\n x_pot_leaks[10:21,:]=\n',x_pot_leaks[10:21,:],
+          '\n y_pot_leaks[10:21,:]=\n',y_pot_leaks[10:21,:],'\n z_pot_leaks[10:21,:]=\n',z_pot_leaks[10:21,:])
+
+    target = data['target'].values
+
+    bin_width=2.
+    bin_max=int(10)
+    distance_bin=np.zeros(shape=(bin_max+1))
+    bin_sum=int(0)
 
     # This statement collapses all CH4 sensor information into one input line rather than n lines, 
     # where n_sensors = number of CH4 sensors
     # The input layer (per sample) has length (n_sensors)*(5+(nsensors)) 
     # so n_sensors * (u,v,x,y,z and n_sensors of CH4 values)
     # The n_sensors replicates correspond to the "max" window around each sensor's max CH4 observation
-    input_array = np.zeros(shape=(n_samples, n_sensors * (5+n_sensors)))  
     
-    target_array = np.concatenate([met_locs - leak_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
+    input_array = np.zeros(shape=(n_samples, (n_sensors+5) * n_sensors))
+    
+#    target_array = np.concatenate([leak_locs,met_locs, data['leak_rate'].values.reshape(-1, 1)], axis=1)
+    target_array[:,0]= x_leak
+    target_array[:,1]= y_leak
+    target_array[:,2]= z_leak
+    target_array[:,3]=data['leak_rate'].values
+
+    print(target_array.shape)
+
+#    times=encoder.sel('time',sample=1,sensor=0,mask=0)
+
+#    print('times=\n',times)
+
     pathmax_value = pathmax(x_width=x_width, y_width=y_width, factor_x=factor_x, factor_y=factor_y)
     u = encoder.sel(sensor=0,
                     variable=('u'),
@@ -197,11 +301,38 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
     x_met, y_met = polar_to_cartesian(met_locs.sel(variable='ref_distance'),
                                       met_locs.sel(variable='ref_azi_sin'),
                                       met_locs.sel(variable='ref_azi_cos'))
-    
+
+    print('x_met= \n',x_met[10:21],'\n y_met=\n',y_met[10:21])
+    print('x_sensor= \n',x_sensor[10:21,:],'\n y_sensor= \n',y_sensor[10:21,:])
+    print('actual leak loc =target_array[10:21,:]=\n',target_array[10:21,:])
+
+    met_time_samples=np.zeros(shape=(n_samples,n_timesteps))
+    met_times=np.zeros(shape=(n_timesteps))
+#    met_times[:,:]=encoder[:,0,:,0,0].values
+    dt_constant_for_now=1.
+    for s in range(n_samples):
+        for r in range(n_timesteps):
+            met_time_samples[s,r]=(r+1)*dt_constant_for_now
+
+    dtc=1.
+
+    if x_width < y_width:
+        L_scale=y_width
+    else:
+        L_scale=x_width
+
+    H_scale=15.
+
+    speed=np.zeros(shape=(n_samples))
+
     # This slices from 1 to n_sensors + 1, the met is the 0th sensor 
     ch4_time_series = encoder.sel(sensor=slice(1, n_sensors + 1),
                                   variable='q_CH4',
                                   mask=0)
+
+    print('ch4.time.series.shape=',ch4_time_series.shape)
+    print('u.shape=',u.shape,'v.shape=',v.shape)
+
     for i in range(n_samples):
         ch4 = []
         coords = []
@@ -211,21 +342,57 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
         ui = u.isel(sample=i).values.ravel()
         vi = v.isel(sample=i).values.ravel()
 
+        ui_avg=np.mean(ui)
+        vi_avg=np.mean(vi)
+
+        speed[i]=np.max(np.sqrt(ui**2+vi**2))
+
+#        print('i,ui_avg,vi_avg,speed[i]=',i,ui_avg,vi_avg,speed[i])
+
+#        print('ui.shape=',ui.shape,' vi.shape=',vi.shape)
+#        print('ui.mean,vi.mean=',ui.mean(),vi.mean())
+
+        met_times=met_time_samples[i,:]
+
         for s in range(0,n_sensors):
             sensor_time_series = ch4_time_series[i, s].values
-            max_CH4, time, idx = findmaxCH4(sensor_time_series, np.arange(n_timesteps))
-            backtrack_u, backtrack_v = backtrack(ijk_start=idx,
+#            dtc=met_time_series[1]-met_time_series[0]
+#            print('i,s,dtc=\n',i,s,dtc)
+            max_CH4, time, idx = findmaxCH4(sensor_time_series, met_times) 
+            if max_CH4 > 1.0e-9:
+                backtrack_u, backtrack_v, x_last_back, y_last_back = backtrack(ijk_start=idx,
                                                  u_sonic=ui,
                                                  v_sonic=vi,
-                                                 dt=1,
+                                                 dt=dtc,
                                                  sensor_x=x_sensor[i,s],
                                                  sensor_y=y_sensor[i,s],
-                                                 pathmax=pathmax_value)
+                                                 pathmax=pathmax_value,
+                                                 n_pot_leaks=n_pot_leaks,
+                                                 leak_x=x_pot_leaks[i,:],
+                                                 leak_y=y_pot_leaks[i,:],
+                                                 structure_flag=structure_flag,
+                                                 pass_num=i)
+                # bin distance between backtrack lst points and true leak location
+                bin_sum += 1
+                distance_error=np.sqrt((x_last_back-target_array[i,0])**2+(y_last_back-target_array[i,1])**2)
+                bin_num=int(distance_error/bin_width+1.e-3)
+                if bin_num < bin_max:
+                    distance_bin[bin_num] = distance_bin[bin_num]+1
+                else:
+                    distance_bin[bin_max] = distance_bin[bin_max]+1
+            else:
+                backtrack_u=ui_avg
+                backtrack_v=vi_avg
+
             u_backtrack.append(backtrack_u)
             v_backtrack.append(backtrack_v)
             coords.append(x_sensor[i,s])
             coords.append(y_sensor[i,s])
-            coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
+            # vertical displacement relative to met sensor height
+            coords.append(relative_sensor_locs.sel(variable='ref_distance').values[i,s]*
+                          np.sin(relative_sensor_locs.sel(variable='ref_elv').values[i, s]))
+#            coords.append(relative_sensor_locs.sel(variable='ref_elv').values[i, s])
+
 
 #           this appends the ch4 values at all the other sensors r at the time of the max CH4 value at sensor s
 
@@ -238,10 +405,14 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
         input_array[i] = np.array(u_backtrack + v_backtrack + coords + ch4)
 
-        print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
+#    print('i,u_backtrack,v_backtrack,coords,ch4=','\n',i,'\n',u_backtrack,'\n',v_backtrack,'\n',coords,'\n',ch4)
 
+    print('binning results. bin_width = ',bin_width,'\n   bin results as fraction= \n',distance_bin/bin_sum)
 
-    return input_array, target_array
+    print(input_array.shape)
+    print('input_array=\n',input_array[10:21,:])
+    
+    return input_array, target_array, speed, L_scale, H_scale
 
 def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.ndarray:
     '''
@@ -279,3 +450,118 @@ def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.n
             location_array[s, arg_min] = 1
 
     return location_array
+
+def scalings_bjt(x,y,speed,L_scale,H_scale,n_records,n_width,n_sensors):
+
+    # scaling factors, in order:
+    # 0. x_ref - this is 0 since variables are already relative to reference point (the met location)
+    # 1. y_ref - this is 0 since variables are already relative to reference point (the met location)
+    # 2. z_ref - this is 0 since z starts at 0.
+    # 3. L_scale - maximum horizontal scale
+    # 4. H_scale - maximum vertical scale
+    # 5. max_speed - maximum speed used for scaling velocities
+    # 6. CH4 background - background CH4 level 
+    # 7. CH4 maximum - maximum CH4 value from all CH4 sensors
+    # 8. CH4_scale = log(max(CH4maximum,CH4.background)/CH4.background)
+    # 9. Q_min = minimum leak rate - to prevent log10(0.) if no leak
+    # 10. Q_max = maximum leak rate in training data
+    # 11. Q_scale = scaling for Q (leak rate) = log10((Qmax+Qmin)/Qmin)
+
+    scaling_factors=np.zeros(shape=(12))
+
+    scaling_factors[0]=0.
+    scaling_factors[1]=0.
+    scaling_factors[2]=0.
+    scaling_factors[3]=L_scale
+    scaling_factors[4]=H_scale
+    scaling_factors[5]=np.max(speed)
+    scaling_factors[6]=1.e-12  # 1.e-6, but LES sims didn't have background, and here, just used to prevent log(0.)
+    n5=n_sensors*5
+    scaling_factors[7]=0.
+    for i in range(0,n_records):
+        for s in range(0,n_sensors):
+            sc7=x[i][n5+s+s*n_sensors]
+            if sc7 > scaling_factors[7]:
+                scaling_factors[7]=sc7
+    scaling_factors[8]=np.log10(max(scaling_factors[7],scaling_factors[6])/scaling_factors[6])
+    scaling_factors[9]=1.0e-10
+    scaling_factors[10]=np.max(y[:][3])
+    scaling_factors[11]=np.log10((scaling_factors[10]+scaling_factors[9])/scaling_factors[9])
+
+    print('scaling_factors= \n',scaling_factors)
+
+    return scaling_factors
+
+def scaler_bjt_x(x,scaling_factors):
+
+    n_records=x.shape[0]
+    n_width=x.shape[1]
+    n_sensors=int((-5.+np.sqrt(25.+4.*float(n_width)))/2.)
+    print('in scaler_bjt_x, n_records,n_sensors=',n_records,n_sensors)
+   
+    x_ref=scaling_factors[0]
+    y_ref=scaling_factors[1]
+    z_ref=scaling_factors[2]
+    L_scale=scaling_factors[3]
+    H_scale=scaling_factors[4]
+    max_speed=scaling_factors[5]
+    CH4_bckgrd=scaling_factors[6]
+    CH4_scale=scaling_factors[8]
+
+    x_scaled=np.zeros(shape=(n_records,n_width))
+    n5s=5*n_sensors
+    for s in range(0,n_records):
+        for i in range(0,n_sensors):
+            x_scaled[s][i]=x[s][i]/max_speed
+            x_scaled[s][i+n_sensors]=x[s][i+n_sensors]/max_speed
+            x_scaled[s][2*n_sensors+3*i]=0.5*(1.+(x[s][2*n_sensors+3*i]-x_ref)/L_scale)
+            x_scaled[s][2*n_sensors+3*i+1]=0.5*(1.+(x[s][2*n_sensors+3*i+1]-y_ref)/L_scale)
+            x_scaled[s][2*n_sensors+3*i+2]=(x[s][2*n_sensors+3*i+2]-z_ref)/H_scale
+            nsi=n_sensors*i
+            for j in range(0,n_sensors):
+                x_scaled[s][n5s+nsi+j]=np.log10(max(x[s][n5s+nsi+j],CH4_bckgrd)/CH4_bckgrd)/CH4_scale
+    
+    return x_scaled
+
+def scaler_bjt_y(y,scaling_factors):
+    
+    n_records=y.shape[0]
+    n_width=4
+    x_ref=scaling_factors[0]
+    y_ref=scaling_factors[1]
+    z_ref=scaling_factors[2]
+    L_scale=scaling_factors[3]
+    H_scale=scaling_factors[4]
+    Q_min=scaling_factors[9]
+    Q_scale=scaling_factors[11]
+
+    y_scaled=np.zeros(shape=(n_records,n_width))
+    for s in range(0,n_records):
+        y_scaled[s][0]=0.5*(1.+(y[s][0]-x_ref)/L_scale)
+        y_scaled[s][1]=0.5*(1.+(y[s][1]-y_ref)/L_scale)
+        y_scaled[s][2]=(y[s][2]-z_ref)/H_scale
+        y_scaled[s][3]=np.log10((y[s][3]+Q_min)/Q_min)/Q_scale
+   
+    return y_scaled
+
+def scaler_bjt_y_inverse(y,scaling_factors):
+    
+    n_records=y.shape[0]
+    n_width=4
+    x_ref=scaling_factors[0]
+    y_ref=scaling_factors[1]
+    z_ref=scaling_factors[2]
+    L_scale=scaling_factors[3]
+    H_scale=scaling_factors[4]
+    Q_min=scaling_factors[9]
+    Q_scale=scaling_factors[11]
+
+    y_unscaled=np.zeros(shape=(n_records,n_width))
+    for s in range(0,n_records):
+        y_unscaled[s][0]=(2.*y[s][0]-1.)*L_scale+x_ref
+        y_unscaled[s][1]=(2.*y[s][1]-1.)*L_scale+y_ref
+        y_unscaled[s][2]=y[s][2]*H_scale+z_ref
+        y_unscaled[s][3]=10.**(y[s][3]*Q_scale)*Q_min-Q_min
+
+    return y_unscaled
+

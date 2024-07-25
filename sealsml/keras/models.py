@@ -644,7 +644,7 @@ class BackTrackerDNN(keras.models.Model):
 
         return hist
 
-    def predict(self, x, batch_size=1000):
+    def predict(self, x, batch_size=1):
 
         return super().predict(x[0], batch_size=batch_size)
 

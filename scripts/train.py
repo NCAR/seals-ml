@@ -7,7 +7,8 @@ from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncod
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.keras.callbacks import LeakLocRateMetricsCallback
-from sealsml.backtrack import backtrack_preprocess
+from bridgescaler import save_scaler
+from sealsml.backtrack import backtrack_preprocess, scalings_bjt,scaler_bjt_x,scaler_bjt_y,scaler_bjt_y_inverse
 from sklearn.model_selection import train_test_split
 from os.path import join
 import keras
@@ -114,11 +115,45 @@ for model_name in config["models"]:
         t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
         v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, y = backtrack_preprocess(t, **config[model_name]["preprocess"])
-        x_val, y_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
-        scaler = DQuantileScaler()
-        scaled_encoder = scaler.fit_transform(x)
-        scaled_encoder_val = scaler.transform(x_val)
+        x, y, speed, L_scale, H_scale = backtrack_preprocess(t, **config[model_name]["preprocess"])
+        x_val, y_val, speed_val, L_scale_val, H_scale_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
+
+        scaling_option=1
+
+        if scaling_option == 1:
+            
+            scaler = DQuantileScaler()
+            scaled_encoder = scaler.fit_transform(x)
+            scaled_encoder_val = scaler.transform(x_val)
+            scaler_y = DQuantileScaler()
+            scaled_decoder=scaler_y.fit_transform(y)
+            scaled_decoder_val=scaler_y.transform(y_val)
+
+        else:
+
+            n_records=x.shape[0]
+            n_width=x.shape[1]
+            n_sensors=int((-5.+np.sqrt(25.+4.*np.real(n_width)))/2.+1.e-5)
+            
+            print('option=2: n_records,n_width,n_sensors=',n_records,n_width,n_sensors)
+
+            scaling_factors=np.zeros(shape=12)
+            scaling_factors=scalings_bjt(x,y,speed,L_scale,H_scale,n_records,n_width,n_sensors)
+
+            scaled_encoder=scaler_bjt_x(x,scaling_factors)
+            scaled_encoder_val=scaler_bjt_x(x_val,scaling_factors)
+            scaled_decoder=scaler_bjt_y(y,scaling_factors)
+            scaled_decoder_val=scaler_bjt_y(y_val,scaling_factors)
+
+        y_truth=y
+        y=scaled_decoder
+        y_truth_val=y_val
+        y_val=scaled_decoder_val
+
+#        n_samples=2592
+#        y_testing=np.zeros(shape=(n_samples,4))
+#        print('y_testing.shape=',y_testing.shape[0],y_testing.shape[1])
+
     else:
         raise ValueError(f"Incompatible model type {model_name}")
 
@@ -135,7 +170,8 @@ for model_name in config["models"]:
         raise TypeError("Only 'sgd' or 'adam' optimizers are currently supported.")
 
     model.compile(optimizer=optimizer, **config[model_name]["compile"])
-    fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+
+    fit_hist = model.fit(x=(scaled_encoder, scaled_decoder,encoder_mask, decoder_mask),
                          y=y,
                          validation_data=((scaled_encoder_val,
                                            scaled_decoder_val,
@@ -149,15 +185,32 @@ for model_name in config["models"]:
                                  batch_size=config["predict_batch_size"])
 
     if model_name == "backtracker":
-        backtracker_targets = create_binary_preds_relative(v, output)
-        pd.DataFrame(y, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
+
+        if scaling_option == 1:
+
+            output_unscaled = scaler_y.inverse_transform(output)
+            output_train_unscaled = scaler_y.inverse_transform(output_train)
+            unscaled_decoder_val=scaler_y.inverse_transform(scaled_decoder_val)
+
+        else:
+
+            output_unscaled = scaler_bjt_y_inverse(output,scaling_factors)
+            output_train_unscaled = scaler_bjt_y_inverse(output_train,scaling_factors)
+            unscaled_decoder_val = scaler_bjt_y_inverse(scaled_decoder_val,scaling_factors)
+
+        print('\n scaled decoder = \n',scaled_decoder,'\n output_train_unscaled=\n',output_train_unscaled,'\ny_truth\n',y_truth)
+        print('\n output(val,scaled)= \n',output[0:10,:],
+              '\n unscl_output_val=\n',output_unscaled[0:10,:],'\n y_truth_val= \n',y_truth_val[0:10,:])
+
+        backtracker_targets = create_binary_preds_relative(v, output_unscaled)
+        pd.DataFrame(y_truth, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
                                                                     index=False)
-        pd.DataFrame(output_train, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+        pd.DataFrame(output_train_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(
                      os.path.join(out_path, 'seals_train_preds.csv'),
                      index=False)
-        pd.DataFrame(y_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
+        pd.DataFrame(y_truth_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
                                                                         index=False)
-        pd.DataFrame(output, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
+        pd.DataFrame(output_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
                                                                          index=False)
 
     scalers_saved = False
@@ -182,4 +235,4 @@ for model_name in config["models"]:
 # save seperate scaler for back_tracker?
 # save output for backtracker as NETCDF as same format as others (added x, y, z)
 # Add number of sensors as config option for back tracker
-#
+#7

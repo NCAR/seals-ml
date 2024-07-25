@@ -120,7 +120,7 @@ def test_transformer_regressor():
 
 def test_backtracker():
     data = xr.open_dataset(test_data[0])
-    x, y = backtrack_preprocess(xr.open_dataset(test_data[0]), n_sensors=3)
+    x, y, speed, Lscale, Hscale = backtrack_preprocess(xr.open_dataset(test_data[0]), n_sensors=3)
     np.random.seed(32525)
     model = BackTrackerDNN(hidden_layers=2, hidden_neurons=128, n_output_tasks=4)
     model.compile(loss='mse')
