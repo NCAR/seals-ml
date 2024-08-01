@@ -7,8 +7,7 @@ from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncod
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.keras.callbacks import LeakLocRateMetricsCallback
-from bridgescaler import save_scaler
-from sealsml.backtrack import backtrack_preprocess, scalings_bjt,scaler_bjt_x,scaler_bjt_y,scaler_bjt_y_inverse
+from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse
 from sklearn.model_selection import train_test_split
 from os.path import join
 import keras
@@ -21,9 +20,8 @@ import pandas as pd
 from bridgescaler import DQuantileScaler
 from sealsml.backtrack import create_binary_preds_relative
 from sealsml.keras.metrics import mean_searched_locations
+
 tf.debugging.disable_traceback_filtering()
-
-
 
 custom_keras_metrics = {"mean_searched_locations": mean_searched_locations}
 
@@ -47,7 +45,7 @@ date_str = datetime.datetime.now().strftime("%Y-%m-%d_%H%M")
 out_path = os.path.join(config["out_path"], date_str)
 os.makedirs(out_path, exist_ok=False)
 with open(join(out_path, 'train.yml'), 'w') as outfile:
-     yaml.dump(config, outfile, default_flow_style=False)
+    yaml.dump(config, outfile, default_flow_style=False)
 files = sorted(glob.glob(os.path.join(config["data_path"], "*.nc")))
 
 training, validation = train_test_split(files,
@@ -59,7 +57,7 @@ p.save_filenames(training, validation, out_path)
 start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
 print("Train Encoder shape", encoder_data.shape)
-print(f"Minutes to load training data: {(time.time() - start) / 60 }")
+print(f"Minutes to load training data: {(time.time() - start) / 60}")
 start = time.time()
 fit_scaler = True
 if "scaler_path" in config.keys():
@@ -69,9 +67,9 @@ if "scaler_path" in config.keys():
         fit_scaler = False
 scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
                                                                           fit_scaler=fit_scaler)
-print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
+print(f"Minutes to fit scaler: {(time.time() - start) / 60}")
 start = time.time()
-print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
+print(f"Minutes to transform with scaler: {(time.time() - start) / 60}")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
 scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
                                                                                           decoder_data_val,
@@ -102,9 +100,9 @@ for model_name in config["models"]:
                                                       factor=0.2,
                                                       min_lr=1e-7)
         if "callbacks" not in config[model_name]["fit"].keys():
-            config[model_name]["fit"]["callbacks"] = [cb_metrics, reduce_lr]
+            config[model_name]["fit"]["callbacks"] = [cb_metrics]
         else:
-            config[model_name]["fit"]["callbacks"].extend([cb_metrics, reduce_lr])
+            config[model_name]["fit"]["callbacks"].extend([cb_metrics])
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
@@ -118,67 +116,91 @@ for model_name in config["models"]:
         x, y, speed, L_scale, H_scale = backtrack_preprocess(t, **config[model_name]["preprocess"])
         x_val, y_val, speed_val, L_scale_val, H_scale_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
 
-        scaling_option=1
+        scaling_option = 1
 
         if scaling_option == 1:
-            
+
             scaler = DQuantileScaler()
             scaled_encoder = scaler.fit_transform(x)
             scaled_encoder_val = scaler.transform(x_val)
             scaler_y = DQuantileScaler()
-            scaled_decoder=scaler_y.fit_transform(y)
-            scaled_decoder_val=scaler_y.transform(y_val)
+            scaled_decoder = scaler_y.fit_transform(y)
+            scaled_decoder_val = scaler_y.transform(y_val)
 
         else:
 
-            n_records=x.shape[0]
-            n_width=x.shape[1]
-            n_sensors=int((-5.+np.sqrt(25.+4.*np.real(n_width)))/2.+1.e-5)
-            
-            print('option=2: n_records,n_width,n_sensors=',n_records,n_width,n_sensors)
+            n_records = x.shape[0]
+            n_width = x.shape[1]
+            n_sensors = int((-5. + np.sqrt(25. + 4. * np.real(n_width))) / 2. + 1.e-5)
 
-            scaling_factors=np.zeros(shape=12)
-            scaling_factors=scalings_bjt(x,y,speed,L_scale,H_scale,n_records,n_width,n_sensors)
+            print('option=2: n_records,n_width,n_sensors=', n_records, n_width, n_sensors)
 
-            scaled_encoder=scaler_bjt_x(x,scaling_factors)
-            scaled_encoder_val=scaler_bjt_x(x_val,scaling_factors)
-            scaled_decoder=scaler_bjt_y(y,scaling_factors)
-            scaled_decoder_val=scaler_bjt_y(y_val,scaling_factors)
+            scaling_factors = np.zeros(shape=12)
+            scaling_factors = scalings_bjt(x, y, speed, L_scale, H_scale, n_records, n_width, n_sensors)
 
-        y_truth=y
-        y=scaled_decoder
-        y_truth_val=y_val
-        y_val=scaled_decoder_val
+            scaled_encoder = scaler_bjt_x(x, scaling_factors)
+            scaled_encoder_val = scaler_bjt_x(x_val, scaling_factors)
+            scaled_decoder = scaler_bjt_y(y, scaling_factors)
+            scaled_decoder_val = scaler_bjt_y(y_val, scaling_factors)
 
-#        n_samples=2592
-#        y_testing=np.zeros(shape=(n_samples,4))
-#        print('y_testing.shape=',y_testing.shape[0],y_testing.shape[1])
+        y_truth = y
+        y = scaled_decoder
+        y_truth_val = y_val
+        y_val = scaled_decoder_val
+
+    #        n_samples=2592
+    #        y_testing=np.zeros(shape=(n_samples,4))
+    #        print('y_testing.shape=',y_testing.shape[0],y_testing.shape[1])
 
     else:
         raise ValueError(f"Incompatible model type {model_name}")
 
     if config[model_name]["optimizer"]["optimizer_type"].lower() == "sgd":
         optimizer = keras.optimizers.SGD(learning_rate=config[model_name]["optimizer"]["learning_rate"],
-                        momentum=config[model_name]["optimizer"]["sgd_momentum"])
+                                         momentum=config[model_name]["optimizer"]["sgd_momentum"])
     elif config[model_name]["optimizer"]["optimizer_type"].lower() == "adam":
         optimizer = keras.optimizers.Adam(learning_rate=config[model_name]["optimizer"]["learning_rate"],
-                         beta_1=config[model_name]["optimizer"]["adam_beta_1"],
-                         beta_2=config[model_name]["optimizer"]["adam_beta_2"],
-                         epsilon=config[model_name]["optimizer"]["epsilon"])
+                                          beta_1=config[model_name]["optimizer"]["adam_beta_1"],
+                                          beta_2=config[model_name]["optimizer"]["adam_beta_2"],
+                                          epsilon=config[model_name]["optimizer"]["epsilon"])
     else:
         optimizer = None
         raise TypeError("Only 'sgd' or 'adam' optimizers are currently supported.")
+    if model_name == "loc_rate_block_transformer":
+        model.compile(optimizer=optimizer, **config[model_name]["compile"])
+        total_epochs = config[model_name]["fit"]["epochs"]
+        config[model_name]["fit"]["epochs"] = config[model_name]["loss_weight_change"]["shift_epoch"]
+        fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+                             y=y,
+                             validation_data=((scaled_encoder_val,
+                                               scaled_decoder_val,
+                                               encoder_mask_val, decoder_mask_val),
+                                              y_val),
+                             **config[model_name]["fit"])
+        config[model_name]["compile"]["loss_weights"] = config[model_name]["loss_weight_change"]["loss_weights"]
+        model.compile(optimizer=optimizer, **config[model_name]["compile"])
+        fit_hist_shift = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+                                   y=y,
+                                   validation_data=((scaled_encoder_val,
+                                                     scaled_decoder_val,
+                                                     encoder_mask_val, decoder_mask_val),
+                                                    y_val),
+                                   initial_epoch=config[model_name]["loss_weight_change"]["shift_epoch"] + 1,
+                                   **config[model_name]["fit"])
+        for k, v in fit_hist.history.items():
+            fit_hist[k].extend(fit_hist_shift[k])
 
-    model.compile(optimizer=optimizer, **config[model_name]["compile"])
+    else:
+        model.compile(optimizer=optimizer, **config[model_name]["compile"])
 
-    fit_hist = model.fit(x=(scaled_encoder, scaled_decoder,encoder_mask, decoder_mask),
-                         y=y,
-                         validation_data=((scaled_encoder_val,
-                                           scaled_decoder_val,
-                                           encoder_mask_val, decoder_mask_val),
-                                          y_val),
-                         **config[model_name]["fit"])
-    print(f"Minutes to train {model_name} model: {(time.time() - start) / 60 }")
+        fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+                             y=y,
+                             validation_data=((scaled_encoder_val,
+                                               scaled_decoder_val,
+                                               encoder_mask_val, decoder_mask_val),
+                                              y_val),
+                             **config[model_name]["fit"])
+    print(f"Minutes to train {model_name} model: {(time.time() - start) / 60}")
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
                            batch_size=config["predict_batch_size"])
     output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
@@ -190,28 +212,32 @@ for model_name in config["models"]:
 
             output_unscaled = scaler_y.inverse_transform(output)
             output_train_unscaled = scaler_y.inverse_transform(output_train)
-            unscaled_decoder_val=scaler_y.inverse_transform(scaled_decoder_val)
+            unscaled_decoder_val = scaler_y.inverse_transform(scaled_decoder_val)
 
         else:
 
-            output_unscaled = scaler_bjt_y_inverse(output,scaling_factors)
-            output_train_unscaled = scaler_bjt_y_inverse(output_train,scaling_factors)
-            unscaled_decoder_val = scaler_bjt_y_inverse(scaled_decoder_val,scaling_factors)
+            output_unscaled = scaler_bjt_y_inverse(output, scaling_factors)
+            output_train_unscaled = scaler_bjt_y_inverse(output_train, scaling_factors)
+            unscaled_decoder_val = scaler_bjt_y_inverse(scaled_decoder_val, scaling_factors)
 
-        print('\n scaled decoder = \n',scaled_decoder,'\n output_train_unscaled=\n',output_train_unscaled,'\ny_truth\n',y_truth)
-        print('\n output(val,scaled)= \n',output[0:10,:],
-              '\n unscl_output_val=\n',output_unscaled[0:10,:],'\n y_truth_val= \n',y_truth_val[0:10,:])
+        print('\n scaled decoder = \n', scaled_decoder, '\n output_train_unscaled=\n', output_train_unscaled,
+              '\ny_truth\n', y_truth)
+        print('\n output(val,scaled)= \n', output[0:10, :],
+              '\n unscl_output_val=\n', output_unscaled[0:10, :], '\n y_truth_val= \n', y_truth_val[0:10, :])
 
         backtracker_targets = create_binary_preds_relative(v, output_unscaled)
-        pd.DataFrame(y_truth, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_train_true.csv'),
-                                                                    index=False)
+        pd.DataFrame(y_truth, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+            os.path.join(out_path, 'seals_train_true.csv'),
+            index=False)
         pd.DataFrame(output_train_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(
-                     os.path.join(out_path, 'seals_train_preds.csv'),
-                     index=False)
-        pd.DataFrame(y_truth_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_true.csv'),
-                                                                        index=False)
-        pd.DataFrame(output_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(os.path.join(out_path, 'seals_val_preds.csv'),
-                                                                         index=False)
+            os.path.join(out_path, 'seals_train_preds.csv'),
+            index=False)
+        pd.DataFrame(y_truth_val, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+            os.path.join(out_path, 'seals_val_true.csv'),
+            index=False)
+        pd.DataFrame(output_unscaled, columns=['x', 'y', 'z', 'leakrate']).to_csv(
+            os.path.join(out_path, 'seals_val_preds.csv'),
+            index=False)
 
     scalers_saved = False
     if config["save_model"]:
@@ -235,4 +261,4 @@ for model_name in config["models"]:
 # save seperate scaler for back_tracker?
 # save output for backtracker as NETCDF as same format as others (added x, y, z)
 # Add number of sensors as config option for back tracker
-#7
+# 7

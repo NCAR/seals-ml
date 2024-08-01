@@ -25,3 +25,7 @@ class LeakLocRateMetricsCallback(keras.callbacks.Callback):
         logs["val_mean_error"] = mean_error(self.y_val[1], y_pred[1][:, 0]).numpy()
         logs["val_sharpness"] = sharpness(self.y_val[1], y_pred[1][:, 0]).numpy()
 
+
+
+
+
