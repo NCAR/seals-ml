@@ -179,16 +179,17 @@ for model_name in config["models"]:
                              **config[model_name]["fit"])
         config[model_name]["compile"]["loss_weights"] = config[model_name]["loss_weight_change"]["loss_weights"]
         model.compile(optimizer=optimizer, **config[model_name]["compile"])
+        config[model_name]["fit"]["epochs"] = total_epochs
         fit_hist_shift = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                    y=y,
                                    validation_data=((scaled_encoder_val,
                                                      scaled_decoder_val,
                                                      encoder_mask_val, decoder_mask_val),
                                                     y_val),
-                                   initial_epoch=config[model_name]["loss_weight_change"]["shift_epoch"] + 1,
+                                   initial_epoch=config[model_name]["loss_weight_change"]["shift_epoch"],
                                    **config[model_name]["fit"])
         for k, v in fit_hist.history.items():
-            fit_hist[k].extend(fit_hist_shift[k])
+            fit_hist.history[k].extend(fit_hist_shift.history[k])
 
     else:
         model.compile(optimizer=optimizer, **config[model_name]["compile"])

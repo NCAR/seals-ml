@@ -249,7 +249,9 @@ class LocalizedLeakRateBlockTransformer(keras.models.Model):
             # output = ops.expand_dims(output, -1)
         else:
             output_location = self.output_activation_layer(output_squeezed)
-        weighted_decoder_hidden = ops.sum(decoder_output * ops.expand_dims(output_location, axis=-1), axis=1)
+        output_loc_stop = ops.stop_gradient(output_location)
+        decoder_output_stop = ops.stop_gradient(decoder_output)
+        weighted_decoder_hidden = ops.sum(decoder_output_stop * ops.expand_dims(output_loc_stop, axis=-1), axis=1)
         hidden_rate = self.leak_rate_hidden(weighted_decoder_hidden)
         output_rate = self.output_leak_rate(hidden_rate)
         return output_location, output_rate
