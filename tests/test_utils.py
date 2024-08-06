@@ -366,7 +366,7 @@ def test_create_binary_preds_relative():
     # Assert that the unique values in ranked_output equal 21
     assert np.unique(ranked_output).shape[0] == 21, "The ranked output does not equal 21."
 
-def test_generate_sensor_positions():
+def test_generate_sensor_positions(capsys):
     xVec = np.linspace(0, 10, 11)
     yVec = np.linspace(0, 10, 11)
     min_distance = 2.0
@@ -394,11 +394,12 @@ def test_generate_sensor_positions():
                 assert distance >= min_distance
 
     # Check invalid strategy
-    with pytest.raises(ValueError):
-        generate_sensor_positions_min_distance(
-            n_sensors=n_sensors, 
-            xVec=xVec, 
-            yVec=yVec, 
-            min_distance=min_distance, 
-            placement_strategy='invalid'
-        )
+    generate_sensor_positions_min_distance(
+        n_sensors=n_sensors, 
+        xVec=xVec, 
+        yVec=yVec, 
+        min_distance=min_distance, 
+        placement_strategy='invalid'
+    )
+    captured = capsys.readouterr()
+    assert "Invalid placement strategy. Choose from 'random', 'fenceline', or 'quadrants'." in captured.out
