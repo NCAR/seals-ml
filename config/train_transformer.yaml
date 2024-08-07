@@ -1,6 +1,9 @@
-data_path: "/glade/derecho/scratch/username/SEALS_training_data/data_gen_20240717/"
-out_path: "/glade/derecho/scratch/username/SEALS_output/"
-random_seed: 812
+#data_path: "/glade/derecho/scratch/cbecker/Phase_II_Full_Set_SBL_07-2024"
+data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Large_Training_Set_07-15-2024/"
+#data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Phase_II/data_gen_20240725/"
+#data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Phase_II/FullSet/"
+out_path: "/glade/derecho/scratch/cbecker/SEALS_output/"
+random_seed: 811
 save_model: True
 save_output: True
 validation_ratio: 0.2
@@ -8,31 +11,34 @@ sensor_type_mask: -999
 sensor_exist_mask: -1
 scaler_type: "quantile"
 #scaler_path: "/glade/derecho/scratch/dgagne/SEALS_output/scalers_2024-07-18_2207/"
+#scaler_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/TEST_TRANSFORMER/2024-07-19_1432/"
+scaler_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/TEST_TRANSFORMER/2024-08-03_1444/"
 scaler_options:
   compression: 500
-  distribution: "normal"
+  distribution: "uniform"
+remove_blind_samples: True
 predict_batch_size: 10000
 models: ['loc_rate_block_transformer']
 loc_rate_block_transformer:
   kwargs:
     encoder_layers: 4
-    decoder_layers: 3
-    hidden_size: 128
-    n_heads: 8
-    hidden_activation: "gelu"
+    decoder_layers: 2
+    hidden_size: 128 #512 #256
+    n_heads: 36 #18
+    hidden_activation: "leaky_relu"
     output_activation: "softmax"
-    dropout_rate: 0.1
+    dropout_rate: 0.1 #0.2
     n_outputs: 1
-    block_size: 20
+    block_size: 10 #60 #125 #30 #60 #10 #20
     n_coords: 3
     data_start_index: 4
   fit:
     epochs: 100
     verbose: 1
-    batch_size: 1200
+    batch_size: 4 #324 #256
   compile:
     loss: ["binary_crossentropy", "mean_absolute_error"]
-    loss_weights: [1.0, 0.00001]
+    loss_weights: [4.0, 0.00001] #[20.0, 0.1] 
   optimizer:
     learning_rate: 0.0001
     optimizer_type: "adam"
@@ -41,25 +47,25 @@ loc_rate_block_transformer:
     epsilon: 0.0000001
     sgd_momentum: 0
   loss_weight_change:
-    shift_epoch: 25
-    loss_weights: [1.0, 0.01]
+    shift_epoch: 35
+    loss_weights: [1.0, 0.05]
 block_transformer_leak_loc:
   kwargs:
-    encoder_layers: 4
-    decoder_layers: 3
+    encoder_layers: 2
+    decoder_layers: 2
     hidden_size: 256
-    n_heads: 12
+    n_heads: 4
     hidden_activation: "relu"
     output_activation: "softmax"
-    dropout_rate: 0.1
+    dropout_rate: 0.05
     n_outputs: 1
-    block_size: 10
+    block_size: 20
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 30
+    epochs: 40
     verbose: 2
-    batch_size: 256
+    batch_size: 128
   compile:
     loss: "categorical_crossentropy"
     metrics: ["categorical_accuracy"]
@@ -72,7 +78,7 @@ block_transformer_leak_loc:
     sgd_momentum: 0
 transformer_leak_loc:
   kwargs:
-    encoder_layers: 4
+    encoder_layers: 2
     decoder_layers: 2
     hidden_size: 128
     n_heads: 8

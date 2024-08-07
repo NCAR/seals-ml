@@ -560,15 +560,31 @@ class Preprocessor(object):
             self.coord_scaler = DQuantileScaler(**scaler_options)
             self.sensor_scaler = DQuantileScaler(**scaler_options)
 
-    def load_data(self, files):
+    def load_data(self, files, remove_blind_samples=False):
 
         ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False, engine='netcdf4')
         encoder_data = ds['encoder_input'].load()
         decoder_data = ds['decoder_input'].load()
-        leak_location = ds['target'].values
         leak_rate = ds['leak_rate'].values
+        leak_location = ds['target'].values
+        if remove_blind_samples:
+            indices = self.get_indices_w_plume(encoder_data)  # retrieve indices that guarantee some plume
+            return (encoder_data.isel(sample=indices), decoder_data.isel(sample=indices),
+                    leak_location.squeeze()[indices], leak_rate[indices])
+        else:
+            return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
 
-        return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
+    def get_indices_w_plume(self, encoder_data):
+        """
+        Searches all sensors across time and returns sample indices where ch4 is detected.
+        Args:
+            data: xr.DataArray
+        Returns: numpy array of indicies where at least one sensor sees some plume
+        """
+        ch4 = encoder_data[:, 1:, :, -1, 0].values  # pull ch4 timeseries from all ch4 sensors
+        reshaped_ch4 = ch4.reshape(ch4.shape[0], ch4.shape[1] * ch4.shape[2])  # reshape (samples, sensors * time)
+        return np.where(reshaped_ch4.any(axis=1))[0]  # get indices
+
 
     def load_scalers(self, coord_scaler_path, sensor_scaler_path):
 
