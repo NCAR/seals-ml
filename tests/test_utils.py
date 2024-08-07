@@ -365,3 +365,41 @@ def test_create_binary_preds_relative():
     ranked_output = create_binary_preds_relative(dataset, fake_preds, ranked=True)
     # Assert that the unique values in ranked_output equal 21
     assert np.unique(ranked_output).shape[0] == 21, "The ranked output does not equal 21."
+
+def test_generate_sensor_positions(capsys):
+    xVec = np.linspace(0, 10, 11)
+    yVec = np.linspace(0, 10, 11)
+    min_distance = 2.0
+    n_sensors = 5
+    
+    strategies = ['random', 'fenceline', 'quadrant']
+    
+    for strategy in strategies:
+        i_sensor, j_sensor = generate_sensor_positions_min_distance(
+            n_sensors=n_sensors, 
+            xVec=xVec, 
+            yVec=yVec, 
+            min_distance=min_distance, 
+            placement_strategy=strategy
+        )
+        
+        assert len(i_sensor) == n_sensors
+        assert len(j_sensor) == n_sensors
+        
+        # Check the minimum distance constraint
+        for k in range(n_sensors):
+            for l in range(k + 1, n_sensors):
+                distance = np.sqrt((xVec[i_sensor[k]] - xVec[i_sensor[l]]) ** 2 + 
+                                   (yVec[j_sensor[k]] - yVec[j_sensor[l]]) ** 2)
+                assert distance >= min_distance
+
+    # Check invalid strategy
+    generate_sensor_positions_min_distance(
+        n_sensors=n_sensors, 
+        xVec=xVec, 
+        yVec=yVec, 
+        min_distance=min_distance, 
+        placement_strategy='invalid'
+    )
+    captured = capsys.readouterr()
+    assert "Invalid placement strategy. Choose from 'random', 'fenceline', or 'quadrants'." in captured.out
