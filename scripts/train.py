@@ -6,7 +6,7 @@ from sealsml.data import Preprocessor, save_output
 from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder,
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
-from sealsml.keras.callbacks import LeakLocRateMetricsCallback
+from sealsml.keras.callbacks import LeakLocRateMetricsCallback, LeakLocMetricsCallback
 from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse
 from sklearn.model_selection import train_test_split
 from os.path import join
@@ -20,6 +20,7 @@ import pandas as pd
 from bridgescaler import DQuantileScaler
 from sealsml.backtrack import create_binary_preds_relative
 from sealsml.keras.metrics import mean_searched_locations
+from keras.callbacks import ModelCheckpoint
 
 tf.debugging.disable_traceback_filtering()
 
@@ -76,7 +77,6 @@ encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_da
 scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
-
 print("Val Encoder shape", encoder_data_val.shape)
 v = None
 for model_name in config["models"]:
@@ -87,6 +87,22 @@ for model_name in config["models"]:
     elif model_name == "block_transformer_leak_loc":
         model = BlockTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
+        cb_metrics = LeakLocMetricsCallback((scaled_encoder_val,
+                                                 scaled_decoder_val,
+                                                 encoder_mask_val,
+                                                 decoder_mask_val),
+                                                y_val)
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
+                                                      patience=5,
+                                                      verbose=1,
+                                                      factor=0.2,
+                                                      min_lr=1e-7)
+        checkpoint = ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras"),
+                             verbose=1)
+        if "callbacks" not in config[model_name]["fit"].keys():
+            config[model_name]["fit"]["callbacks"] = [cb_metrics, checkpoint]
+        else:
+            config[model_name]["fit"]["callbacks"].extend([cb_metrics, checkpoint])
     elif model_name == "loc_rate_block_transformer":
         model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
         y = (leak_location, leak_rate)
@@ -101,10 +117,11 @@ for model_name in config["models"]:
                                                       verbose=1,
                                                       factor=0.2,
                                                       min_lr=1e-7)
+        checkpoint = ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras"))
         if "callbacks" not in config[model_name]["fit"].keys():
-            config[model_name]["fit"]["callbacks"] = [cb_metrics]
+            config[model_name]["fit"]["callbacks"] = [cb_metrics, checkpoint]
         else:
-            config[model_name]["fit"]["callbacks"].extend([cb_metrics])
+            config[model_name]["fit"]["callbacks"].extend([cb_metrics, checkpoint])
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
@@ -174,20 +191,15 @@ for model_name in config["models"]:
         config[model_name]["fit"]["epochs"] = config[model_name]["loss_weight_change"]["shift_epoch"]
         fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                              y=y,
-                             validation_data=((scaled_encoder_val,
-                                               scaled_decoder_val,
-                                               encoder_mask_val, decoder_mask_val),
-                                              y_val),
+                             validation_data=None,
                              **config[model_name]["fit"])
+        print(model.summary())
         config[model_name]["compile"]["loss_weights"] = config[model_name]["loss_weight_change"]["loss_weights"]
         model.compile(optimizer=optimizer, **config[model_name]["compile"])
         config[model_name]["fit"]["epochs"] = total_epochs
         fit_hist_shift = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                    y=y,
-                                   validation_data=((scaled_encoder_val,
-                                                     scaled_decoder_val,
-                                                     encoder_mask_val, decoder_mask_val),
-                                                    y_val),
+                                   validation_data=None,
                                    initial_epoch=config[model_name]["loss_weight_change"]["shift_epoch"],
                                    **config[model_name]["fit"])
         for k, v in fit_hist.history.items():
@@ -198,10 +210,7 @@ for model_name in config["models"]:
 
         fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                              y=y,
-                             validation_data=((scaled_encoder_val,
-                                               scaled_decoder_val,
-                                               encoder_mask_val, decoder_mask_val),
-                                              y_val),
+                             validation_data=None,
                              **config[model_name]["fit"])
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60}")
     output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
