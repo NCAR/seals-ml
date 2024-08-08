@@ -145,6 +145,7 @@ def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_
                                                       time_series=True)
 
         encoder_input[t,i+ds.sizes['metSensors'],:,0:4,0] = derived_vars[0:4].T
+        encoder_input[t,i+ds.sizes['metSensors'],:,7,0] = ch4_tmp
         encoder_input[t,i+ds.sizes['metSensors'],:,:,1] = mask_ch4_2d
 
     # Potential leaks [decoder]
