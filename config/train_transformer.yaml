@@ -1,4 +1,5 @@
 #data_path: "/glade/derecho/scratch/cbecker/Phase_II_Full_Set_SBL_07-2024"
+#data_path: "/glade/work/cbecker/seals-ml/Large_Training_Set_SBL_07-2024"
 data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Large_Training_Set_07-15-2024/"
 #data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Phase_II/data_gen_20240725/"
 #data_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/Phase_II/FullSet/"
@@ -16,15 +17,24 @@ scaler_path: "/glade/derecho/scratch/jsauer/SEALS_TRAINING/TEST_TRANSFORMER/2024
 scaler_options:
   compression: 500
   distribution: "uniform"
-remove_blind_samples: True
-predict_batch_size: 10000
-models: ['loc_rate_block_transformer']
+data_options:
+  remove_blind_samples: True
+  use_noise: True
+  noise_mean: 0.0000015
+  noise_std: 0.000001
+predict_batch_size: 1028
+restart_options:
+  restart: True
+  model_out_path: "/glade/derecho/scratch/cbecker/SEALS_output/2024-08-09_1553/"
+#models: ['loc_rate_block_transformer']
+models: ['block_transformer_leak_loc']
+
 loc_rate_block_transformer:
   kwargs:
-    encoder_layers: 4
+    encoder_layers: 5
     decoder_layers: 2
-    hidden_size: 128 #512 #256
-    n_heads: 36 #18
+    hidden_size: 256 #512 #256
+    n_heads: 72
     hidden_activation: "leaky_relu"
     output_activation: "softmax"
     dropout_rate: 0.1 #0.2
@@ -33,9 +43,9 @@ loc_rate_block_transformer:
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 100
+    epochs: 111
     verbose: 1
-    batch_size: 4 #324 #256
+    batch_size: 32 #324 #256
   compile:
     loss: ["binary_crossentropy", "mean_absolute_error"]
     loss_weights: [4.0, 0.00001] #[20.0, 0.1] 
@@ -51,24 +61,23 @@ loc_rate_block_transformer:
     loss_weights: [1.0, 0.05]
 block_transformer_leak_loc:
   kwargs:
-    encoder_layers: 2
+    encoder_layers: 5
     decoder_layers: 2
-    hidden_size: 256
-    n_heads: 4
-    hidden_activation: "relu"
+    hidden_size: 128
+    n_heads: 48
+    hidden_activation: "leaky_relu"
     output_activation: "softmax"
-    dropout_rate: 0.05
     n_outputs: 1
-    block_size: 20
+    block_size: 10
     n_coords: 3
     data_start_index: 4
   fit:
-    epochs: 40
-    verbose: 2
-    batch_size: 128
+    epochs: 100
+    verbose: 1
+    batch_size: 32
   compile:
-    loss: "categorical_crossentropy"
-    metrics: ["categorical_accuracy"]
+    loss: "binary_crossentropy"
+    metrics: ["binary_accuracy"]
   optimizer:
     learning_rate: 0.0001
     optimizer_type: "adam"
@@ -84,7 +93,7 @@ transformer_leak_loc:
     n_heads: 8
     num_quantized_embeddings: 500
     hidden_activation: "relu"
-    output_activation: "sigmoid"
+    output_activation: "softmax"
     dropout_rate: 0.2
     use_quantizer: 0
     quantized_beta: 0.25
