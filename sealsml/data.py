@@ -560,19 +560,27 @@ class Preprocessor(object):
             self.coord_scaler = DQuantileScaler(**scaler_options)
             self.sensor_scaler = DQuantileScaler(**scaler_options)
 
-    def load_data(self, files, remove_blind_samples=False):
+    def load_data(self, files, remove_blind_samples=False, use_noise=False, noise_mean=1.5e-6, noise_std=1e-6):
 
         ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False, engine='netcdf4')
+        n_sensors = ds.sensor.size
         encoder_data = ds['encoder_input'].load()
         decoder_data = ds['decoder_input'].load()
         leak_rate = ds['leak_rate'].values
         leak_location = ds['target'].values
         if remove_blind_samples:
             indices = self.get_indices_w_plume(encoder_data)  # retrieve indices that guarantee some plume
-            return (encoder_data.isel(sample=indices), decoder_data.isel(sample=indices),
-                    leak_location.squeeze()[indices], leak_rate[indices])
-        else:
-            return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
+            encoder_data = encoder_data.isel(sample=indices)
+            decoder_data = decoder_data.isel(sample=indices)
+            leak_location = leak_location.squeeze()[indices]
+            leak_rate = leak_rate[indices]
+        if use_noise:
+            ch4_shape = encoder_data.sel(sensor=slice(1, n_sensors), variable='q_CH4', mask=0).shape
+            encoder_data.sel(sensor=slice(1, n_sensors), variable='q_CH4', mask=0).values += (
+                np.random.normal(loc=noise_mean,
+                                 scale=noise_std,
+                                 size=ch4_shape).astype("float32"))
+        return encoder_data, decoder_data, leak_location.squeeze(), leak_rate
 
     def get_indices_w_plume(self, encoder_data):
         """
