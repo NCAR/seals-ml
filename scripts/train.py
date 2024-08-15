@@ -3,10 +3,10 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder,
+from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder, BlockEncoder,
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
-from sealsml.keras.callbacks import LeakLocRateMetricsCallback, LeakLocMetricsCallback
+from sealsml.keras.callbacks import LeakLocRateMetricsCallback, LeakLocMetricsCallback, LeakRateMetricsCallback
 from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse
 from sklearn.model_selection import train_test_split
 from os.path import join
@@ -19,25 +19,16 @@ import tensorflow as tf
 import pandas as pd
 from bridgescaler import DQuantileScaler
 from sealsml.backtrack import create_binary_preds_relative
-from sealsml.keras.metrics import mean_searched_locations
-from keras.callbacks import ModelCheckpoint, CSVLogger
+from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau
 from keras.models import load_model
-
 tf.debugging.disable_traceback_filtering()
-
-custom_keras_metrics = {"mean_searched_locations": mean_searched_locations}
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
 args = parser.parse_args()
 with open(args.config) as config_file:
     config = yaml.safe_load(config_file)
-for model in config["models"]:
-    if "compile" in config[model]:
-        if "metrics" in config[model]["compile"]:
-            for m, metric in enumerate(config[model]["compile"]["metrics"]):
-                if metric in custom_keras_metrics.keys():
-                    config[model]["compile"]["metrics"][m] = custom_keras_metrics[metric]
+
 keras.utils.set_random_seed(config["random_seed"])
 np.random.seed(config["random_seed"])
 username = os.environ.get('USER')
@@ -50,15 +41,20 @@ elif not config["restart_options"]["restart"]:
     out_path = os.path.join(config["out_path"], date_str)
     os.makedirs(out_path, exist_ok=False)
 
+print("Path to save all results:", out_path)
 with open(join(out_path, 'train.yml'), 'w') as outfile:
     yaml.dump(config, outfile, default_flow_style=False)
+
 files = sorted(glob.glob(os.path.join(config["data_path"], "*.nc")))
 
-training, validation = train_test_split(files[:5],
+training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
 
-p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
+p = Preprocessor(scaler_type=config["scaler_type"],
+                 sensor_pad_value=-1,
+                 sensor_type_value=-999,
+                 scaler_options=config["scaler_options"])
 p.save_filenames(training, validation, out_path)
 start = time.time()
 encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training, **config["data_options"])
@@ -75,57 +71,28 @@ scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encode
                                                                           fit_scaler=fit_scaler)
 print(f"Minutes to fit scaler: {(time.time() - start) / 60}")
 start = time.time()
-print(f"Minutes to transform with scaler: {(time.time() - start) / 60}")
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation, **config["data_options"])
 scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
 print("Val Encoder shape", encoder_data_val.shape)
 v = None
+x_val = (scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val)
 for model_name in config["models"]:
     start = time.time()
-    csv_logger = CSVLogger(join(out_path, f'training_log_{model_name}.csv'), append=True)
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
     elif model_name == "block_transformer_leak_loc":
         model = BlockTransformer(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
-        cb_metrics = LeakLocMetricsCallback((scaled_encoder_val,
-                                                 scaled_decoder_val,
-                                                 encoder_mask_val,
-                                                 decoder_mask_val),
-                                                y_val)
-        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
-                                                      patience=5,
-                                                      verbose=1,
-                                                      factor=0.2,
-                                                      min_lr=1e-7)
-        checkpoint = ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras"),
-                             verbose=1)
-        if "callbacks" not in config[model_name]["fit"].keys():
-            config[model_name]["fit"]["callbacks"] = [cb_metrics, checkpoint, csv_logger]
-        else:
-            config[model_name]["fit"]["callbacks"].extend([cb_metrics, checkpoint, csv_logger])
     elif model_name == "loc_rate_block_transformer":
         model = LocalizedLeakRateBlockTransformer(**config[model_name]["kwargs"])
         y = (leak_location, leak_rate)
         y_val = (leak_location_val, leak_rate_val)
-        cb_metrics = LeakLocRateMetricsCallback((scaled_encoder_val,
-                                                 scaled_decoder_val,
-                                                 encoder_mask_val,
-                                                 decoder_mask_val),
-                                                y_val)
-        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
-                                                      patience=5,
-                                                      verbose=1,
-                                                      factor=0.2,
-                                                      min_lr=1e-7)
-        checkpoint = ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras"))
-        if "callbacks" not in config[model_name]["fit"].keys():
-            config[model_name]["fit"]["callbacks"] = [cb_metrics, checkpoint, csv_logger]
-        else:
-            config[model_name]["fit"]["callbacks"].extend([cb_metrics, checkpoint, csv_logger])
+    elif model_name == 'block_rate_encoder':
+        model = BlockEncoder(**config[model_name]["kwargs"])
+        y, y_val = leak_rate, leak_rate_val
     elif model_name == 'transformer_leak_rate':
         model = TEncoder(**config[model_name]["kwargs"])
         y, y_val = leak_rate, leak_rate_val
@@ -173,6 +140,21 @@ for model_name in config["models"]:
 
     else:
         raise ValueError(f"Incompatible model type {model_name}")
+    callbacks = []
+    for cb in config[model_name]["callbacks"]:
+        if cb == "loc_rate_metrics":
+            callbacks.append(LeakLocRateMetricsCallback(x_val, y_val, batch_size=config["predict_batch_size"]))
+        elif cb == "loc_only_metrics":
+            callbacks.append(LeakLocMetricsCallback(x_val, y_val, batch_size=config["predict_batch_size"]))
+        elif cb == "rate_only_metrics":
+            callbacks.append(LeakRateMetricsCallback(x_val, y_val, batch_size=config["predict_batch_size"]))
+        elif cb == "reduce_on_plateau":
+            callbacks.append(ReduceLROnPlateau(**config[model_name]["callback_kwargs"][cb]))
+        elif cb == "model_checkpoint":
+            callbacks.append(ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras")))
+        elif cb == "csv_logger":
+            callbacks.append(CSVLogger(join(out_path, f'training_log_{model_name}.csv'), append=True))
+    config[model_name]["fit"]["callbacks"] = callbacks
 
     if not config["restart_options"]["restart"]:
 
@@ -209,17 +191,14 @@ for model_name in config["models"]:
         else:
             fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                                  y=y,
-                                 validation_data=((scaled_encoder_val,
-                                                   scaled_decoder_val,
-                                                   encoder_mask_val, decoder_mask_val),
-                                                  y_val),
+                                 validation_data=None,
                                  **config[model_name]["fit"])
 
     elif config["restart_options"]["restart"]:
         log = pd.read_csv(join(out_path, f"training_log_{model_name}.csv"))
         start_epoch = log['epoch'].iloc[-1]
         del model
-        model = load_model(glob.glob(join(out_path, f"{model_name}*.keras"))[0])
+        model = load_model(glob.glob(join(out_path, f"{model_name}*.keras"))[-1])
         fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
                              y=y,
                              validation_data=None,

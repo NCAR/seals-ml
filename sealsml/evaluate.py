@@ -6,6 +6,7 @@ from sealsml.geometry import get_relative_azimuth
 import os
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 def provide_metrics(y_true, probabilities):
@@ -184,3 +185,40 @@ def false_alarm_ratio(y, y_pred, min_thresh, max_thresh, interval):
         false_alarm_ratios.append(false_alarms)
 
     return false_alarm_ratios, threshold_range
+
+def plot_leak_rate_cm(truth, preds, leak_min=0, leak_max=50, interval=5, normalization=None, savefig=False,
+                      savepath="./"):
+    """
+    Plot a confusion matrix of leak rate predictions binned by specified ranges.
+    Args:
+        truth (np.array): Actual leak rate predictions
+        preds (np.array): Predicted Leak rates
+        leak_min (int): Minimum leak rate to include in dataset (exclusive)
+        leak_max (int): Maximum leak rate to include in dataset (inclusive)
+        interval (int): Interval length to bin predictions by
+        normalization: Normalization type. Accepts None, "pred", or "true"
+        savefig (bool): weather to save the figure out
+        savepath (str): Path to save figure
+    """
+    indices = np.argwhere((truth > leak_min) & (truth <= leak_max))
+    leak_rate = truth[indices]
+    preds = preds[indices]
+    cat_leak_true = np.zeros(shape=leak_rate.squeeze().shape)
+    cat_leak_preds = np.zeros(shape=leak_rate.squeeze().shape)
+    for i, x in enumerate(range(leak_min, leak_max, interval)):
+        true_indices = np.argwhere((leak_rate > x) & (leak_rate <= x + interval))
+        pred_indices = np.argwhere((preds.squeeze() > x) & (preds.squeeze() <= x + interval))
+        cat_leak_true[true_indices] = i
+        cat_leak_preds[pred_indices] = i
+
+    fig, axes = plt.subplots(1, figsize=(10, 10), layout="constrained")
+    cm = confusion_matrix(cat_leak_true, cat_leak_preds, normalize=normalization)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=[f"{x} > LR <= {x + interval}" for x in
+                                                                       range(leak_min, leak_max, interval)])
+    disp.plot(xticks_rotation="vertical", ax=axes)
+    axes.set_title(f"Leak Rate Confusion Matrix -- Normalization: {str(normalization)}")
+    if savefig:
+        plt.savefig(f"{savepath}LR_confusion_matrix_normalization_{normalization}_{leak_min}_{leak_max}_{interval}.png",
+                    dpi=300, bbox_inches="tight")
+    plt.show()
+    return disp

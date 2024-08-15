@@ -703,12 +703,12 @@ def save_output(out_path, train_targets, val_targets, train_predictions, val_pre
                                                  leak_loc_pred=(["sample", "pot_leak_locs"], np.squeeze(val_predictions[0])),
                                                  target_leak_rate=(["sample"], np.squeeze(val_targets[1])),
                                                  leak_rate_pred=(["sample"], np.squeeze(val_predictions[1]))))
-    elif model_name == "transformer_leak_rate":
+    elif model_name == "transformer_leak_rate" or model_name == "block_rate_encoder":
 
-        train_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], train_targets),
-                                                 leak_rate_pred=(["sample"], train_predictions)))
-        val_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], val_targets),
-                                               leak_rate_pred=(["sample"], val_predictions)))
+        train_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], np.squeeze(train_targets)),
+                                                 leak_rate_pred=(["sample"], np.squeeze(train_predictions))))
+        val_output = xr.Dataset(data_vars=dict(target_leak_rate=(["sample"], np.squeeze(val_targets)),
+                                               leak_rate_pred=(["sample"], np.squeeze(val_predictions))))
 
     elif model_name == "backtracker":
         train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], train_targets),
