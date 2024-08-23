@@ -23,6 +23,13 @@ from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau
 from keras.models import load_model
 tf.debugging.disable_traceback_filtering()
 
+physical_devices = tf.config.list_physical_devices('GPU')
+try:
+  tf.config.experimental.set_memory_growth(physical_devices[0], True)
+except:
+  # Invalid device or cannot modify virtual devices once initialized.
+  pass
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--config", help="Path to config file")
 args = parser.parse_args()
@@ -62,6 +69,7 @@ print("Train Encoder shape", encoder_data.shape)
 print(f"Minutes to load training data: {(time.time() - start) / 60}")
 start = time.time()
 fit_scaler = True
+scalers_saved = False
 if "scaler_path" in config.keys():
     if os.path.exists(join(config["scaler_path"], "coord_scaler.json")):
         p.load_scalers(coord_scaler_path=join(config["scaler_path"], "coord_scaler.json"),
@@ -69,6 +77,12 @@ if "scaler_path" in config.keys():
         fit_scaler = False
 scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
                                                                           fit_scaler=fit_scaler)
+
+#If the scalers are not already saved to file (i.e. they were read from file as inputs), save them
+if not scalers_saved:
+    p.save_scalers(out_path)
+    scalers_saved = True
+
 print(f"Minutes to fit scaler: {(time.time() - start) / 60}")
 start = time.time()
 encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation, **config["data_options"])
@@ -76,6 +90,17 @@ scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.p
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
 print("Val Encoder shape", encoder_data_val.shape)
+
+with tf.device('/CPU:0'):
+    scaled_encoder = tf.constant(scaled_encoder)
+    scaled_decoder = tf.constant(scaled_decoder)
+    encoder_mask = tf.constant(encoder_mask)
+    decoder_mask = tf.constant(decoder_mask)
+    scaled_encoder_val = tf.constant(scaled_encoder_val)
+    scaled_decoder_val = tf.constant(scaled_decoder_val)
+    encoder_mask_val = tf.constant(encoder_mask_val)
+    decoder_mask_val = tf.constant(decoder_mask_val)
+
 v = None
 x_val = (scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val)
 for model_name in config["models"]:
@@ -244,13 +269,9 @@ for model_name in config["models"]:
             os.path.join(out_path, 'seals_val_preds.csv'),
             index=False)
 
-    scalers_saved = False
     if config["save_model"]:
         if model_name != "gaussian_process":
             model.save(os.path.join(out_path, f"{model_name}_{date_str}.keras"))
-        if not scalers_saved:
-            p.save_scalers(out_path)
-            scalers_saved = True
 
     if config["save_output"]:
         if model_name != "backtracker":
@@ -264,4 +285,3 @@ for model_name in config["models"]:
 # save seperate scaler for back_tracker?
 # save output for backtracker as NETCDF as same format as others (added x, y, z)
 # Add number of sensors as config option for back tracker
-# 7

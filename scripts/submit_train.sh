@@ -9,5 +9,6 @@
 #PBS -M dgagne@ucar.edu
 module load conda
 conda activate seals_20240515
+export TF_GPU_ALLOCATOR=cuda_malloc_async
 cd ../
 python -u ./scripts/train.py  -c ./config/train_transformer.yaml
