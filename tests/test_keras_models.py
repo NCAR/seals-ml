@@ -57,7 +57,7 @@ def test_block_transformer():
     qt = BlockTransformer(encoder_layers=2, decoder_layers=2, hidden_size=128, n_heads=2, output_activation="sigmoid")
     qt.compile(loss="binary_crossentropy", optimizer="adam")
     qt.call((x_encoder, x_decoder))
-    weights_i = qt.get_weights()
+    weights_init = qt.get_weights()
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=2)
     print("Number of Trainable Parameters: ", qt.count_params())
     weights_after = qt.get_weights()
