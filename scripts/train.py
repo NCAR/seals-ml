@@ -7,7 +7,7 @@ from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncod
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.keras.callbacks import LeakLocRateMetricsCallback, LeakLocMetricsCallback, LeakRateMetricsCallback
-from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse
+from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse, truth_values
 from sklearn.model_selection import train_test_split
 from os.path import join
 import keras
@@ -128,8 +128,13 @@ for model_name in config["models"]:
         t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
         v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, y, speed, L_scale, H_scale = backtrack_preprocess(t, **config[model_name]["preprocess"])
-        x_val, y_val, speed_val, L_scale_val, H_scale_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
+        x, speed, L_scale, H_scale,n_samples,n_pot_leaks,x_pot_leaks,y_pot_leaks,     \
+            z_pot_leaks = backtrack_preprocess(t, **config[model_name]["preprocess"])
+        y = truth_values(t)
+        x_val, speed_val, L_scale_val, H_scale_val,n_samples_val,n_pot_leaks_val,   \
+            x_pot_leaks_val,y_pot_leaks_val,z_pot_leaks_val =                     \
+                 backtrack_preprocess(v, **config[model_name]["preprocess"])
+        y_val = truth_values(v)
 
         scaling_option = 1
 
@@ -254,6 +259,46 @@ for model_name in config["models"]:
               '\ny_truth\n', y_truth)
         print('\n output(val,scaled)= \n', output[0:10, :],
               '\n unscl_output_val=\n', output_unscaled[0:10, :], '\n y_truth_val= \n', y_truth_val[0:10, :])
+
+        # more one post-process step. find structure closest to predicted value, if not already at a structure
+
+        for s in range(n_samples):
+            distance=L_scale
+            distance0=np.sqrt((output_train_unscaled[s,0]-y_truth[s,0])**2 +
+                                   (output_train_unscaled[s,1]-y_truth[s,1])**2)
+            closest_index=int(-1)
+            for j in range(n_pot_leaks):
+                distance_j=np.sqrt( (output_train_unscaled[s,0]-x_pot_leaks[s,j])**2 +
+                                   (output_train_unscaled[s,1]-y_pot_leaks[s,j])**2)
+                if distance_j < distance:
+                    distance=distance_j
+                    closest_index=j
+            if s >= 10 and s < 21:
+                print('before:s,output.train.unscaled,distance-xn-to-nearest,distance-xn-to-true=\n',
+                      s,output_train_unscaled[s,0],distance,distance0)
+            output_train_unscaled[s,0]=x_pot_leaks[s,closest_index]
+            output_train_unscaled[s,1]=y_pot_leaks[s,closest_index]
+            distance_to_true=np.sqrt((output_train_unscaled[s,0]-y_truth[s,0])**2 +
+                                   (output_train_unscaled[s,1]-y_truth[s,1])**2)
+            if s >= 10 and s < 21:
+                print('after: s,closest_index,x.pot.leaks.s.closest,output.train.unscaled,distance_to_true=\n',s,closest_index,
+                      x_pot_leaks[s,closest_index],output_train_unscaled[s,0],distance_to_true)
+
+        for s in range(n_samples_val):
+            distance=L_scale
+            closest_index=int(-1)
+            for j in range(n_pot_leaks_val):
+                distance_j=np.sqrt( (output_unscaled[s,0]-x_pot_leaks_val[s,j])**2 +
+                                   (output_unscaled[s,1]-y_pot_leaks_val[s,j])**2)
+                if distance_j < distance:
+                    distance=distance_j
+                    closest_index=j
+            output_unscaled[s,0]=x_pot_leaks_val[s,closest_index]
+            output_unscaled[s,1]=y_pot_leaks_val[s,closest_index]
+
+        print('modified output for x,y - shift to nearest potential leak structure \n')
+        print('\n output_train_unscaled[10:21,:]=\n',output_train_unscaled[10:21,:],'\ny_truth[10:21,:]\n',y_truth[10:21,:])
+        print('\n unscl_output_val[10:21,:]=\n',output_unscaled[10:21,:],'\n y_truth_val= \n',y_truth_val[10:21,:])
 
         backtracker_targets = create_binary_preds_relative(v, output_unscaled)
         pd.DataFrame(y_truth, columns=['x', 'y', 'z', 'leakrate']).to_csv(
