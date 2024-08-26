@@ -1,7 +1,7 @@
 from sealsml.keras.layers import VectorQuantizer
 from sealsml.keras.models import QuantizedTransformer, TEncoder, BackTrackerDNN, BlockTransformer, LocalizedLeakRateBlockTransformer, BlockEncoder
 from sealsml.data import Preprocessor
-from sealsml.backtrack import backtrack_preprocess, create_binary_preds_relative
+from sealsml.backtrack import backtrack_preprocess, create_binary_preds_relative, truth_values
 from sealsml.keras.metrics import mean_searched_locations
 import numpy as np
 import xarray as xr
@@ -57,7 +57,7 @@ def test_block_transformer():
     qt = BlockTransformer(encoder_layers=2, decoder_layers=2, hidden_size=128, n_heads=2, output_activation="sigmoid")
     qt.compile(loss="binary_crossentropy", optimizer="adam")
     qt.call((x_encoder, x_decoder))
-    weights_init = qt.get_weights()
+    weights_i = qt.get_weights()
     qt.fit((x_encoder, x_decoder), y, batch_size=batch_size, epochs=2)
     print("Number of Trainable Parameters: ", qt.count_params())
     weights_after = qt.get_weights()
@@ -153,8 +153,10 @@ def test_transformer_regressor():
 
 def test_backtracker():
     data = xr.open_dataset(test_data[0])
-    x, y, speed, Lscale, Hscale = backtrack_preprocess(xr.open_dataset(test_data[0]), n_sensors=3)
-    np.random.seed(32525)
+    x, speed, Lscale, Hscale, n_samples,n_pot_leaks,x_pot_leaks,y_pot_leaks,     \
+            z_pot_leaks = backtrack_preprocess(data, n_sensors=3)
+    y = truth_values(data)
+    np.random.seed(2525)
     model = BackTrackerDNN(hidden_layers=2, hidden_neurons=128, n_output_tasks=4)
     model.compile(loss='mse')
     weights_init = model.get_weights()
