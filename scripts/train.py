@@ -7,7 +7,8 @@ from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncod
                                   BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.keras.callbacks import LeakLocRateMetricsCallback, LeakLocMetricsCallback, LeakRateMetricsCallback
-from sealsml.backtrack import backtrack_preprocess, scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse, truth_values
+from sealsml.backtrack import backtrack_preprocess, backtrack_scaleDataTuple, backtrack_unscaleDataTuple, mapPredlocsToClosestPL
+from sealsml.backtrack import scalings_bjt, scaler_bjt_x, scaler_bjt_y, scaler_bjt_y_inverse, truth_values
 from sklearn.model_selection import train_test_split
 from os.path import join
 import keras
@@ -17,7 +18,7 @@ import time
 import xarray as xr
 import tensorflow as tf
 import pandas as pd
-from bridgescaler import DQuantileScaler
+from bridgescaler import DQuantileScaler,save_scaler
 from sealsml.backtrack import create_binary_preds_relative
 from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau
 from keras.models import load_model
@@ -57,17 +58,14 @@ files = sorted(glob.glob(os.path.join(config["data_path"], "*.nc")))
 training, validation = train_test_split(files,
                                         test_size=config["validation_ratio"],
                                         random_state=config["random_seed"])
-
+#Construct a preprocessor class instance
 p = Preprocessor(scaler_type=config["scaler_type"],
                  sensor_pad_value=-1,
                  sensor_type_value=-999,
                  scaler_options=config["scaler_options"])
 p.save_filenames(training, validation, out_path)
-start = time.time()
-encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training, **config["data_options"])
-print("Train Encoder shape", encoder_data.shape)
-print(f"Minutes to load training data: {(time.time() - start) / 60}")
-start = time.time()
+
+#Load predetermined scaler fit configurations if desired
 fit_scaler = True
 scalers_saved = False
 if "scaler_path" in config.keys():
@@ -75,34 +73,111 @@ if "scaler_path" in config.keys():
         p.load_scalers(coord_scaler_path=join(config["scaler_path"], "coord_scaler.json"),
                        sensor_scaler_path=join(config["scaler_path"], "sensor_scaler.json"))
         fit_scaler = False
-scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
-                                                                          fit_scaler=fit_scaler)
 
-#If the scalers are not already saved to file (i.e. they were read from file as inputs), save them
-if not scalers_saved:
-    p.save_scalers(out_path)
-    scalers_saved = True
+#Preprocess (load and scale data) in transformer or backtracker mode 
+preproc_done = False
+for model_name in config["models"]:
+   if "backtracker" in model_name:
+      start = time.time()
+      print(f"contains backtracker {model_name}")
+      t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
+      print(f"Minutes to load training data: {(time.time() - start) / 60}")
+      start = time.time()
+      x, speed, L_scale, H_scale, n_samples, n_pot_leaks, x_pot_leaks, y_pot_leaks, z_pot_leaks = backtrack_preprocess(t, **config[model_name]["preprocess"])
+      print(f"Minutes to run backtrack_preprocess on training data: {(time.time() - start) / 60}")
+      start = time.time()
+      y = truth_values(t)
+      print(f"Minutes to preprocess truth_values of training data: {(time.time() - start) / 60}")
+      start = time.time()
 
-print(f"Minutes to fit scaler: {(time.time() - start) / 60}")
-start = time.time()
-encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation, **config["data_options"])
-scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
-                                                                                          decoder_data_val,
-                                                                                          fit_scaler=False)
-print("Val Encoder shape", encoder_data_val.shape)
+      v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
+      print(f"Minutes to load validation data: {(time.time() - start) / 60}")
+      start = time.time()
+      x_val, speed_val, L_scale_val, H_scale_val, n_samples_val, n_pot_leaks_val, x_pot_leaks_val, y_pot_leaks_val, z_pot_leaks_val = backtrack_preprocess(v, **config[model_name]["preprocess"])
+      print(f"Minutes to run backtrack_preprocess on validation data: {(time.time() - start) / 60}")
+      start = time.time()
+      y_val = truth_values(v)
+      print(f"Minutes to preprocess truth_values of validation data: {(time.time() - start) / 60}")
+      start = time.time()
 
-with tf.device('/CPU:0'):
-    scaled_encoder = tf.constant(scaled_encoder)
-    scaled_decoder = tf.constant(scaled_decoder)
-    encoder_mask = tf.constant(encoder_mask)
-    decoder_mask = tf.constant(decoder_mask)
-    scaled_encoder_val = tf.constant(scaled_encoder_val)
-    scaled_decoder_val = tf.constant(scaled_decoder_val)
-    encoder_mask_val = tf.constant(encoder_mask_val)
-    decoder_mask_val = tf.constant(decoder_mask_val)
+      print("Backtracker input shape", x.shape)
+      
+      scaling_option = 1
 
-v = None
-x_val = (scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val)
+      if scaling_option == 1:
+          (scaled_encoder,scaled_encoder_val), scaler = backtrack_scaleDataTuple((x, x_val), fit_scaler=True) 
+          (scaled_decoder,scaled_decoder_val), scaler_y = backtrack_scaleDataTuple((y, y_val), fit_scaler=True) 
+      else:
+          n_records = x.shape[0]
+          n_width = x.shape[1]
+          n_sensors = int((-5. + np.sqrt(25. + 4. * np.real(n_width))) / 2. + 1.e-5)
+
+          print('option=2: n_records,n_width,n_sensors=', n_records, n_width, n_sensors)
+
+          scaling_factors = np.zeros(shape=12)
+          scaling_factors = scalings_bjt(x, y, speed, L_scale, H_scale, n_records, n_width, n_sensors)
+
+          scaled_encoder = scaler_bjt_x(x, scaling_factors)
+          scaled_encoder_val = scaler_bjt_x(x_val, scaling_factors)
+          scaled_decoder = scaler_bjt_y(y, scaling_factors)
+          scaled_decoder_val = scaler_bjt_y(y_val, scaling_factors)
+      
+      print(f"Minutes to fit-scaler and transform-data: {(time.time() - start) / 60}")
+
+      start = time.time()
+      #If the scalers are not already saved to file (i.e. they were read from file as inputs), save them
+      if not scalers_saved:
+         save_scaler(scaler, join(out_path, f"bt_input_scaler.json"))
+         save_scaler(scaler_y, join(out_path, f"bt_output_scaler.json"))
+         scalers_saved = True
+      with tf.device('/CPU:0'):
+         scaled_encoder = tf.constant(scaled_encoder)
+         scaled_decoder = tf.constant(scaled_decoder)
+         scaled_encoder_val = tf.constant(scaled_encoder_val)
+         scaled_decoder_val = tf.constant(scaled_decoder_val)
+   
+      x=(scaled_encoder, scaled_decoder)
+      x_val = (scaled_encoder_val, scaled_decoder_val)
+
+   if any(s in model_name for s in ("block","transformer","gaussian")) and (not preproc_done):
+      start = time.time()
+      encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training, **config["data_options"])
+
+      print("Train Encoder shape", encoder_data.shape)
+      print(f"Minutes to load training data: {(time.time() - start) / 60}")
+      start = time.time()
+
+      scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encoder_data, decoder_data,
+                                                                                fit_scaler=fit_scaler)
+
+      encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation, **config["data_options"])
+      scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
+                                                                                                decoder_data_val,
+                                                                                                fit_scaler=False)
+      print("Val Encoder shape", encoder_data_val.shape)
+      print(f"Minutes to fit-scaler and transform-data: {(time.time() - start) / 60}")
+
+      start = time.time()
+
+      #If the scalers are not already saved to file (i.e. they were read from file as inputs), save them
+      if not scalers_saved:
+         p.save_scalers(out_path)
+         scalers_saved = True
+
+      with tf.device('/CPU:0'):
+          scaled_encoder = tf.constant(scaled_encoder)
+          scaled_decoder = tf.constant(scaled_decoder)
+          encoder_mask = tf.constant(encoder_mask)
+          decoder_mask = tf.constant(decoder_mask)
+          scaled_encoder_val = tf.constant(scaled_encoder_val)
+          scaled_decoder_val = tf.constant(scaled_decoder_val)
+          encoder_mask_val = tf.constant(encoder_mask_val)
+          decoder_mask_val = tf.constant(decoder_mask_val)
+
+      x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask)
+      x_val = (scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val)
+      preproc_done = True
+
 for model_name in config["models"]:
     start = time.time()
     if model_name == "transformer_leak_loc":
@@ -125,51 +200,14 @@ for model_name in config["models"]:
         model = GPModel(**config[model_name]["kwargs"])
         y, y_val = leak_location, leak_location_val
     elif model_name == "backtracker":
-        t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
-        v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)
         model = BackTrackerDNN(**config[model_name]["kwargs"])
-        x, speed, L_scale, H_scale,n_samples,n_pot_leaks,x_pot_leaks,y_pot_leaks,     \
-            z_pot_leaks = backtrack_preprocess(t, **config[model_name]["preprocess"])
-        y = truth_values(t)
-        x_val, speed_val, L_scale_val, H_scale_val,n_samples_val,n_pot_leaks_val,   \
-            x_pot_leaks_val,y_pot_leaks_val,z_pot_leaks_val =                     \
-                 backtrack_preprocess(v, **config[model_name]["preprocess"])
-        y_val = truth_values(v)
-
-        scaling_option = 1
-
-        if scaling_option == 1:
-
-            scaler = DQuantileScaler()
-            scaled_encoder = scaler.fit_transform(x)
-            scaled_encoder_val = scaler.transform(x_val)
-            scaler_y = DQuantileScaler()
-            scaled_decoder = scaler_y.fit_transform(y)
-            scaled_decoder_val = scaler_y.transform(y_val)
-
-        else:
-
-            n_records = x.shape[0]
-            n_width = x.shape[1]
-            n_sensors = int((-5. + np.sqrt(25. + 4. * np.real(n_width))) / 2. + 1.e-5)
-
-            print('option=2: n_records,n_width,n_sensors=', n_records, n_width, n_sensors)
-
-            scaling_factors = np.zeros(shape=12)
-            scaling_factors = scalings_bjt(x, y, speed, L_scale, H_scale, n_records, n_width, n_sensors)
-
-            scaled_encoder = scaler_bjt_x(x, scaling_factors)
-            scaled_encoder_val = scaler_bjt_x(x_val, scaling_factors)
-            scaled_decoder = scaler_bjt_y(y, scaling_factors)
-            scaled_decoder_val = scaler_bjt_y(y_val, scaling_factors)
-
         y_truth = y
         y = scaled_decoder
         y_truth_val = y_val
         y_val = scaled_decoder_val
-
     else:
         raise ValueError(f"Incompatible model type {model_name}")
+
     callbacks = []
     for cb in config[model_name]["callbacks"]:
         if cb == "loc_rate_metrics":
@@ -205,7 +243,7 @@ for model_name in config["models"]:
         if model_name == "loc_rate_block_transformer":
             total_epochs = config[model_name]["fit"]["epochs"]
             config[model_name]["fit"]["epochs"] = config[model_name]["loss_weight_change"]["shift_epoch"]
-            fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+            fit_hist = model.fit(x=x,
                                  y=y,
                                  validation_data=None,
                                  **config[model_name]["fit"])
@@ -213,13 +251,13 @@ for model_name in config["models"]:
             config[model_name]["compile"]["loss_weights"] = config[model_name]["loss_weight_change"]["loss_weights"]
             model.compile(optimizer=optimizer, **config[model_name]["compile"])
             config[model_name]["fit"]["epochs"] = total_epochs
-            fit_hist_shift = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+            fit_hist_shift = model.fit(x=x,
                                        y=y,
                                        validation_data=None,
                                        initial_epoch=config[model_name]["loss_weight_change"]["shift_epoch"],
                                        **config[model_name]["fit"])
         else:
-            fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+            fit_hist = model.fit(x=x,
                                  y=y,
                                  validation_data=None,
                                  **config[model_name]["fit"])
@@ -229,72 +267,37 @@ for model_name in config["models"]:
         start_epoch = log['epoch'].iloc[-1]
         del model
         model = load_model(glob.glob(join(out_path, f"{model_name}*.keras"))[-1])
-        fit_hist = model.fit(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+        fit_hist = model.fit(x=x,
                              y=y,
                              validation_data=None,
                              initial_epoch=start_epoch,
                              **config[model_name]["fit"])
 
     print(f"Minutes to train {model_name} model: {(time.time() - start) / 60}")
-    output = model.predict(x=(scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val),
+    output = model.predict(x=x_val,
                            batch_size=config["predict_batch_size"])
-    output_train = model.predict(x=(scaled_encoder, scaled_decoder, encoder_mask, decoder_mask),
+    output_train = model.predict(x=x,
                                  batch_size=config["predict_batch_size"])
 
     if model_name == "backtracker":
 
         if scaling_option == 1:
-
-            output_unscaled = scaler_y.inverse_transform(output)
-            output_train_unscaled = scaler_y.inverse_transform(output_train)
-            unscaled_decoder_val = scaler_y.inverse_transform(scaled_decoder_val)
+            (output_unscaled, output_train_unscaled, unscaled_decoder_val) = backtrack_unscaleDataTuple((output, output_train, scaled_decoder_val.numpy()), scaler_y)  
 
         else:
 
             output_unscaled = scaler_bjt_y_inverse(output, scaling_factors)
             output_train_unscaled = scaler_bjt_y_inverse(output_train, scaling_factors)
-            unscaled_decoder_val = scaler_bjt_y_inverse(scaled_decoder_val, scaling_factors)
+            unscaled_decoder_val = scaler_bjt_y_inverse(scaled_decoder_val.numpy(), scaling_factors)
 
-        print('\n scaled decoder = \n', scaled_decoder, '\n output_train_unscaled=\n', output_train_unscaled,
+        print('\n scaled decoder = \n', scaled_decoder.numpy(), '\n output_train_unscaled=\n', output_train_unscaled,
               '\ny_truth\n', y_truth)
         print('\n output(val,scaled)= \n', output[0:10, :],
               '\n unscl_output_val=\n', output_unscaled[0:10, :], '\n y_truth_val= \n', y_truth_val[0:10, :])
 
-        # more one post-process step. find structure closest to predicted value, if not already at a structure
-
-        for s in range(n_samples):
-            distance=L_scale
-            distance0=np.sqrt((output_train_unscaled[s,0]-y_truth[s,0])**2 +
-                                   (output_train_unscaled[s,1]-y_truth[s,1])**2)
-            closest_index=int(-1)
-            for j in range(n_pot_leaks):
-                distance_j=np.sqrt( (output_train_unscaled[s,0]-x_pot_leaks[s,j])**2 +
-                                   (output_train_unscaled[s,1]-y_pot_leaks[s,j])**2)
-                if distance_j < distance:
-                    distance=distance_j
-                    closest_index=j
-            if s >= 10 and s < 21:
-                print('before:s,output.train.unscaled,distance-xn-to-nearest,distance-xn-to-true=\n',
-                      s,output_train_unscaled[s,0],distance,distance0)
-            output_train_unscaled[s,0]=x_pot_leaks[s,closest_index]
-            output_train_unscaled[s,1]=y_pot_leaks[s,closest_index]
-            distance_to_true=np.sqrt((output_train_unscaled[s,0]-y_truth[s,0])**2 +
-                                   (output_train_unscaled[s,1]-y_truth[s,1])**2)
-            if s >= 10 and s < 21:
-                print('after: s,closest_index,x.pot.leaks.s.closest,output.train.unscaled,distance_to_true=\n',s,closest_index,
-                      x_pot_leaks[s,closest_index],output_train_unscaled[s,0],distance_to_true)
-
-        for s in range(n_samples_val):
-            distance=L_scale
-            closest_index=int(-1)
-            for j in range(n_pot_leaks_val):
-                distance_j=np.sqrt( (output_unscaled[s,0]-x_pot_leaks_val[s,j])**2 +
-                                   (output_unscaled[s,1]-y_pot_leaks_val[s,j])**2)
-                if distance_j < distance:
-                    distance=distance_j
-                    closest_index=j
-            output_unscaled[s,0]=x_pot_leaks_val[s,closest_index]
-            output_unscaled[s,1]=y_pot_leaks_val[s,closest_index]
+        # one more post-process step. find closest pot. leak/structure to predicted location
+        output_train_unscaled = mapPredlocsToClosestPL(output_train_unscaled, x_pot_leaks, y_pot_leaks, z_pot_leaks)
+        output_unscaled = mapPredlocsToClosestPL(output_unscaled, x_pot_leaks_val, y_pot_leaks_val, z_pot_leaks_val)
 
         print('modified output for x,y - shift to nearest potential leak structure \n')
         print('\n output_train_unscaled[10:21,:]=\n',output_train_unscaled[10:21,:],'\ny_truth[10:21,:]\n',y_truth[10:21,:])

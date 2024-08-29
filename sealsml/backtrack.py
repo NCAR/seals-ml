@@ -1,4 +1,5 @@
 import numpy as np
+from bridgescaler import DQuantileScaler,save_scaler
 from typing import Tuple
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.baseline import remove_all_rows_with_val
@@ -169,14 +170,11 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax,
         if structure_flag == 1:
 
             counter += 1
-            for j in range(n_pot_leaks):
-                distances[j]=np.sqrt((xn-leak_x[j])**2+(yn-leak_y[j])**2)
+            distances=np.sqrt((xn-leak_x)**2+(yn-leak_y)**2)
             closest_i[counter]=np.min(distances)
             leak_id_i[counter]=np.argmin(distances)
             closest_u_avg[counter]=ux_sum/denominator
             closest_v_avg[counter]=vy_sum/denominator
-            xn_i[counter+1]=xn
-            yn_i[counter+1]=yn
 
     if structure_flag == 1:
 
@@ -207,11 +205,8 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
 
     encoder = data['encoder_input'].load()
     decoder = data['decoder_input'].load()
-    target = data['target'].values
     n_samples = encoder.shape[0]
     n_timesteps = encoder.shape[2]
-
-    indices_tuple=np.nonzero(target[:,:,0])
 
     #     decoder_input  (sample, pot_leak, target_time, variable, mask)
     n_pot_leaks=len(decoder[0,:,0,0,0])-1
@@ -219,18 +214,15 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
     x_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
     y_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
     z_pot_leaks=np.zeros(shape=(n_samples,n_pot_leaks))
-    smax=int(0)
-    for s in range(n_samples):
-        for j in range(n_pot_leaks):
-            x_pot_leaks[s,j], y_pot_leaks[s,j] = polar_to_cartesian(decoder[s,j,0,0,0],
-                                                  decoder[s,j,0,1,0],
-                                                  decoder[s,j,0,2,0])
-            z_pot_leaks[s,j]=decoder[s,j,0,0,0]*np.sin(decoder[s,j,0,3,0])
-        smax+=1
+    x_pot_leaks, y_pot_leaks = polar_to_cartesian(decoder[:,:,0,0,0],
+                                                  decoder[:,:,0,1,0],
+                                                  decoder[:,:,0,2,0])
+    z_pot_leaks = decoder[:,:,0,0,0]*np.sin(decoder[:,:,0,3,0])
     if verbose_log:
         print('smax=n_pot_leaks*n_samples = ',smax,'\n x_pot_leaks[10:21,:]=\n',x_pot_leaks[10:21,:],
           '\n y_pot_leaks[10:21,:]=\n',y_pot_leaks[10:21,:],'\n z_pot_leaks[10:21,:]=\n',z_pot_leaks[10:21,:])
 
+    print('pot_leaks wind-relative cartesian coords set!')
     # This statement collapses all CH4 sensor information into one input line rather than n lines, 
     # where n_sensors = number of CH4 sensors
     # The input layer (per sample) has length (n_sensors)*(5+(nsensors)) 
@@ -252,20 +244,15 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
                                        variable=['ref_distance', 'ref_azi_sin', 'ref_azi_cos', 'ref_elv'],
                                        mask=0)
     x_sensor, y_sensor = polar_to_cartesian(relative_sensor_locs.sel(variable='ref_distance'),
-                              relative_sensor_locs.sel(variable='ref_azi_sin'),
-                              relative_sensor_locs.sel(variable='ref_azi_cos'))
+                                            relative_sensor_locs.sel(variable='ref_azi_sin'),
+                                            relative_sensor_locs.sel(variable='ref_azi_cos'))
+    print('Key variables extracted!')
 
     if verbose_log:
         print('x_sensor= \n',x_sensor[10:21,:],'\n y_sensor= \n',y_sensor[10:21,:])
 
-    met_time_samples=np.zeros(shape=(n_samples,n_timesteps))
-    met_times=np.zeros(shape=(n_timesteps))
-    dt_constant_for_now=1.
-    for s in range(n_samples):
-        for r in range(n_timesteps):
-            met_time_samples[s,r]=(r+1)*dt_constant_for_now
-
-    dtc=1.
+    dtc=1.  #Assumes constant dt = 1.0 second 
+    met_times = np.linspace(0.0,np.float32(n_timesteps-1)*dtc,n_timesteps,endpoint=True)
 
     if x_width < y_width:
         L_scale=y_width
@@ -297,8 +284,6 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
         vi_avg=np.mean(vi)
 
         speed[i]=np.max(np.sqrt(ui**2+vi**2))
-
-        met_times=met_time_samples[i,:]
 
         for s in range(0,n_sensors):
             sensor_time_series = ch4_time_series[i, s].values
@@ -407,6 +392,35 @@ def create_binary_preds_relative(data, y_pred: np.ndarray, ranked=False) -> np.n
             location_array[s, arg_min] = 1
 
     return location_array
+
+def backtrack_scaleDataTuple(data_tuple, scaler=None, fit_scaler=False):
+    ret_tuple=()
+    if fit_scaler == True:
+       scaler = DQuantileScaler()
+       scaled_encoder = scaler.fit(data_tuple[0])
+    for i in range(len(data_tuple)):
+       scaled_data = scaler.transform(data_tuple[i])
+       ret_tuple = ret_tuple + (scaled_data,) 
+    return ret_tuple, scaler
+
+def backtrack_unscaleDataTuple(data_tuple, scaler):
+    ret_tuple=()
+    for i in range(len(data_tuple)):
+       unscaled_data = scaler.inverse_transform(data_tuple[i])
+       ret_tuple = ret_tuple + (unscaled_data,) 
+    return ret_tuple
+
+def mapPredlocsToClosestPL(pred_array, pl_x, pl_y, pl_z, use3dDist=False):
+    ret_array = np.array(pred_array)
+    for s in range(pred_array.shape[0]):
+        if use3dDist:
+            distances=np.sqrt( (pred_array[s,0]-pl_x[s,:])**2 + (pred_array[s,1]-pl_y[s,:])**2 + (pred_array[s,2]-pl_z[s,:])**2)
+        else:
+          distances=np.sqrt( (pred_array[s,0]-pl_x[s,:])**2 + (pred_array[s,1]-pl_y[s,:])**2 )
+        ret_array[s,0]=pl_x[s,np.argmin(distances)]
+        ret_array[s,1]=pl_y[s,np.argmin(distances)]
+        ret_array[s,2]=pl_z[s,np.argmin(distances)]
+    return ret_array
 
 def scalings_bjt(x,y,speed,L_scale,H_scale,n_records,n_width,n_sensors):
 
