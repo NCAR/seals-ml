@@ -218,9 +218,6 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
                                                   decoder[:,:,0,1,0],
                                                   decoder[:,:,0,2,0])
     z_pot_leaks = decoder[:,:,0,0,0]*np.sin(decoder[:,:,0,3,0])
-    if verbose_log:
-        print('smax=n_pot_leaks*n_samples = ',smax,'\n x_pot_leaks[10:21,:]=\n',x_pot_leaks[10:21,:],
-          '\n y_pot_leaks[10:21,:]=\n',y_pot_leaks[10:21,:],'\n z_pot_leaks[10:21,:]=\n',z_pot_leaks[10:21,:])
 
     print('pot_leaks wind-relative cartesian coords set!')
     # This statement collapses all CH4 sensor information into one input line rather than n lines, 
