@@ -239,6 +239,16 @@ backtracker:
     adam_beta_2: 0.999
     epsilon: 0.0000001
     sgd_momentum: 0
+  callbacks: ["loc_rate_metrics", "reduce_on_plateau", "model_checkpoint", "csv_logger"]
+  callback_kwargs:
+    reduce_on_plateau:
+      monitor: "val_categorical_accuracy"
+      mode: "max"
+      min_lr: 0.000001
+      factor: 0.3
+      patience: 8
+      verbose: 1
+
 gaussian_process:
   kwargs:
     num_met_sensors: 1
