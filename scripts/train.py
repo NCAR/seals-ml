@@ -77,7 +77,7 @@ if "scaler_path" in config.keys():
 #Preprocess (load and scale data) in transformer or backtracker mode 
 preproc_done = False
 for model_name in config["models"]:
-   if "backtracker" in model_name:
+    if "backtracker" in model_name:
       start = time.time()
       print(f"contains backtracker {model_name}")
       t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
@@ -139,7 +139,7 @@ for model_name in config["models"]:
       x=(scaled_encoder, scaled_decoder)
       x_val = (scaled_encoder_val, scaled_decoder_val)
 
-   if any(s in model_name for s in ("block","transformer","gaussian")) and (not preproc_done):
+    if any(s in model_name for s in ("block","transformer","gaussian")) and (not preproc_done):
       start = time.time()
       encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training, **config["data_options"])
 
@@ -178,7 +178,7 @@ for model_name in config["models"]:
       x_val = (scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val)
       preproc_done = True
 
-for model_name in config["models"]:
+#for model_name in config["models"]:
     start = time.time()
     if model_name == "transformer_leak_loc":
         model = QuantizedTransformer(**config[model_name]["kwargs"])

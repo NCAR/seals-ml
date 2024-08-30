@@ -199,7 +199,7 @@ def backtrack(ijk_start: int, u_sonic, v_sonic, dt, sensor_x, sensor_y, pathmax,
 
     return avg_u, avg_v, xn, yn
 
-def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4, structure_flag=1, verbose_log=False):
+def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4, factor_y=0.4, structure_flag=1, dtc=1.0, verbose_log=False):
 
     # This function creates both the input data, and target data for the ANN/MLP
 
@@ -248,7 +248,6 @@ def backtrack_preprocess(data, n_sensors=3, x_width=40, y_width=40, factor_x=0.4
     if verbose_log:
         print('x_sensor= \n',x_sensor[10:21,:],'\n y_sensor= \n',y_sensor[10:21,:])
 
-    dtc=1.  #Assumes constant dt = 1.0 second 
     met_times = np.linspace(0.0,np.float32(n_timesteps-1)*dtc,n_timesteps,endpoint=True)
 
     if x_width < y_width:
