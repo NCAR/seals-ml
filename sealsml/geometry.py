@@ -261,51 +261,106 @@ def polar_to_cartesian(distance, ref_azi_sin, ref_azi_cos):
     
     return x, y
 
-def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, max_attempts=500):
+def generate_sensor_positions_min_distance(n_sensors, xVec, yVec, min_distance, placement_strategy='random', max_attempts=500):
     """
-    Generate random sensor positions within specified dimensions with a minimum distance constraint,
-    adjusted by a grid resolution factor. Includes an iteration limit to prevent infinite loops.
+    Generate sensor positions based on a specified strategy with a minimum distance constraint.
 
     Parameters:
     - n_sensors (int): Number of sensor positions to generate.
+    - xVec (np.ndarray): Vector of cartesian x-coordinates.
+    - yVec (np.ndarray): Vector of cartesian y-coordinates.
     - min_distance (float): Minimum distance between any two sensors.
-    - xVec = a vector of cartesian x-coordinate
-    - yVec = a vector of cartesian y coordinate
+    - placement_strategy (str): Strategy to place sensors ('random', 'fenceline', 'quadrant').
     - max_attempts (int, optional): Maximum number of attempts to place a sensor before giving up. Default is 500.
 
     Returns:
     - i_sensor (np.ndarray): Array of i-indices of the generated sensors.
     - j_sensor (np.ndarray): Array of j-indices of the generated sensors.
     """
+    def is_valid_placement(existing_points, new_point, min_distance):
+        return (np.linalg.norm(existing_points - new_point, axis=1) >= min_distance).all()
+
     iDim = xVec.shape[0]
     jDim = yVec.shape[0]
-    sensors = []  # List to store the (i, j) coordinates of sensors.
-    i_sensor = []  # List to store i-coordinates (x-axis).
-    j_sensor = []  # List to store j-coordinates (y-axis).
-    existing_points = np.zeros(shape=(n_sensors,2))
-    cnt_points=0
-    while cnt_points < n_sensors:
-        goodPoint=False
-        attempts = 0  # Counter for attempts to place a sensor.
-        while attempts < max_attempts and not(goodPoint):
-            new_indices = (np.random.randint(0, iDim), np.random.randint(0, jDim))
-            new_point = np.asarray([xVec[new_indices[0]], yVec[new_indices[1]]])
-            if (np.linalg.norm(existing_points[:cnt_points,:]-new_point,axis=1) >= min_distance).all() or cnt_points == 0:
-                sensors.append(new_indices)
-                i_sensor.append(new_indices[0])
-                j_sensor.append(new_indices[1])
-                goodPoint=True
-            else:
+    i_sensor = []
+    j_sensor = []
+    existing_points = np.zeros((n_sensors, 2))
+    cnt_points = 0
+
+    if placement_strategy == 'random':
+        while cnt_points < n_sensors:
+            attempts = 0
+            while attempts < max_attempts:
+                new_indices = (np.random.randint(0, iDim), np.random.randint(0, jDim))
+                new_point = np.array([xVec[new_indices[0]], yVec[new_indices[1]]])
+                if is_valid_placement(existing_points[:cnt_points], new_point, min_distance) or cnt_points == 0:
+                    i_sensor.append(new_indices[0])
+                    j_sensor.append(new_indices[1])
+                    existing_points[cnt_points] = new_point
+                    cnt_points += 1
+                    break
                 attempts += 1
-        if attempts >= max_attempts:
-            print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
-        else:
-            existing_points[cnt_points,:] = new_point
-        cnt_points+=1
-    if len(sensors) < n_sensors:
-        print(f"Warning: Only {len(sensors)} sensors placed out of {n_sensors} requested.")
+            if attempts >= max_attempts:
+                print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
+                break
 
-    i_sensor = np.array(i_sensor)
-    j_sensor = np.array(j_sensor)
+    elif placement_strategy == 'fenceline':
+        edge_positions = [(i, 0) for i in range(iDim)] + [(i, jDim-1) for i in range(iDim)] + \
+                         [(0, j) for j in range(jDim)] + [(iDim-1, j) for j in range(jDim)]
+        while cnt_points < n_sensors and len(edge_positions) > 0:
+            attempts = 0
+            while attempts < max_attempts and len(edge_positions) > 0:
+                idx = np.random.randint(len(edge_positions))
+                new_indices = edge_positions.pop(idx)
+                new_point = np.array([xVec[new_indices[0]], yVec[new_indices[1]]])
+                if is_valid_placement(existing_points[:cnt_points], new_point, min_distance) or cnt_points == 0:
+                    i_sensor.append(new_indices[0])
+                    j_sensor.append(new_indices[1])
+                    existing_points[cnt_points] = new_point
+                    cnt_points += 1
+                    break
+                attempts += 1
+            if attempts >= max_attempts:
+                print(f"Warning: Could not place sensor {cnt_points} in {max_attempts} tries...")
+                break
 
-    return i_sensor, j_sensor
+    elif placement_strategy == 'quadrant':
+        quadrants = {
+            "NW": (xVec[:iDim // 2], yVec[:jDim // 2]),
+            "NE": (xVec[iDim // 2:], yVec[:jDim // 2]),
+            "SW": (xVec[:iDim // 2], yVec[jDim // 2:]),
+            "SE": (xVec[iDim // 2:], yVec[jDim // 2:])
+        }
+        sensors_per_quadrant = n_sensors // 4
+        extra_sensors = n_sensors % 4
+
+        for quadrant, (x_range, y_range) in quadrants.items():
+            num_sensors = sensors_per_quadrant
+            if extra_sensors > 0:
+                num_sensors += 1
+                extra_sensors -= 1
+
+            for _ in range(num_sensors):
+                attempts = 0
+                while attempts < max_attempts:
+                    x_pos = np.random.uniform(np.min(x_range), np.max(x_range))
+                    y_pos = np.random.uniform(np.min(y_range), np.max(y_range))
+                    new_point = np.array([x_pos, y_pos])
+                    if is_valid_placement(existing_points[:cnt_points], new_point, min_distance) or cnt_points == 0:
+                        i_sensor.append(np.argmin(np.abs(xVec - x_pos)))
+                        j_sensor.append(np.argmin(np.abs(yVec - y_pos)))
+                        existing_points[cnt_points] = new_point
+                        cnt_points += 1
+                        break
+                    attempts += 1
+                if attempts >= max_attempts:
+                    print(f"Warning: Could not place sensor in {quadrant} within {max_attempts} attempts.")
+                    break
+
+    else:
+        print("Invalid placement strategy. Choose from 'random', 'fenceline', or 'quadrants'.")
+
+    if cnt_points < n_sensors:
+        print(f"Warning: Only {cnt_points} sensors placed out of {n_sensors} requested.")
+
+    return np.array(i_sensor), np.array(j_sensor)

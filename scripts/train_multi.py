@@ -56,7 +56,8 @@ training, validation = train_test_split(files,
 p = Preprocessor(scaler_type=config["scaler_type"], sensor_pad_value=-1, sensor_type_value=-999)
 p.save_filenames(training, validation, out_path)
 start = time.time()
-encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training)
+encoder_data, decoder_data, leak_location, leak_rate = p.load_data(training,
+                                                                   remove_blind_samples=config["remove_blind_samples"])
 print(f"Minutes to load training data: {(time.time() - start) / 60 }")
 start = time.time()
 fit_scaler = True
@@ -70,7 +71,8 @@ scaled_encoder, scaled_decoder, encoder_mask, decoder_mask = p.preprocess(encode
 print(f"Minutes to fit scaler: {(time.time() - start) / 60 }")
 start = time.time()
 print(f"Minutes to transform with scaler: {(time.time() - start) / 60 }")
-encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation)
+encoder_data_val, decoder_data_val, leak_location_val, leak_rate_val = p.load_data(validation,
+                                                                                   remove_blind_samples=config["remove_blind_samples"])
 scaled_encoder_val, scaled_decoder_val, encoder_mask_val, decoder_mask_val = p.preprocess(encoder_data_val,
                                                                                           decoder_data_val,
                                                                                           fit_scaler=False)
