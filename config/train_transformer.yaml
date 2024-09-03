@@ -18,9 +18,9 @@ loc_rate_block_transformer:
     encoder_layers: 4
     decoder_layers: 3
     hidden_size: 128
-    n_heads: 8
+    n_heads: 32
     hidden_activation: "gelu"
-    output_activation: "softmax"
+    output_activation: "sigmoid"
     dropout_rate: 0.1
     n_outputs: 1
     block_size: 20
