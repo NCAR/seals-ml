@@ -3,8 +3,7 @@ import os
 import argparse
 import glob
 from sealsml.data import Preprocessor, save_output
-from sealsml.keras.models import (QuantizedTransformer, BlockTransformer, TEncoder,
-                                  BackTrackerDNN, LocalizedLeakRateBlockTransformer)
+from sealsml.keras.models import (BlockTransformer, BackTrackerDNN, LocalizedLeakRateBlockTransformer)
 from sealsml.baseline import GPModel
 from sealsml.keras.callbacks import LeakLocRateMetricsCallback
 from sealsml.backtrack import backtrack_preprocess
@@ -82,10 +81,7 @@ print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 with strategy.scope():
     for model_name in config["models"]:
         start = time.time()
-        if model_name == "transformer_leak_loc":
-            model = QuantizedTransformer(**config[model_name]["kwargs"])
-            y, y_val = leak_location, leak_location_val
-        elif model_name == "block_transformer_leak_loc":
+        if model_name == "block_transformer_leak_loc":
             model = BlockTransformer(**config[model_name]["kwargs"])
             y, y_val = leak_location, leak_location_val
         elif model_name == "loc_rate_block_transformer":
@@ -101,9 +97,6 @@ with strategy.scope():
                 config[model_name]["fit"]["callbacks"] = [cb_metrics]
             else:
                 config[model_name]["fit"]["callbacks"].append(cb_metrics)
-        elif model_name == 'transformer_leak_rate':
-            model = TEncoder(**config[model_name]["kwargs"])
-            y, y_val = leak_rate, leak_rate_val
         elif model_name == "gaussian_process":
             model = GPModel(**config[model_name]["kwargs"])
             y, y_val = leak_location, leak_location_val

@@ -4,7 +4,11 @@ import numpy as np
 
 
 class LeakLocRateMetricsCallback(keras.callbacks.Callback):
+    """
+    Calculate a broad number of metrics for both location and leak rate prediction on val data that are saved
+    after every epoch.
 
+    """
     def __init__(self, x_val, y_val, batch_size=1024):
         super().__init__()
         self.x_val = x_val
@@ -32,7 +36,11 @@ class LeakLocRateMetricsCallback(keras.callbacks.Callback):
         logs["val_top_3_accuarcy"] = np.mean(cat_3_accuracy.result().numpy())
 
 class LeakLocMetricsCallback(keras.callbacks.Callback):
+    """
+    Calculate a broad number of metrics for location on val data that are saved
+    after every epoch.
 
+    """
     def __init__(self, x_val, y_val, batch_size=1024):
         super().__init__()
         self.x_val = x_val
@@ -57,7 +65,10 @@ class LeakLocMetricsCallback(keras.callbacks.Callback):
 
 
 class LeakRateMetricsCallback(keras.callbacks.Callback):
-
+    """
+    Calculate a broad number of metrics for leak rate prediction on val data that are saved
+    after every epoch.
+    """
     def __init__(self, x_val, y_val, batch_size=1024):
         super().__init__()
         self.x_val = x_val
