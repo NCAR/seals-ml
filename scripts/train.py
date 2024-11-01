@@ -20,8 +20,8 @@ import tensorflow as tf
 import pandas as pd
 from bridgescaler import DQuantileScaler,save_scaler
 from sealsml.backtrack import create_binary_preds_relative
-from keras.callbacks import ModelCheckpoint, CSVLogger, ReduceLROnPlateau
-from keras.models import load_model
+import keras.callbacks as callbacks
+import keras.models as models
 tf.debugging.disable_traceback_filtering()
 
 physical_devices = tf.config.list_physical_devices('GPU')
@@ -211,11 +211,12 @@ for model_name in config["models"]:
         elif cb == "rate_only_metrics":
             callbacks.append(LeakRateMetricsCallback(x_val, y_val, batch_size=config["predict_batch_size"]))
         elif cb == "reduce_on_plateau":
-            callbacks.append(ReduceLROnPlateau(**config[model_name]["callback_kwargs"][cb]))
+            callbacks.append(callbacks.ReduceLROnPlateau(**config[model_name]["callback_kwargs"][cb]))
         elif cb == "model_checkpoint":
-            callbacks.append(ModelCheckpoint(filepath=os.path.join(out_path, f"{model_name}_{date_str}.keras")))
+            callbacks.append(callbacks.ModelCheckpoint(filepath=os.path.join(out_path,
+                                                                             f"{model_name}_{date_str}.keras")))
         elif cb == "csv_logger":
-            callbacks.append(CSVLogger(join(out_path, f'training_log_{model_name}.csv'), append=True))
+            callbacks.append(callbacks.CSVLogger(join(out_path, f'training_log_{model_name}.csv'), append=True))
     config[model_name]["fit"]["callbacks"] = callbacks
 
     if not config["restart_options"]["restart"]:
@@ -260,7 +261,7 @@ for model_name in config["models"]:
         log = pd.read_csv(join(out_path, f"training_log_{model_name}.csv"))
         start_epoch = log['epoch'].iloc[-1]
         del model
-        model = load_model(glob.glob(join(out_path, f"{model_name}*.keras"))[-1])
+        model = models.load_model(glob.glob(join(out_path, f"{model_name}*.keras"))[-1])
         fit_hist = model.fit(x=x,
                              y=y,
                              validation_data=None,

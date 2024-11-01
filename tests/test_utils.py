@@ -10,7 +10,6 @@ from sealsml.data import DataSampler, Preprocessor
 from sealsml.baseline import GPModel
 from sealsml.evaluate import calculate_distance_matrix
 from sealsml.staticinference import specific_site_data_generation, extract_ts_segments
-from bridgescaler import save_scaler
 from scipy.spatial.distance import pdist, squareform
 from sealsml.backtrack import create_binary_preds_relative
 

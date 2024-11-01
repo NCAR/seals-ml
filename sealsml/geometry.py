@@ -9,7 +9,7 @@ class GeoCalculator(object):
       self.target_array = target_array
 
   def get_geometry(self, ref_array, target_array, grid_resolution=False, pd_export=False,
-              column_names=["distance", "azimuth_cos", "azimuth_sin", "elevation_angle"]):
+              column_names=("distance", "azimuth_cos", "azimuth_sin", "elevation_angle")):
     """
     Calculates the geometric metrics between two arrays of points.
 

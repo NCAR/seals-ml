@@ -1,5 +1,5 @@
 import numpy as np
-from bridgescaler import DQuantileScaler,save_scaler
+from bridgescaler import DQuantileScaler
 from typing import Tuple
 from sealsml.geometry import GeoCalculator, polar_to_cartesian
 from sealsml.baseline import remove_all_rows_with_val
