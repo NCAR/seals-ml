@@ -57,7 +57,10 @@ def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_
     Encoder and Decoder in a xarray dataset
   """
   # variables
-  variables = list(coord_vars) + list(met_vars) + list(emission_vars)
+  coord_vars = list(coord_vars)
+  met_vars = list(met_vars)
+  emission_vars = list(emission_vars)
+  variables = coord_vars + met_vars + emission_vars
 
   ds = xr.open_dataset(dataset_path).load()
   sitemap = xr.open_dataset(sitemap_path).load()
