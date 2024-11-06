@@ -34,7 +34,7 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     return start_end_indices, dropped_elements
 
 def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_window_size: int, window_stride:int,
-                                  sensor_type_value=-999, emission_vars=("q_CH4"),
+                                  sensor_type_value=-999, emission_vars=("q_CH4",),
                                   met_vars=("u", "v", "w"),
                                   coord_vars=("ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv")):
   """
