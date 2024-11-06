@@ -5,7 +5,6 @@ from os.path import join, exists
 from os import makedirs
 from scipy.ndimage import minimum_filter
 from sealsml.geometry import get_relative_azimuth, generate_sensor_positions_min_distance
-from bridgescaler import DeepQuantileTransformer, DeepMinMaxScaler, DeepStandardScaler
 from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_scaler, save_scaler
 
 

@@ -1,12 +1,12 @@
 from echo.src.base_objective import BaseObjective
 import numpy as np
-from .models import BlockTransformer, LocalizedLeakRateBlockTransformer, QuantizedTransformer, TEncoder, BackTrackerDNN
+from .models import BlockTransformer, LocalizedLeakRateBlockTransformer, BackTrackerDNN
 import keras
 import os
 import datetime
 import time
 from .metrics import mean_searched_locations
-from sealsml.data import Preprocessor, save_output
+from sealsml.data import Preprocessor
 from sklearn.model_selection import train_test_split
 import glob
 from bridgescaler import DQuantileScaler
@@ -56,10 +56,7 @@ class Objective(BaseObjective):
                                                                                                   fit_scaler=False)
         model_name = config["models"][0]
         start = time.time()
-        if model_name == "transformer_leak_loc":
-            model = QuantizedTransformer(**config[model_name]["kwargs"])
-            y, y_val = leak_location, leak_location_val
-        elif model_name == "block_transformer_leak_loc":
+        if model_name == "block_transformer_leak_loc":
             model = BlockTransformer(**config[model_name]["kwargs"])
             y, y_val = leak_location, leak_location_val
         elif model_name == "loc_rate_block_transformer":
@@ -75,9 +72,6 @@ class Objective(BaseObjective):
                 config[model_name]["fit"]["callbacks"] = [cb_metrics]
             else:
                 config[model_name]["fit"]["callbacks"].append(cb_metrics)
-        elif model_name == 'transformer_leak_rate':
-            model = TEncoder(**config[model_name]["kwargs"])
-            y, y_val = leak_rate, leak_rate_val
         elif model_name == "backtracker":
             t = xr.open_mfdataset(training, concat_dim='sample', combine="nested", parallel=False)
             v = xr.open_mfdataset(validation, concat_dim='sample', combine="nested", parallel=False)

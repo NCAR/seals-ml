@@ -1,11 +1,6 @@
 # Data manipulation and analysis
 import numpy as np
 import xarray as xr
-from typing import List
-from numpy.typing import NDArray
-import yaml
-import os
-import time
 import numpy.matlib
 
 # seals geo stuff
@@ -38,7 +33,10 @@ def extract_ts_segments(time_series, time_window_size:int, window_stride:int):
     print('Number of dropped elements:', np.size(dropped_elements))
     return start_end_indices, dropped_elements
 
-def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_window_size: int, window_stride:int, sensor_type_value=-999, emission_vars=["q_CH4"], met_vars=["u", "v", "w"], coord_vars=["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]):
+def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_window_size: int, window_stride:int,
+                                  sensor_type_value=-999, emission_vars=("q_CH4",),
+                                  met_vars=("u", "v", "w"),
+                                  coord_vars=("ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv")):
   """
   This is not for use with fully 3D LES cubes of data. This assumes n number of sensors and some site information. 
 
@@ -59,6 +57,9 @@ def specific_site_data_generation(dataset_path, sitemap_path, potloc_path, time_
     Encoder and Decoder in a xarray dataset
   """
   # variables
+  coord_vars = list(coord_vars)
+  met_vars = list(met_vars)
+  emission_vars = list(emission_vars)
   variables = coord_vars + met_vars + emission_vars
 
   ds = xr.open_dataset(dataset_path).load()

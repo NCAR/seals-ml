@@ -1,6 +1,6 @@
 from glob import glob
 import os
-from os.path import exists, join
+from os.path import exists
 import numpy as np
 import shutil
 in_path = "/glade/work/cbecker/SEALS_training_data_20231205/"
