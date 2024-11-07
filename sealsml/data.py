@@ -10,7 +10,6 @@ from bridgescaler import DQuantileScaler, DMinMaxScaler, DStandardScaler, load_s
 
 class DataSampler(object):
     """ Sample LES data with various geometric configurations. """
-
     def __init__(self, 
                  min_trace_sensors=3, 
                  max_trace_sensors=15, 
@@ -30,6 +29,29 @@ class DataSampler(object):
                  pot_leaks_file=None, 
                  sensor_sampling_strategy=None, 
                  sensor_samples_file=None):
+        """
+        Args:
+            min_trace_sensors: Minimum number of trace sensors.
+            max_trace_sensors: Maximum number of trace sensors.
+            min_leak_loc: Minimum number of leak locations.
+            max_leak_loc: Maximum number of leak locations.
+            sensor_height_min: Maximum sensor height.
+            sensor_height_max: Minimum sensor height.
+            leak_height_min: Minimum leak height.
+            leak_height_max: Maximum leak height.
+            sensor_type_mask: Sensor type mask value
+            sensor_exist_mask: Sensor exist mask value
+            sensor_min_distance: Minimum distance between sampled sensors.
+            coord_vars: Names of the coordinate variables
+            met_vars: Names of the meteorological variables
+            emission_vars: Name of the emission variables
+            pot_leaks_scheme:  Where from equipment file should potential leak locations be sampled from.
+                               Supports "full_mask", "shell_mask", "pot_leak_from_file", None
+            pot_leaks_file: File path for pot_leaks_scheme
+            sensor_sampling_strategy: Sampling scheme. Supports: "random_sampling", "minimum_distance", "quadrant",
+                                      "sample_from_file", and "fenceline"
+            sensor_samples_file: File path for sensor layout if strategy == "sample_from_file"
+        """
         if coord_vars is None:
             coord_vars = ["ref_distance", "ref_azi_sin", "ref_azi_cos", "ref_elv"]
         if met_vars is None:
@@ -107,15 +129,11 @@ class DataSampler(object):
                 self.min_leak_loc = self.max_leak_loc
             elif self.pot_leaks_scheme == 'from_pot_leak_file':
                 file=file_names
-                #print(file)
                 tmpFile = self.pot_leaks_file
                 if 'RefOri' in (file.split('_')[-1]):
-                  rotAngle = 0
-                  #print(rotAngle)
                   pl_file = tmpFile
                 else:
                   rotAngle = ((file.split('_')[-1].split('RotCW')[-1].split('.')[0]))
-                  #print(rotAngle)
                   pl_file = tmpFile.replace("RefOri", f"RotCW{rotAngle}")
                 self.ds_pot_leaks = xr.open_dataset(pl_file)  # lazy evaluation is likely fine here
                 self.max_leak_loc = self.ds_pot_leaks.sizes['plDim'] + 1  # padded by 1 for a true leak
@@ -349,11 +367,10 @@ class DataSampler(object):
         # Converting to index space
         leak_height_max_index = int(np.rint(self.leak_height_max / self.z_res))
         leak_height_min_index = int(np.rint(self.leak_height_min / self.z_res))
-
         ## start of leak vertical logic
         if leak_height_max_index > self.kDim:
             raise ValueError("Max leak height is greater than domain, please pick a smaller number")
-        elif self.leak_height_min > leak_height_max_index:
+        elif leak_height_min_index > leak_height_max_index:
             raise ValueError("Min leak height is greater than the maximum (in index space), please try again")
         elif leak_height_min_index == leak_height_max_index:
             k_leak = np.repeat(leak_height_max_index, n_leaks)
@@ -542,7 +559,9 @@ class DataSampler(object):
 
 
 class Preprocessor(object):
-
+    """
+    Main routine for preprocessing the sampled LES data for ingestion into ML models.
+    """
     def __init__(self, scaler_type="quantile", sensor_pad_value=None, sensor_type_value=None, scaler_options=None):
         if scaler_options is None:
             scaler_options = {}
@@ -560,8 +579,21 @@ class Preprocessor(object):
             self.sensor_scaler = DQuantileScaler(**scaler_options)
 
     def load_data(self, files, remove_blind_samples=False, use_noise=False, noise_mean=1.5e-6, noise_std=1e-6):
+        """
+        Load LES sampled data from xarray Datasets. Optionally, remove samples were all ch4 sensors do not catch any
+        plume. Option to also add stochastic noise to the ch4 time series.
+        Args:
+            files: List of netCDF files to load
+            remove_blind_samples: Boolean to remove "blind" samples
+            use_noise: Option to add white noise
+            noise_mean: Gaussian noise mean
+            noise_std: Gaussian noise variability
 
-        ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False, engine='netcdf4')
+        Returns:
+            encoder data, decoder data, leak location array, leak rate
+        """
+        # ds = xr.open_mfdataset(files, concat_dim='sample', combine="nested", parallel=False, engine='netcdf4')
+        ds = xr.concat([xr.open_dataset(f) for f in files], dim='sample')
         n_sensors = ds.sensor.size
         encoder_data = ds['encoder_input'].load()
         decoder_data = ds['decoder_input'].load()
@@ -594,18 +626,39 @@ class Preprocessor(object):
 
 
     def load_scalers(self, coord_scaler_path, sensor_scaler_path):
-
+        """
+        Load bridgescaler objects from specified path.
+        Args:
+            coord_scaler_path: Path to coordinate scaler.
+            sensor_scaler_path: Path to sensor scaler.
+        Returns:
+            None
+        """
         self.coord_scaler = load_scaler(coord_scaler_path)
         self.sensor_scaler = load_scaler(sensor_scaler_path)
 
     def save_scalers(self, out_path):
-
+        """
+        Save the bridgescaler objects to a specified path.
+        Args:
+            out_path: Path to save scaler objects.
+        Returns:
+            None
+        """
         save_scaler(self.coord_scaler, join(out_path, f"coord_scaler.json"))
         save_scaler(self.sensor_scaler, join(out_path, f"sensor_scaler.json"))
 
 
     def save_filenames(self, train_files, validation_files, out_path):
-
+        """
+        Save out file names for training and validation sets as CSVs.
+        Args:
+            train_files: List of training files
+            validation_files: List of validation files
+            out_path: Path to save
+        Returns:
+            None
+        """
         if not exists(out_path):
             makedirs(out_path)
         train_file_series = pd.Series(train_files, name="train_files")
@@ -614,7 +667,15 @@ class Preprocessor(object):
         validation_file_series.to_csv(join(out_path, "validation_files.csv"))
 
     def preprocess(self, encoder_data, decoder_data, fit_scaler=False):
-
+        """
+        Transform masked data and return transformations and masks.
+        Args:
+            encoder_data: Encoder data array
+            decoder_data: Decoder data array
+            fit_scaler: Boolean to fit scalers
+        Returns:
+            scaled_ecoder, scaled_decoder, encoder_mask, decoder_mask
+        """
         imputed_encoder_data, encoder_mask = self.impute_mask(encoder_data)
         encoder_padding_mask = encoder_mask[..., 0, 0]
         imputed_decoder_data, decoder_mask = self.impute_mask(decoder_data)
@@ -629,6 +690,14 @@ class Preprocessor(object):
         return scaled_encoder_data, scaled_decoder_data, ~encoder_padding_mask, ~decoder_padding_mask
 
     def impute_mask(self, data):
+        """
+        Use array mask to convert masked values to NaNs so scaler fitting does not include masked values. Then return
+        the mask as a boolean mask.
+        Args:
+            data: Encoder or decoder array of values and mask.
+        Returns:
+            Masked encoder / decoder, boolean mask
+        """
         arr = data[..., 0].values
         mask = data[..., -1].values
 
@@ -642,7 +711,17 @@ class Preprocessor(object):
         return arr, new_mask.astype(bool)
 
     def inv_impute_mask(self, data, mask, impute_value=0, impute_wind_vals=True):
+        """
+        Impute masked values where sensors don't exist.
+        Args:
+            data: Data array to impute values
+            mask: Boolean mask array
+            impute_value: Value to impute over mask
+            impute_wind_vals: Weather to impute the wind vectors across the ch4 sensors
 
+        Returns:
+            Imputed data array
+        """
         data[mask == True] = impute_value
 
         if impute_wind_vals:
@@ -653,7 +732,15 @@ class Preprocessor(object):
         return data
 
     def fit_scaler(self, encoder_data, decoder_data):
+        """
+        Fit an independent scaler for both the coordinate data and the sensor data.
+        Args:
+            encoder_data: encoder data array
+            decoder_data: decoder data array
 
+        Returns:
+            None
+        """
         # pull a single timestep from encoder to match decoder and concatenate along sensor / pot_leak_loc dim
         all_coord_data = np.concatenate([encoder_data[:, :, 0:1, :4], decoder_data[..., :4]], axis=1)
 
@@ -662,7 +749,15 @@ class Preprocessor(object):
 
 
     def transform(self, encoder_data, decoder_data):
+        """
+        Scale the encoder and decoder independently.
+        Args:
+            encoder_data: encoder data array
+            decoder_data: decoder data array
 
+        Returns:
+            scaled encoder data array, scaled decoder data array
+        """
         scaled_encoder_coords = self.coord_scaler.transform(encoder_data[..., :4])
         scaled_encoder_sensors = self.sensor_scaler.transform((encoder_data[..., -4:]))
         scaled_encoder_data = np.concatenate([scaled_encoder_coords,scaled_encoder_sensors], axis=-1)
@@ -685,7 +780,20 @@ class MultiPreprocessor(object):
 
 
 def save_output(out_path, train_targets, val_targets, train_predictions, val_predictions, model_name):
+    """
+    Save model output for both training and validation data as an xarray dataset. Supports both location and leak rate
+    predictions as separate or combined models.
+    Args:
+        out_path: Path to save the data.
+        train_targets: Training target arrays.
+        val_targets: Validation target arrays.
+        train_predictions: Target predictions (probabilities if classification, regression values otherwise).
+        val_predictions: Validation predictions (probabilities if classification, regression values otherwise).
+        model_name: String representation of model name.
 
+    Returns:
+        None
+    """
     if model_name == "transformer_leak_loc" or model_name == "gaussian_process" or model_name == "block_transformer_leak_loc":
 
         train_output = xr.Dataset(data_vars=dict(target_pot_loc=(["sample", "pot_leak_locs"], np.squeeze(train_targets)),
