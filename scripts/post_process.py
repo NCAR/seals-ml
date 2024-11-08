@@ -326,8 +326,7 @@ true_equip_type = list(map(equip_map, [equip_type] * n_samples, equip_num_true))
 true_group = list(map(equip_map, [group] * n_samples, equip_num_true))
 pred_equip_type = list(map(equip_map, [equip_type] * n_samples, equip_num_pred))
 pred_group = list(map(equip_map, [group] * n_samples, equip_num_pred))
-print(encoder_data_val.shape, decoder_data_val.shape, leak_location_val.shape, leak_rate_val.shape, preds_val.shape, preds_val_lr.shape, equip_group_table.shape, equip_group_map.shape, t_ID.shape, p_ID.shape,
-      np.array(true_group).shape, true_equip_type.shape, pred_group.shape, pred_equip_type.shape, extra_pl_flag.shape)
+
 ds = xr.merge([encoder_data_val,
               decoder_data_val.squeeze(),
               xr.DataArray(leak_location_val, dims=('sample', 'pot_leak'), name='target_leak_loc'),
