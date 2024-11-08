@@ -15,7 +15,7 @@ base_out_path = "/glade/derecho/scratch/cbecker/seals_evaluation/"
 # base_path ="/glade/derecho/scratch/cbecker/SEALS_output/"
 # run_time = "2024-11-07_1432"
 model_type = "loc_rate_block_transformer"
-out_path = os.path.join(base_path, run_time)
+out_path = os.path.join(base_out_path, run_time)
 os.makedirs(out_path, exist_ok=True)
 coord_data_path = "/glade/derecho/scratch/jsauer/ForPeople/ForCAMS/Phase_II/OrigSets/FE_CBL_00_RefOri.nc"
 
