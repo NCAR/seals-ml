@@ -343,7 +343,7 @@ ds = xr.merge([encoder_data_val,
               xr.DataArray(pred_equip_type, dims=('sample'), name='pred_equip_type'),
               xr.DataArray(np.array(extra_pl_flag), dims=('sample'), name='extra_PL_flag')])
 
-out_file_path = join(out_path, f"model_output_{run_time}.nc")
+out_file_path = join(out_path, f"model_output_{model_type}_{run_time}.nc")
 ds.to_netcdf(out_file_path)
 print(f"Completed writing {out_file_path}")
 
